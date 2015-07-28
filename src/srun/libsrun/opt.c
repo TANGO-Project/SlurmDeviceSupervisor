@@ -210,7 +210,6 @@
 #define LONG_OPT_TASK_GROUP      0x168
 
 extern char **environ;
- extern uint32_t group_number;
 extern bool packjob;
 extern bool packleader;
 
@@ -242,6 +241,9 @@ static void _opt_env(void);
 
 /* set options based upon pack_group env vars  */
 static void _opt_env_pack(void);
+
+/* set options based upon pack_group env vars  */
+static void _opt_env_pack(uint32_t group_number);
 
 static void _opt_args(int argc, char **argv);
 
@@ -312,6 +314,43 @@ int initialize_and_process_args(int argc, char *argv[])
 	if (opt.launch_cmd) {
 		char *launch_type = slurm_get_launch_type();
 		if (!xstrcmp(launch_type, "launch/slurm")) {
+			error("--launch-cmd option is invalid with %s",
+			      launch_type);
+			xfree(launch_type);
+			exit(1);
+		}
+		xfree(launch_type);
+		/* Massage ntasks value earlier than normal */
+		if (!opt.ntasks_set)
+			opt.ntasks = _get_task_count();
+		launch_g_create_job_step(NULL, 0, NULL, NULL);
+		exit(0);
+	}
+
+	return 1;
+
+}
+int initialize_and_process_args_jobpack(int argc, char *argv[], uint32_t group_number)
+{
+
+	/* initialize option defaults */
+	_opt_default();
+
+	/* initialize options with env vars */
+	_opt_env_pack(group_number);
+
+	/* initialize options with argv */
+	_opt_args(argc, argv);
+
+	if (!_opt_verify())
+		exit(error_exit);
+
+	if (_verbose > 3)
+		_opt_list();
+
+	if (opt.launch_cmd) {
+		char *launch_type = slurm_get_launch_type();
+		if (!strcmp(launch_type, "launch/slurm")) {
 			error("--launch-cmd option is invalid with %s",
 			      launch_type);
 			xfree(launch_type);
@@ -741,16 +780,17 @@ static void _opt_env(void)
 	}
 }
 
-static void _opt_env_pack()  //dhp
+static void _opt_env_pack(uint32_t group_number)  //dhp
 {
-  info("DHP _opt_env_pack: groupidx = %u", *opt.groupidx);
 	char       *val = NULL;
 	env_vars_t *e   = env_vars;
 	char *name;
 
+	info("DHP _opt_env_pack: group_number = %d", group_number);
+
 	while (e->var) {
 	        name = xmalloc(strlen(e->var) + 16);
-	        sprintf(name, "%s_PACK_GROUP_%d", e->var, *opt.groupidx);
+	        sprintf(name, "%s_PACK_GROUP_%d", e->var, group_number);
 		if ((val = getenv(name)) != NULL) {
 		        info("DHP libsrun/_opt_env_pack: name = %s, value = %s", name, val);
 		        _process_env_var(e, val);

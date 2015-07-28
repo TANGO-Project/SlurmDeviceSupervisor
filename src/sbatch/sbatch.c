@@ -278,6 +278,9 @@ int main(int argc, char **argv)
 	// dhp TEMPORARY!!!
 	opt.group_number = 1;
 
+	// dhp TEMPORARY!!!
+	opt.group_number = 1;
+
 	script_name = process_options_first_pass(argc, argv);
 	/* reinit log with new verbosity (if changed by command line) */
 	if (opt.verbose || opt.quiet) {
@@ -601,7 +604,10 @@ info("returned from process_options_second_pass");				/* wjb */
 	_set_spank_env();
 	_set_submit_dir_env();
 	_set_umask_env();
+	_set_sbatch_pack_envs();
+
 	slurm_init_job_desc_msg(&desc);
+
 	if (_fill_job_desc_from_opts(&desc) == -1) {
 		exit(error_exit);
 	}
@@ -616,7 +622,6 @@ info("returned from process_options_second_pass");				/* wjb */
 		print_db_notok(opt.clusters, 0);
 		exit(error_exit);
 	}
-
 
 	if (_check_cluster_specific_settings(&desc) != SLURM_SUCCESS)
 		exit(error_exit);
@@ -1328,6 +1333,365 @@ static int _set_rlimit_env(void)
 	}
 
 	return rc;
+}
+
+static void _set_sbatch_pack_envs()
+{
+        typedef struct {
+	        const char *var;
+	        int num;
+	} pack_env_t;
+
+	pack_env_t *e;
+	char *packstr;
+	char name[64];
+	char packtmp[64];
+	char *dist = NULL, *lllp_dist = NULL;
+
+	info("DHP _set_sbatch_pack_envs: Here");
+
+        if (opt.group_number == -1)
+	        return;
+
+	pack_env_t packenv[] = {
+	  {"SLURM_ACCOUNT",                0},
+	  {"SLURM_ACCTG_FREQ",             1},
+	  {"SLURM_BLRTS_IMAGE",            2},
+	  {"SLURM_BURST_BUFFER",           3},
+	  {"SLURM_CHECKPOINT",             4},
+	  {"SLURM_CHECKPOINT_DIR",         5},
+	  {"SLURM_CNLOAD_IMAGE",           6},
+	  {"SLURM_CONN_TYPE",              7},
+	  {"SLURM_CORE_SPEC",              8},
+	  {"SLURM_CPUS_PER_TASK",          9},
+	  {"SLURM_CPU_FREQ_REQ",          10},
+	  {"SLURM_DEPENDENCY",            11},
+	  {"SLURM_DISTRIBUTION",          12},
+	  {"SLURM_EXCLUSIVE",             13},
+	  {"SLURM_EXPORT_ENV",            14},
+	  {"SLURM_GEOMETRY",              15},
+	  {"SLURM_GRES",                  16},
+	  {"SLURM_IMMEDIATE",             17},
+	  {"SLURM_IOLOAD_IMAGE",          18},
+	  {"SLURM_JOBID",                 19},
+	  {"SLURM_JOB_ID",                20},
+	  {"SLURM_JOB_NAME",              21},
+	  {"SLURM_LINUX_IMAGE",           22},
+	  {"SLURM_MEM_BIND",              23},
+	  {"SLURM_MEM_PER_CPU",	          24},
+	  {"SLURM_MLOADER_IMAGE",         25},
+	  {"SLURM_NETWORK",               26},
+	  {"SLURM_NNODES",                27},
+	  {"SLURM_NODELIST",              28},
+	  {"SLURM_NO_ROTATE",             29},
+	  {"SLURM_NTASKS",                30},
+	  {"SLURM_NPROCS",                31},
+	  {"SLURM_NSOCKETS_PER_NODE",     32},
+	  {"SLURM_NTASKS_PER_NODE",       33},
+	  {"SLURM_NTHREADS_PER_CORE",     34},
+	  {"SLURM_OPEN_MODE",             35},
+	  {"SLURM_OVERCOMMIT",            36},
+	  {"SLURM_PARTITION",             37},
+	  {"SLURM_POWER",                 38},
+	  {"SLURM_PROFILE",               39},
+	  {"SLURM_QOS",                   40},
+	  {"SLURM_RAMDISK_IMAGE",         41},
+	  {"SLURM_REQ_SWITCH",            42},
+	  {"SLURM_RESERVATION",           43},
+	  {"SLURM_SICP",                  44},
+	  {"SLURM_THREAD_SPEC",           45},
+	  {"SLURM_THREADS",               46},
+	  {"SLURM_WAIT",                  47},
+	  {"SLURM_WAIT4SWITCH",           48},
+	  {"SLURM_WCKEY",                 49},
+	  {NULL, -1}
+	};
+
+	e = packenv;
+	while (e->var) {
+	  sprintf(name, "%s_PACK_GROUP_%d", e->var, opt.group_number);
+
+	  switch (e->num) {
+	  case 0:   // SLURM_ACCOUNT
+	    if (opt.account != NULL) {
+	      if (setenvf(NULL, name, "%s", opt.account) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 1:   // SLURM_ACCTG_FREQ
+	    if (opt.acctg_freq != NULL) {
+	      if (setenvf(NULL, name, "%s", opt.acctg_freq) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 2:   // SLURM_BLRTS_IMAGE
+	    if (opt.blrtsimage) {
+	      if (setenvf(NULL, name, "%s", opt.blrtsimage) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 3:   // SLURM_BURST_BUFFER
+	    if (opt.burst_buffer != NULL) {
+	      if (setenvf(NULL, name, "%s", opt.burst_buffer) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 4:   // SLURM_CHECKPOINT
+	    if (opt.ckpt_interval_str != NULL) {
+	      if (setenvf(NULL, name, "%s", opt.ckpt_interval_str) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 5:   // SLURM_CHECKPOINT_DIR
+	    if (opt.ckpt_dir != NULL) {
+	      if (setenvf(NULL, name, "%s", opt.ckpt_dir) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 6:   // SLURM_CNLOAD_IMAGE
+	    if (opt.linuximage != NULL) {
+	      if (setenvf(NULL, name, "%s", opt.linuximage) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 7:   // SLURM_CONN_TYPE
+	    if (opt.conn_type[0] != (uint16_t) NO_VAL) {
+	      if (setenvf(NULL, name, "%s", opt.conn_type) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 8:   // SLURM_CORE_SPEC
+	    if (opt.core_spec != (uint16_t) NO_VAL) {
+	      if (setenvf(NULL, name, "%d", opt.core_spec) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 9:   // SLURM_CPUS_PER_TASK
+	    if(opt.cpus_per_task) {
+	      if (setenvf(NULL, name, "%s", opt.cpus_per_task) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 10:   // SLURM_CPU_FREQ_REQ
+	    cpu_freq_set_env(name, opt.cpu_freq_min, opt.cpu_freq_max,
+			     opt.cpu_freq_gov);
+	    break;
+	  case 11:  // SLURM_DEPENDENCY
+	    if (setenvf(NULL, name, "%s", opt.dependency) < 0)
+	      error("unable to set %s in environment", name);
+	    break;
+	  case 12:   // SLURM_DISTRIBUTION
+	    set_distribution(opt.distribution, &dist, &lllp_dist);
+	    if (dist != NULL) {
+	      if (setenvf(NULL, name, "%s", dist) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 13:   // SLURM_EXCLUSIVE
+	    if (setenvf(NULL, name, "%d", opt.shared) < 0)
+	      error("unable to set %s in environment", name);
+	    break;
+	  case 14:   // SLURM_EXPORT_ENV
+	    if(opt.export_env != NULL) {
+	      if (setenvf(NULL, name, "%s", opt.export_env) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 15:   // SLURM_GEOMETRY
+	    packstr = print_geometry(opt.geometry);
+	    if(packstr != NULL) {
+	      if (setenvf(NULL, name, "%s", packstr) < 0)
+		error("unable to set %s in environment", name);
+	      xfree(packstr);
+	    }
+	    break;
+	  case 16:   // SLURM_GRES
+	    if(opt.gres != NULL) {
+	      if (setenvf(NULL, name, "%s", opt.gres) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 17:   // SLURM_IMMEDIATE
+	    if(opt.immediate) {
+	      if (setenvf(NULL, name, "%d", opt.immediate) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 18:   // SLURM_IOLOAD_IMAGE
+	    if(opt.ramdiskimage) {
+	      if (setenvf(NULL, name, "%d", opt.ramdiskimage) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 19:   // SLURM_JOBID
+	    //	    if (job_id != (uint16_t) NO_VAL) {
+	    //	      if (setenvf(NULL, name, "%d", job_id) < 0)
+	    //		error("unable to set %s in environment", name);
+	    //	    }
+	    break;
+	  case 20:   // SLURM_JOB_ID
+	    //	    if (job_id != (uint16_t) NO_VAL) {
+	    //	      if (setenvf(NULL, name, "%d", job_id) < 0)
+	    //		error("unable to set %s in environment", name);
+	    //	    }
+	    break;
+	  case 21:   // SLURM_JOB_NAME
+	    if(opt.job_name != NULL) {
+	      if (setenvf(NULL, name, "%d", opt.job_name) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 22:   // SLURM_LINUX_IMAGE
+	    if(opt.linuximage) {
+	      if (setenvf(NULL, name, "%d", opt.linuximage) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 23:   // SLURM_MEM_BIND
+	    if (opt.mem_bind != NULL) {
+	      if (setenvf(NULL, name, "%s", packtmp, opt.mem_bind) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 24:   // SLURM_MEM_PER_CPU
+	    if(opt.mem_per_cpu) {
+	      if (setenvf(NULL, name, "%d", opt.mem_per_cpu) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 25:   // SLURM_MLOADER_IMAGE
+	    if(opt.mloaderimage) {
+	      if (setenvf(NULL, name, "%d", opt.mloaderimage) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 26:   // SLURM_NETWORK
+	    if(opt.network) {
+	      if (setenvf(NULL, name, "%d", opt.network) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 27:  // SLURM_NNODES
+	    if (setenvf(NULL, name, "%d", opt.min_nodes) < 0)
+	      error("unable to set %s in environment", name);
+	    break;
+	  case 28:  // SLURM_NODELIST
+	    if (opt.nodelist != NULL) {
+	      if (setenvf(NULL, name, "%s", opt.nodelist) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 29:   // SLURM_NO_ROTATE
+	    if (setenvf(NULL, name, "%s", opt.no_rotate) < 0)
+	      error("unable to set %s in environment", name);
+	    break;
+	  case 30:  // SLURM_NTASKS
+	    if (setenvf(NULL, name, "%d", opt.ntasks) < 0)
+	      error("unable to set %s in environment", name);
+	    break;
+	  case 31:  // SLURM_NPROCS
+	    if (setenvf(NULL, name, "%d", opt.ntasks) < 0)
+	      error("unable to set %s in environment", name);
+	    break;
+	  case 32:  // SLURM_NSOCKETS_PER_NODE
+	    if (setenvf(NULL, name, "%d", opt.ntasks_per_core) < 0)
+	      error("unable to set %s in environment", name);
+	    break;
+	  case 33:  // SLURM_NTASKS_PER_NODE
+	    if (opt.ntasks_per_node) {
+	      if (setenvf(NULL, name, "%d", opt.ntasks_per_node) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 34:  // SLURM_NTHREADS_PER_CORE
+	    if (setenvf(NULL, name, "%d", opt.ntasks_per_socket) < 0)
+	      error("unable to set %s in environment", name);
+	    break;
+	  case 35:   // SLURM_OPEN_MODE
+	    if (opt.open_mode) {
+	      if (opt.open_mode == OPEN_MODE_APPEND) {
+		if (setenvf(NULL, name, "%s", "a") < 0)
+		  error("unable to set %s in environment", name);
+	      }
+	      else {
+		if (setenvf(NULL, name, "%s", "t") < 0)
+		  error("unable to set %s in environment", name);
+	      }
+	    }
+	    break;
+	  case 36:   // SLURM_OVERCOMMIT
+#define tf_(b) (b == true) ? "true" : "false"
+	    if (setenvf(NULL, name, "%s", tf_(opt.overcommit)) < 0)
+	      error("unable to set %s in environment", name);
+	    break;
+	  case 37:  // SLURM_PARTITION
+	    if (setenvf(NULL, name, "%s", opt.partition) < 0)
+	      error("unable to set %s in environment", name);
+	    break;
+	  case 38:   // SLURM_POWER
+	    if (setenvf(NULL, name, "%s", power_flags_str(opt.power_flags)) < 0)
+	      error("unable to set %s in environment", name);
+	    break;
+	  case 39:  // SLURM_PROFILE
+	    if (setenvf(NULL, name, "%d", opt.profile) < 0)
+	      error("unable to set %s in environment", name);
+	    break;
+	  case 40:   // SLURM_QOS
+	    if (opt.qos != NULL) {
+	      if (setenvf(NULL, name, "%s", opt.qos) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 41:   // SLURM_RAMDISK_IMAGE
+	    if(opt.ramdiskimage) {
+	      if (setenvf(NULL, name, "%d", opt.ramdiskimage) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 42:   // SLURM_REQ_SWITCH
+	    if (setenvf(NULL, name, "%d", opt.req_switch) < 0)
+	      error("unable to set %s in environment", name);
+	    break;
+	  case 43:   // SLURM_RESERVATION
+	    if(opt.reservation != NULL) {
+	      if (setenvf(NULL, name, "%s", opt.reservation) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 44:   // SLURM_SICP
+	    if (setenvf(NULL, name, "%d", opt.sicp_mode) < 0)
+	      error("unable to set %s in environment", name);
+	    break;
+	  case 45:   // SLURM_THREAD_SPEC
+	    if (setenvf(NULL, name, "%d", opt.core_spec) < 0)
+	      error("unable to set %s in environment", name);
+	    break;
+	  case 46:   // SLURM_THREADS
+	    if (opt.threads_per_core != (uint16_t) NO_VAL) {
+	      if (setenvf(NULL, name, "%d", opt.threads_per_core) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 47:   // SLURM_WAIT
+	    if (opt.wait_all_nodes != (uint16_t) NO_VAL) {
+	      if (setenvf(NULL, name, "%d", opt.wait_all_nodes) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  case 48:   // SLURM_WAIT4SWITCH
+	    if (setenvf(NULL, name, "%d", opt.wait4switch) < 0)
+	      error("unable to set %s in environment", name);
+	    break;
+	  case 49:   // SLURM_WCKEY
+	    if (opt.wckey != NULL) {
+	      if (setenvf(NULL, name, "%d", opt.wckey) < 0)
+		error("unable to set %s in environment", name);
+	    }
+	    break;
+	  }
+	  e++;
+	}
+	info("DHP _set_sbatch_pack_envs: Exit Here");
 }
 
 static void _set_sbatch_pack_envs()

@@ -221,11 +221,11 @@ int _identify_job_descriptions(int ac, char **av)
 	pack_job_id = xstrdup("");
 
 
-//	int index3;
-//	printf("in_identify_job_descriptions ac contains %u", ac);
-//	for (index3 = 0; index3 < ac; index3++) {
-//		printf("av[%u] is %s", index3, av[index3]);
-//	}
+	int index3;
+	printf("in_identify_job_descriptions ac contains %u", ac);
+	for (index3 = 0; index3 < ac; index3++) {
+		printf("av[%u] is %s", index3, av[index3]);
+	}
 
 
 	while (current < ac){
@@ -290,20 +290,21 @@ int _identify_job_descriptions(int ac, char **av)
 			}
 		}
 		int k = 1;
-		for (index2 = i; index2 < j + 1; index2++) {
+		for (index2 = i; index2 < j; index2++) {
 			newcmd_cpy[index2] =  xstrdup(newcmd[k]);
 			k++;
 		}
 
 	pack_job_env[job_index].ac = j;
 	pack_job_env[job_index].av = newcmd_cpy;
-//int index1;
-//for (index1=0; index1 < j; index1++)
-//	printf("pack_job_env[%u].av[%u] = %s\n", job_index, index1, pack_job_env[job_index].av[index1]);	/* wjb */
+int index1;
+for (index1=0; index1 < j; index1++)
+	printf("pack_job_env[%u].av[%u] = %s\n", job_index, index1, pack_job_env[job_index].av[index1]);	/* wjb */
 	job_index++;
-//info("job_index contains %u exiting_identify_job_descriptions\n", job_index);					/* wjb */
-	for (i = 0; i < (ac + 1); i++) {
-		xfree(newcmd[i]);
+info("job_index contains %u exiting_identify_job_descriptions\n", job_index);					/* wjb */
+	for (i = 0; i < ac; i++) {
+	        if(newcmd[i] != NULL)
+		        xfree(newcmd[i]);
 	}
 
 	}
@@ -380,6 +381,10 @@ int main(int argc, char **argv)
 		rc = main_jobpack(argc, argv);
 		return 0;
 	}
+
+	/* DHP DEV */
+	int pack_desc_count = 1; // TEMPORARY!!!
+	opt.group_number = 1;    // TEMPORARY!!!
 
 	if (spank_init_allocator() < 0) {
 		error("Failed to initialize plugin stack");
@@ -668,7 +673,7 @@ int main(int argc, char **argv)
         if (setenvf(NULL, "SLURM_NUMPACK", "%d", pack_desc_count) < 0)
 		error("unable to set SLURM_NUMPACK in environment");
 
-        env_array_set_environment(env, opt.group_number);
+        env_array_set_environment(env, -1);
 	env_array_free(env);
 	slurm_mutex_lock(&allocation_state_lock);
 	if (allocation_state == REVOKED) {
@@ -837,12 +842,17 @@ info("on entr env == NULL");
 		group_number = job_index - 1;
 		packleader = pack_job_env[group_number].packleader;
 		packjob = pack_job_env[group_number].pack_job;
-		if (packleader == true)
+info("packleader is %u packjob is %u", packleader, packjob);				/* wjb */
+//			if (pack_job_id == NULL)
+		if (packleader == true) {
+
 			if ((strcmp(pack_job_id, "") == 0))
 				fatal( "found packleader but no pack job id" );
 			xstrcat(pack_job_env[group_number].av[packl_dependency_position],
 			        pack_job_id);
+		}
 		_copy_opt_struct( &opt, pack_job_env[group_number].opt);
+		_copy_job_desc_msg(&desc, pack_job_env[group_number].desc);
 
 	if (initialize_and_process_args(pack_job_env[group_number].ac,
 					pack_job_env[group_number].av) < 0) {
@@ -969,6 +979,7 @@ info("opt.get_user_env_time >= 0 for group number %u", group_number);		/* wjb */
 	before = time(NULL);
 	retries = 0;
 	if (packjob == true) {
+info("making allocation request with group_number of %u", group_number);	/* wjb */
 		while ((alloc = slurm_allocate_pack_resources(&desc,
 		        opt.immediate, _pending_callback)) == NULL) {
 			if (((errno != ESLURM_ERROR_ON_DESC_TO_RECORD_COPY) &&
@@ -981,6 +992,7 @@ info("opt.get_user_env_time >= 0 for group number %u", group_number);		/* wjb */
 			sleep (++retries);
 		}
 	} else if (packleader == true) {
+info("making allocation request with group_number of %u", group_number);	/* wjb */
 		while ((alloc = slurm_allocate_resources_blocking(&desc,
 			opt.immediate, _pending_callback)) == NULL) {
 			if (((errno != ESLURM_ERROR_ON_DESC_TO_RECORD_COPY) &&
@@ -1064,21 +1076,22 @@ info("opt.get_user_env_time >= 0 for group number %u", group_number);		/* wjb */
 		goto relinquish;
 	}
 //info("#########################entering loop 2 #############################");			/* wjb */
-	for (job_index = 0; job_index < pack_desc_count; job_index++) {
-		_copy_opt_struct(&opt, pack_job_env[job_index].opt);
-		_copy_job_desc_msg(&desc, pack_job_env[job_index].desc);
-	if (pack_job_env[job_index].env[0] != NULL) {
-		_copy_env(env, pack_job_env[job_index].env);
+	for (group_number = 0; group_number < pack_desc_count; group_number++) {
+		_copy_opt_struct(&opt, pack_job_env[group_number].opt);
+		_copy_job_desc_msg(&desc, pack_job_env[group_number].desc);
+	if (pack_job_env[group_number].env[0] != NULL) {
+		_copy_env(env, pack_job_env[group_number].env);
 	} else {
 		env = NULL;
 	}
-		opt.jobid = pack_job_env[job_index].job_id;
+info("** Prior to calling existing allocation opt.jobid was %u updated to %u ***", opt.jobid, pack_job_env[group_number].job_id);		/* wjb */
+		opt.jobid = pack_job_env[group_number].job_id;
 		alloc = existing_allocation();
-		_copy_alloc_struct(pack_job_env[job_index].alloc, alloc);
+		_copy_alloc_struct(pack_job_env[group_number].alloc, alloc);
 	/*
 	 * Run the user's command.
 	 */
-	if (env_array_for_job(&env, alloc, &desc) != SLURM_SUCCESS)
+        if (env_array_for_job(&env, alloc, &desc) != SLURM_SUCCESS)
 		goto relinquish;
 
 	/* Add default task count for srun, if not already set */
@@ -1109,7 +1122,7 @@ info("opt.get_user_env_time >= 0 for group number %u", group_number);		/* wjb */
 	}
 
 
-	env_array_set_environment(env);
+	env_array_set_environment(env, group_number);
 }					/* wjb end of 2nd for loop */
 //info("#########################exited loop 2 #############################");			/* wjb */
 //		_copy_opt_struct(&opt, pack_job_env[0].opt);
@@ -1184,8 +1197,8 @@ relinquish:
 	pthread_mutex_lock(&allocation_state_lock);
 	if (allocation_state != REVOKED) {
 		pthread_mutex_unlock(&allocation_state_lock);
-	for (job_index = 0; job_index < pack_desc_count; job_index++) {
-		_copy_alloc_struct(alloc, pack_job_env[job_index].alloc);
+	for (group_number = 0; group_number < pack_desc_count; group_number++) {
+		_copy_alloc_struct(alloc, pack_job_env[group_number].alloc);
 		info("Relinquishing job allocation %u", alloc->job_id);
 		if ((slurm_complete_job(alloc->job_id, status) != 0) &&
 		    (slurm_get_errno() != ESLURM_ALREADY_DONE))
@@ -1524,6 +1537,7 @@ static void _pending_callback(uint32_t job_id)
 	pending_job_id = job_id;
 	if (packjob) {
 		pack_job_env[group_number].job_id = job_id;
+info("saving pending jobid %u in pack_job_env[%u].job_id", job_id, group_number);		/* wjb */
 		xstrfmtcat(pack_job_id,":%u", job_id);
 	}
 }

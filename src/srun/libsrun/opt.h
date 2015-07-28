@@ -286,7 +286,7 @@ void _copy_resp_struct(resource_allocation_response_msg_t *to,
 typedef struct {
 	bool packleader;
 	bool pack_job;
-	uint32_t pack_group;
+	uint32_t group_number;
 	uint32_t job_id;
 	opt_t *opt;
 	env_t *env;

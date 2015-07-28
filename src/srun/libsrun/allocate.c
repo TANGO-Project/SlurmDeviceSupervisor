@@ -91,7 +91,7 @@ extern uint32_t pack_desc_count;
 extern char *pack_job_id;
 extern bool packleader;
 extern bool packjob;
-extern uint32_t group_number;
+
 extern uint32_t group_index;
 
 static uint32_t pending_job_id = 0;
@@ -119,7 +119,8 @@ static sig_atomic_t destroy_job = 0;
 	if (packjob) {
 //		pack_job_env[group_number].job_id = job_id;
 		desc[group_index].pack_job_env[group_number].job_id = job_id;
-info("_set_pending_job_id desc[%u].pack_job_env[%u].job_id is %u", group_index, group_number, desc[group_index].pack_job_env[group_number].job_id);	/* wjb */
+info("_set_pending_job_id desc[%u].pack_job_env[%u].job_id is %u", group_index, group_number, desc[group_index].pack_job_env[group_number].job_id);
+		pack_job_env[opt.group_number].job_id = job_id;	/* wjb */
 		xstrfmtcat(pack_job_id,":%u", job_id);
 	}
  }
@@ -607,7 +608,7 @@ allocate_nodes_jobpack(bool handle_signals)
 	int i;
 	int job_index;
 
-	 _copy_opt_struct(pack_job_env[group_number].opt, &opt);
+	 _copy_opt_struct(pack_job_env[opt.group_number].opt, &opt);
 
 	if (!j)
 		return NULL;
@@ -652,8 +653,8 @@ allocate_nodes_jobpack(bool handle_signals)
 		}
 		job_desc_msg_destroy(j);
 //		_copy_resp_struct(pack_job_env[group_number].resp, resp);
-		_copy_resp_struct(desc[group_index].pack_job_env[group_number].resp, resp);
-info("1 allocate_nodes_jobpack desc[%u].pack_job_env[%u].resp->job_id is %u", group_index, group_number, desc[group_index].pack_job_env[group_number].resp->job_id);	/* wjb */
+		_copy_resp_struct(desc[group_index].pack_job_env[job_index].resp, resp);
+info("1 allocate_nodes_jobpack desc[%u].pack_job_env[%u].resp->job_id is %u", group_index, job_index, desc[group_index].pack_job_env[job_index].resp->job_id);	/* wjb */
 
 		return resp;
 	}
@@ -671,8 +672,8 @@ info("1 allocate_nodes_jobpack desc[%u].pack_job_env[%u].resp->job_id is %u", gr
 //	pack_job_env[0].job_id = resp->job_id;
 	desc[0].pack_job_env[0].job_id = resp->job_id;
 //	_copy_resp_struct(pack_job_env[group_number].resp, resp);
-	_copy_resp_struct(desc[group_index].pack_job_env[group_number].resp, resp);
-info("2 allocate_nodes_jobpack desc[%u].pack_job_env[%u].resp->job_id is %u", group_index, group_number, desc[group_index].pack_job_env[group_number].resp->job_id);	/* wjb */
+	_copy_resp_struct(desc[group_index].pack_job_env[job_index].resp, resp);
+info("2 allocate_nodes_jobpack desc[%u].pack_job_env[%u].resp->job_id is %u", group_index, job_index, desc[group_index].pack_job_env[job_index].resp->job_id);	/* wjb */
 //	for (job_index = 0; job_index < pack_desc_count; job_index++) {
 	for (desc_index = 0; desc_index < pack_desc_count; desc_index++) {
 //		_copy_opt_struct(&opt, pack_job_env[job_index].opt);
@@ -683,6 +684,7 @@ info("2 allocate_nodes_jobpack desc[%u].pack_job_env[0].opt->jobid is %d", desc_
 		_copy_resp_struct(resp, desc[desc_index].pack_job_env[0].resp);
 info("3 allocate_nodes_jobpack desc[%u].pack_job_env[0].resp->job_id is %u", desc_index, desc[desc_index].pack_job_env[0].resp->job_id);	/* wjb */
 //		opt.jobid = pack_job_env[job_index].job_id;
+info("** Prior to calling existing allocation opt.jobid was %u updated to %u ***", opt.jobid, desc[desc_index].pack_job_env[0].job_id);		/* wjb */
 		opt.jobid = desc[desc_index].pack_job_env[0].job_id;
 		resp = existing_allocation();
 		/* save response message for pack-member */

@@ -86,7 +86,6 @@ typedef struct env_options {
 	char *account;          /* job's account */
 	char *qos;              /* job's qos */
 	char *resv_name;        /* job's reservation */
-        int group_number;       /* pack group number */
 } env_t;
 
 
@@ -97,6 +96,7 @@ char *	getenvp(char **env, const char *name);
 int	setenvf(char ***envp, const char *name, const char *fmt, ...);
 int	setenvfs(const char *fmt, ...);
 void	unsetenvp(char **env, const char *name);
+uint32_t group_number;
 
 int	setup_env(env_t *env, bool preserve_env);
 
@@ -280,7 +280,7 @@ int env_array_overwrite_fmt(char ***array_ptr, const char *name,
  * Set in the running process's environment all of the environment
  * variables in a supplied environment variable array.
  */
-void env_array_set_environment(char **env_array, int group_number);
+void env_array_set_environment(char **env_array, uint32_t group_number);
 
 /*
  * load environment from specified file name.
@@ -322,7 +322,5 @@ char **env_array_user_default(const char *username, int timeout, int mode,
 char *uint32_compressed_to_str(uint32_t array_len,
 			       const uint16_t *array,
 			       const uint32_t *array_reps);
-
-char *env_pack_group(char *envstr, int group_number);
 
 #endif

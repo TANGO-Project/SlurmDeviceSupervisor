@@ -104,8 +104,8 @@ typedef struct allocation_info {
 static int shepherd_fd = -1;
 
 extern uint32_t pack_desc_count;
-extern uint32_t group_number;
 extern uint32_t group_index;
+extern uint32_t job_index;
 extern bool packjob;
 extern bool packleader;
 
@@ -450,7 +450,7 @@ extern void init_srun(int ac, char **av,
 	xsignal_block(pty_sigarray);
 
 /*
-int index1;
+int index1, group_number;
 info(" init_srun ac contains %u", ac);
 for (index1 = 0; index1 < ac; index1++) {
 	info ("av[%u] is %s", index1, av[index1]);
@@ -476,10 +476,102 @@ for (index1 = 0; index1 < ac; index1++) {
 	/* set default options, process commandline arguments, and
 	 * verify some basic values
 	 */
-	if (initialize_and_process_args(ac, av) < 0) {
-		error ("srun initialization failed");
-		exit (1);
+
+		if (initialize_and_process_args(ac, av) < 0) {
+			error ("srun initialization failed");
+			exit (1);
+		}
+
+	record_ppid();
+
+	if (spank_init_post_opt() < 0) {
+		error("Plugin stack post-option processing failed.");
+		exit(error_exit);
 	}
+
+	/* reinit log with new verbosity (if changed by command line)
+	 */
+	if (logopt && (_verbose || opt.quiet)) {
+		/* If log level is already increased, only increment the
+		 *   level to the difference of _verbose an LOG_LEVEL_INFO
+		 */
+		if ((_verbose -= (logopt->stderr_level - LOG_LEVEL_INFO)) > 0)
+			logopt->stderr_level += _verbose;
+		logopt->stderr_level -= opt.quiet;
+		logopt->prefix_level = 1;
+		log_alter(*logopt, 0, NULL);
+	} else
+		_verbose = debug_level;
+
+	(void) _set_rlimit_env();
+	_set_prio_process_env();
+	(void) _set_umask_env();
+	_set_submit_dir_env();
+
+	/* Set up slurmctld message handler */
+	slurmctld_msg_init();
+}
+
+extern void init_srun_jobpack(int ac, char **av,
+		      log_options_t *logopt, int debug_level,
+		      bool handle_signals)
+{
+	/* This must happen before we spawn any threads
+	 * which are not designed to handle arbitrary signals */
+	if (handle_signals) {
+		if (xsignal_block(sig_array) < 0)
+			error("Unable to block signals");
+	}
+	xsignal_block(pty_sigarray);
+
+/*
+int index1, group_number;
+info(" init_srun ac contains %u", ac);
+for (index1 = 0; index1 < ac; index1++) {
+	info ("av[%u] is %s", index1, av[index1]);
+}
+*/
+
+
+	/* Initialize plugin stack, read options from plugins, etc.
+	 */
+	init_spank_env();
+	if (spank_init(NULL) < 0) {
+		error("Plug-in initialization failed");
+		exit(error_exit);
+	}
+
+	/* Be sure to call spank_fini when srun exits.
+	 */
+//if (packjob == false) {							/* wjb */
+//	if (atexit(_call_spank_fini) < 0)
+//		error("Failed to register atexit handler for plugins: %m");
+//}
+
+	/* set default options, process commandline arguments, and
+	 * verify some basic values
+	 */
+info("in init_srun_jobpack for desc[%u].pack_job_env[%u].group_number is %u", group_index, job_index, desc[group_index].pack_job_env[job_index].group_number);	/* wjb */
+info("desc[%u].pack_group_count is %u", group_index, desc[group_index].pack_group_count);					/* wjb */
+	if (desc[group_index].pack_group_count != 0) {
+		group_number =
+			desc[group_index].pack_job_env[job_index].group_number;
+		if (initialize_and_process_args_jobpack(ac, av, group_number) <
+		    0) {
+			error ("srun initialization failed");
+			exit (1);
+		}
+info("initialize_and_process_args_jobpack returned opt.jobid is %u", opt.jobid);	/* wjb */
+
+	} else {
+
+		if (initialize_and_process_args(ac, av) < 0) {
+			error ("srun initialization failed");
+			exit (1);
+		}
+info("initialize_and_process_args returned opt.jobid is %u", opt.jobid);	/* wjb */
+	}
+
 	record_ppid();
 
 	if (spank_init_post_opt() < 0) {
@@ -522,6 +614,7 @@ extern void create_srun_job(srun_job_t **p_job, bool *got_alloc,
 	/* now global "opt" should be filled in and available,
 	 * create a job from opt
 	 */
+//info(" **** in create_srun_jobpack, opt.jobid is %u", opt.jobid);			/* wjb */
 
 	if (opt.test_only) {
 		int rc = allocate_test();
@@ -760,6 +853,7 @@ info("took path of existing allocation");				/* wjb */
 		if (_validate_relative(resp))
 			exit(error_exit);
 		job = job_step_create_allocation(resp);
+		_copy_srun_job_struct(desc[desc_index].pack_job_env[0].job, job);
 		slurm_free_resource_allocation_response_msg(resp);
 
 		if (opt.begin != 0) {
@@ -800,7 +894,7 @@ info("took path of existing allocation");				/* wjb */
 		for (desc_index = 0; desc_index < pack_desc_count; desc_index++) {
 //			_copy_opt_struct(&opt, pack_job_env[job_index].opt);
 			_copy_opt_struct(&opt, desc[desc_index].pack_job_env[0].opt);
-info("1 create_srun_jobpack desc[%u].pack_job_env[0].opt->jobid is %d", desc_index, desc[desc_index].pack_job_env[0].opt->jobid);		/* wjb */
+//info("1 create_srun_jobpack desc[%u].pack_job_env[0].opt->jobid is %d", desc_index, desc[desc_index].pack_job_env[0].opt->jobid);		/* wjb */
 //			_copy_resp_struct(resp, pack_job_env[job_index].resp);
 			_copy_resp_struct(resp, desc[desc_index].pack_job_env[0].resp);
 info("1 create_srun_jobpack desc[%u].pack_job_env[0].resp->job_id is %u", desc_index, desc[desc_index].pack_job_env[0].resp->job_id);	/* wjb */
@@ -814,9 +908,9 @@ info("1 create_srun_jobpack desc[%u].pack_job_env[0].resp->job_id is %u", desc_i
 			job = job_create_allocation(resp);
 //			_copy_srun_job_struct(pack_job_env[job_index].job, job);
 			_copy_srun_job_struct(desc[desc_index].pack_job_env[0].job, job);
-info("1 create_srun_jobpack desc[%u].pack_job_env[0].job>jobid is %u", desc_index, desc[desc_index].pack_job_env[0].job->jobid);	/* wjb */
-info("create_srun_jobpack in loop desc[0].pack_job_env[0].job>jobid is %u", desc[0].pack_job_env[0].job->jobid);	/* wjb */
-info("create_srun_jobpack in loop desc[1].pack_job_env[0].job>jobid is %u", desc[1].pack_job_env[0].job->jobid);	/* wjb */
+//info("1 create_srun_jobpack desc[%u].pack_job_env[0].job>jobid is %u", desc_index, desc[desc_index].pack_job_env[0].job->jobid);	/* wjb */
+//info("create_srun_jobpack in loop desc[0].pack_job_env[0].job>jobid is %u", desc[0].pack_job_env[0].job->jobid);	/* wjb */
+//info("create_srun_jobpack in loop desc[1].pack_job_env[0].job>jobid is %u", desc[1].pack_job_env[0].job->jobid);	/* wjb */
 
 			opt.time_limit = NO_VAL;/* not applicable for step, only job */
 			xfree(opt.constraints);	/* not applicable for this step */
@@ -857,15 +951,15 @@ info("create_srun_jobpack in loop desc[1].pack_job_env[0].job>jobid is %u", desc
 			/* save updated opt information for pack-member */
 //			_copy_opt_struct(pack_job_env[job_index].opt, &opt);
 			_copy_opt_struct(desc[desc_index].pack_job_env[0].opt, &opt);
-info("2 create_srun_jobpack desc[%u].pack_job_env[0].opt->jobid is %d", desc_index, desc[desc_index].pack_job_env[0].opt->jobid);		/* wjb */
+//info("2 create_srun_jobpack desc[%u].pack_job_env[0].opt->jobid is %d", desc_index, desc[desc_index].pack_job_env[0].opt->jobid);		/* wjb */
 		}
-info("create_srun_jobpack after loop desc[0].pack_job_env[0].job>jobid is %u", desc[0].pack_job_env[0].job->jobid);	/* wjb */
-info("create_srun_jobpack after loop desc[1].pack_job_env[0].job>jobid is %u", desc[1].pack_job_env[0].job->jobid);	/* wjb */
+//info("create_srun_jobpack after loop desc[0].pack_job_env[0].job>jobid is %u", desc[0].pack_job_env[0].job->jobid);	/* wjb */
+//info("create_srun_jobpack after loop desc[1].pack_job_env[0].job>jobid is %u", desc[1].pack_job_env[0].job->jobid);	/* wjb */
 
 	}
 //	 _copy_opt_struct(&opt, pack_job_env[0].opt);
 	 _copy_opt_struct(&opt, desc[0].pack_job_env[0].opt);
-info("3 create_srun_jobpack desc[0].pack_job_env[0].opt->jobid is %d", desc[0].pack_job_env[0].opt->jobid);		/* wjb */
+//info("3 create_srun_jobpack desc[0].pack_job_env[0].opt->jobid is %d", desc[0].pack_job_env[0].opt->jobid);		/* wjb */
 }
 
 extern void pre_launch_srun_job(srun_job_t *job, bool slurm_started,
