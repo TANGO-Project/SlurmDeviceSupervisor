@@ -815,6 +815,7 @@ struct	depend_spec {
 	uint32_t	job_id;		/* SLURM job_id */
 	struct job_record *job_ptr;	/* pointer to this job */
 	uint32_t	pack_leader;    /* SLURM job_id of packleader job */
+	uint16_t	alloc;		/* Member is allocated */
 };
 
 #define STEP_FLAG 0xbbbb
@@ -1718,7 +1719,7 @@ extern void make_node_alloc(struct node_record *node_ptr,
  * IN node_ptr - pointer to node marked for completion of job
  * IN job_ptr  - pointer to job that is completing
  * IN suspended - true if job was previously suspended
- * IN pack - true if job is ARRM pack job being deallocated
+ * IN pack      - true if job is a job pack member
  */
 extern void make_node_comp(struct node_record *node_ptr,
 			   struct job_record *job_ptr,

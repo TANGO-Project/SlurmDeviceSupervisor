@@ -1029,7 +1029,7 @@ _parse_pack_group(const char *pack_group)
 
 	struct _range *ranges = NULL;
 	int capacity = 0;
-	int nr, err, tglen, i, j, k;
+	int nr, tglen, i, j, k;
 	char *p, *end;
 	char cur_tok[1024];
 	uint32_t grp;
@@ -1091,7 +1091,7 @@ _parse_pack_group(const char *pack_group)
 	xfree(ranges);
 	return;
 error:
-	err = errno = EINVAL;
+	errno = EINVAL;
 	xfree(ranges);
 	slurm_seterrno(errno);
 }

@@ -258,7 +258,7 @@ int main(int argc, char **argv)
 
 	if(_count_jobs(argc, argv)) {
 		rc = main_jobpack(argc, argv);
-		return 0;
+		return rc;
 	}
 
 	if (spank_init_allocator() < 0) {
@@ -504,7 +504,6 @@ static int main_jobpack(int argc, char *argv[])
 	void *script_body;
 	int script_size = 0;
 	int retries = 0;
-	int rc = 0;
 	int job_index;
 //	int index, index1;							/* wjb */
 
@@ -522,8 +521,8 @@ static int main_jobpack(int argc, char *argv[])
 	if (atexit((void (*) (void)) spank_fini) < 0)
 		error("Failed to register atexit handler for plugins: %m");
 
-	rc = _build_env_structs(argc, argv);
-	rc = _identify_job_descriptions(argc, argv);
+	_build_env_structs(argc, argv);
+	_identify_job_descriptions(argc, argv);
 	for (job_index = pack_desc_count; job_index > 0; job_index--) {
 //info("********** top of main loop ****************");				/* wjb */
 		group_number = job_index - 1;
