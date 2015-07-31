@@ -2330,7 +2330,9 @@ extern batch_job_launch_msg_t *build_launch_job_msg(struct job_record *job_ptr,
 }
 
 static char ** _check_for_jobpack_envs(struct job_record *job_ptr,
-				       int *numpack, char **list_jobids)
+				       int *numpack,
+				       char **list_jobids,
+				       int *ntasks)
 {
 	ListIterator depend_iter;
 	struct depend_spec *dep_ptr;
@@ -2339,9 +2341,9 @@ static char ** _check_for_jobpack_envs(struct job_record *job_ptr,
 	uint16_t protocol_version = (uint16_t) NO_VAL;
 	char **member_env = env_array_create();
 	char *tmp = NULL;
-	uint32_t nnodes_pack;
-	char *nodelist_pack;
+	char *ntaskmember = NULL;
 	int packcnt = 0;
+	uint32_t group_number = -1;
 
 	if (job_ptr->details == NULL) {
 		return NULL;
@@ -2349,6 +2351,7 @@ static char ** _check_for_jobpack_envs(struct job_record *job_ptr,
 	if (job_ptr->details->depend_list == NULL) {
 		return NULL;
 	}
+
 	depend_iter = list_iterator_create(job_ptr->details->depend_list);
 	while ((dep_ptr = (struct depend_spec *) list_next(depend_iter))) {
 		if (dep_ptr->depend_type != SLURM_DEPEND_PACKLEADER) {
@@ -2377,23 +2380,24 @@ static char ** _check_for_jobpack_envs(struct job_record *job_ptr,
 
 		/* add SLURM_GROUP_NUMBER to member_env */
 		if ((tmp = getenvp(launch_msg_ptr->environment,
-				   "SLURM_GROUP_NUMBER")))
+				   "SLURM_GROUP_NUMBER"))) {
 		        env_array_append_fmt(&member_env, "SLURM_GROUP_NUMBER",
 					     "%s", tmp);
-
-		/* add SLURM_NODELIST_PACK & SLURM_NNODES_PACK to member_env */
-		nnodes_pack = get_pack_nodelist(job_ptr->job_id,
-						    &nodelist_pack);
-		env_array_append_fmt(&member_env, "SLURM_NODELIST_PACK",
-				     "%s", nodelist_pack);
-		env_array_append_fmt(&member_env, "SLURM_NNODES_PACK",
-				     "%d", nnodes_pack);
-		xfree(nodelist_pack);
+			group_number = atoi(tmp);
+		}
 
 		/* populate member_env with launch env list */
 		env_array_for_batch_job(&member_env,
 					launch_msg_ptr,
 					job_ptr->batch_host);
+
+		/* SLURM_NTASKS_PACK_GROUP_NNNN */
+		/* 1234567890123456789012345678 */
+		ntaskmember = xmalloc(29);
+		sprintf(ntaskmember, "SLURM_NTASKS_PACK_GROUP_%d",
+			group_number);
+		if ((tmp = getenvp(member_env, ntaskmember)))
+		        *ntasks += atoi(tmp);
 
 		/* remove SLURM_GROUP_NUMBER from env so that it does not
 		   conflict with the pack leader's SLURM_GROUP_NUMBER */
@@ -2419,11 +2423,17 @@ extern void launch_job(struct job_record *job_ptr)
 	char ** member_env = NULL;
 	uint32_t member_envc;
 	char *list_jobids = NULL;
+	char *nodelist_pack;
+	uint32_t nnodes_pack;
 	int numpack = 0;
+	int ntasks = 0;
 	int i, j;
 
 	xstrfmtcat(list_jobids, "%d", job_ptr->job_id);
-	member_env = _check_for_jobpack_envs(job_ptr, &numpack, &list_jobids);
+
+	member_env = _check_for_jobpack_envs(job_ptr, &numpack,
+					     &list_jobids,
+					     &ntasks);
 
 #ifdef HAVE_FRONT_END
 	front_end_record_t *front_end_ptr;
@@ -2450,6 +2460,19 @@ extern void launch_job(struct job_record *job_ptr)
 	env_array_append_fmt(&member_env, "SLURM_LISTJOBIDS",
 				     "%s", list_jobids);
 	xfree(list_jobids);
+
+	/* add SLURM_NODELIST_PACK & SLURM_NNODES_PACK to member_env */
+	nnodes_pack = get_pack_nodelist(job_ptr->job_id,
+					&nodelist_pack);
+	env_array_append_fmt(&member_env, "SLURM_NODELIST_PACK",
+			     "%s", nodelist_pack);
+	xfree(nodelist_pack);
+	env_array_append_fmt(&member_env, "SLURM_NNODES_PACK",
+			     "%d", nnodes_pack);
+
+	/* add SLURM_NTASKS_PACK to member_env */
+	env_array_append_fmt(&member_env, "SLURM_NTASKS_PACK",
+				     "%d", ntasks);
 
 	if (member_env != NULL) {
 	        member_envc = envcount(member_env);
