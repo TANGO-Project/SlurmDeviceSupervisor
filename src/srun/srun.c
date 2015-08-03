@@ -171,42 +171,6 @@ void cfmakeraw(struct termios *attr)
 }
 #endif
 
-static int
-_build_group_jobid_array( char* str )
-{
-	int count = 0;
-	char *jobid = NULL, *tmp_char = NULL, *group_jobid_list = NULL;
-	int i, j=0;
-
-	if ( str == NULL)
-		return SLURM_ERROR;
-	/* count the number of group jobids */
-	group_jobid_list = xstrdup( str );
-	jobid = strtok_r( group_jobid_list, ",", &tmp_char );
-	while (jobid) {
-		count++;
-		jobid = strtok_r (NULL, ",", &tmp_char);
-	}
-	tmp_char = NULL;
-
-	group_ids = xmalloc(sizeof(int) * count);
-
-	group_jobid_list = xstrdup( str );
-	jobid = strtok_r( group_jobid_list, ",", &tmp_char );
-	while (jobid) {
-		i = slurm_xlate_job_id(jobid);
-		if (i <= 0) {
-			error( "Invalid job id: %s", jobid );
-			exit( 1 );
-		}
-		group_ids[j] = i;
-//		info("group_ids[%u] = %u", j, group_ids[j]);
-		j++;
-		jobid = strtok_r (NULL, ",", &tmp_char);
-	}
-	return SLURM_SUCCESS;
-}
-
 int _count_jobs(int ac, char **av)
 {
 	int index;
@@ -233,7 +197,7 @@ int _count_jobs(int ac, char **av)
 	return pack_desc_count;
 }
 
-int _build_env_structs(int count, pack_job_env_t *pack_job_env)
+static void _build_env_structs(int count, pack_job_env_t *pack_job_env)
 {
 	int i;
 
@@ -280,7 +244,7 @@ static void _free_env_structs(int count, pack_job_env_t *pack_job_env)
 	return;
  }
 
-int _build_pack_group_struct(uint32_t index, pack_job_env_t *env_struct)
+static void _build_pack_group_struct(uint32_t index, pack_job_env_t *env_struct)
 {
 	int i, j, struct_index;
 	char *tmp = NULL;
@@ -315,7 +279,7 @@ int _build_pack_group_struct(uint32_t index, pack_job_env_t *env_struct)
 	return;
 }
 
-int _identify_job_descriptions(int ac, char **av)
+static void _identify_job_descriptions(int ac, char **av)
 {
 	int index, index2;
 	int i = 0;
@@ -406,9 +370,10 @@ int _identify_job_descriptions(int ac, char **av)
 		}
 		pack_job_env[job_index].ac = j;
 /*
-int index1;
-for (index1=0; index1 < j; index1++)
-	info("pack_job_env[%u].av[%u] = %s\n", job_index, index1, pack_job_env[job_index].av[index1]);
+		int index1;
+		for (index1=0; index1 < j; index1++)
+			info("pack_job_env[%u].av[%u] = %s\n", job_index,
+			     index1,pack_job_env[job_index].av[index1]);
 */
 		job_index++;
 	}
@@ -416,11 +381,10 @@ for (index1=0; index1 < j; index1++)
 		if(newcmd[i] != NULL)
 			xfree(newcmd[i]);
 	}
-
 	return;
 }
 
-int _identify_group_job_descriptions(int ac, char **av)
+static void _identify_group_job_descriptions(int ac, char **av)
 {
 	int index, index1, index2;
 	int i = 0;
@@ -772,7 +736,7 @@ int _srun_jobpack(int ac, char **av)
 	int desc_index, group_count;
 
 /*
-info("in _srun_jobpack inputs were as follows:\n");
+	info("in _srun_jobpack inputs were as follows:\n");
 	int index1;
 	info(" _srun_jobpack ac contains %u\n", ac);
 	for (index1 = 0; index1 < ac; index1++) {
@@ -805,16 +769,26 @@ info("in _srun_jobpack inputs were as follows:\n");
 		group_count = desc[group_index].pack_group_count;
 		if (group_count == 0) group_count++;
 		for (job_index = 0; job_index < group_count; job_index++) {
-			packleader = desc[group_index].pack_job_env[job_index].packleader;
-			packjob = desc[group_index].pack_job_env[job_index].pack_job;
+			packleader = desc[group_index].pack_job_env[
+				job_index].packleader;
+			packjob = desc[group_index].pack_job_env[
+				job_index].pack_job;
 
 			if (packleader != true) {
 
 				_copy_opt_struct(&opt,
 				desc[group_index].pack_job_env[job_index].opt);
-				log_init(xbasename(desc[group_index].pack_job_env[job_index].av[0]), logopt, 0, NULL);
-				init_srun_jobpack(desc[group_index].pack_job_env[job_index].ac, desc[group_index].pack_job_env[job_index].av, &logopt, debug_level, 1);
-				_copy_opt_struct(desc[group_index].pack_job_env[job_index].opt,  &opt);
+				log_init(xbasename(desc[
+					 group_index].pack_job_env[
+					 job_index].av[0]), logopt, 0, NULL);
+				init_srun_jobpack(desc[
+						  group_index].pack_job_env[
+						  job_index].ac, desc[
+						  group_index].pack_job_env[
+						  job_index].av, &logopt,
+						  debug_level, 1);
+				_copy_opt_struct(desc[group_index].pack_job_env[
+						 job_index].opt,  &opt);
 			}
 		}
 	}
@@ -824,9 +798,12 @@ info("in _srun_jobpack inputs were as follows:\n");
 		group_count = desc[group_index].pack_group_count;
 		if (group_count == 0) group_count++;
 		for (job_index = 0; job_index < group_count; job_index++) {
-			packleader = desc[group_index].pack_job_env[job_index].packleader;
-			packjob = desc[group_index].pack_job_env[job_index].pack_job;
-			_copy_opt_struct( &opt, desc[group_index].pack_job_env[job_index].opt);
+			packleader = desc[group_index].pack_job_env[
+				job_index].packleader;
+			packjob = desc[group_index].pack_job_env[
+				job_index].pack_job;
+			_copy_opt_struct(&opt, desc[group_index].pack_job_env[
+					 job_index].opt);
 			if (packleader == true) {
 
 				if (pack_job_id == NULL)
@@ -836,11 +813,19 @@ info("in _srun_jobpack inputs were as follows:\n");
 					job_index].av[
 					packl_dependency_position],
 					pack_job_id);
-				log_init(xbasename(desc[group_index].pack_job_env[job_index].av[0]), logopt, 0, NULL);
-				init_srun_jobpack(desc[group_index].pack_job_env[job_index].ac, desc[group_index].pack_job_env[job_index].av, &logopt, debug_level, 1);
+				log_init(xbasename(desc[
+					 group_index].pack_job_env[
+					 job_index].av[0]), logopt, 0, NULL);
+				init_srun_jobpack(desc[
+						  group_index].pack_job_env[
+						  job_index].ac, desc[
+						  group_index].pack_job_env[
+						  job_index].av, &logopt,
+						  debug_level, 1);
 //info("packleader depencency for desc[%u].pack_job_env[%u] is %s", group_index, job_index, desc[group_index].pack_job_env[job_index].av[packl_dependency_position]);	/* wjb */
 			}
-			create_srun_jobpack(&desc[group_index].pack_job_env[job_index].job, &got_alloc, 0, 1);
+			create_srun_jobpack(&desc[group_index].pack_job_env[
++					    job_index].job, &got_alloc, 0, 1);
 		}
 	}
 
@@ -1131,19 +1116,22 @@ static void _enhance_env_jobpack(bool got_alloc)
 			  env->job_name = opt.job_name;
 			if (job) {
 				uint16_t *tasks = NULL;
-				slurm_step_ctx_get(job->step_ctx, SLURM_STEP_CTX_TASKS,
+				slurm_step_ctx_get(job->step_ctx,
+						   SLURM_STEP_CTX_TASKS,
 						   &tasks);
 
 				env->select_jobinfo = job->select_jobinfo;
 				env->nodelist = job->nodelist;
 				env->partition = job->partition;
-				/* If we didn't get the allocation don't overwrite the
-				* previous info.
+				/* If we didn't get the allocation don't
+				* overwrite the previous info.
 				*/
 				if (got_alloc)
 					env->nhosts = job->nhosts;
 				env->ntasks = job->ntasks;
-				env->task_count = _uint16_array_to_str(job->nhosts, tasks);
+				env->task_count =
+					_uint16_array_to_str(job->nhosts,
+							     tasks);
 				env->jobid = job->jobid;
 				env->stepid = job->stepid;
 				env->account = job->account;
@@ -1151,7 +1139,8 @@ static void _enhance_env_jobpack(bool got_alloc)
 				env->resv_name = job->resv_name;
 			}
 			if (opt.pty && (set_winsize(job) < 0)) {
-				error("Not using a pseudo-terminal, disregarding --pty option");
+				error("Not using a pseudo-terminal, "
+				      "disregarding --pty option");
 				opt.pty = false;
 			}
 			if (opt.pty) {
@@ -1189,6 +1178,7 @@ static void _pre_launch_srun_jobpack(void)
 	job = _get_srun_job(0, 0);
 	pre_launch_srun_job_pack(job, 0, 1);
 }
+
 
 
 static int _launch_srun_steps_jobpack(bool got_alloc)

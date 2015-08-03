@@ -450,13 +450,12 @@ extern void init_srun(int ac, char **av,
 	xsignal_block(pty_sigarray);
 
 /*
-int index1;
-info(" init_srun ac contains %u", ac);
-for (index1 = 0; index1 < ac; index1++) {
-	info ("av[%u] is %s", index1, av[index1]);
-}
-*/										/* wjb */
-
+	int index1, group_number;
+	info(" init_srun ac contains %u", ac);
+	for (index1 = 0; index1 < ac; index1++) {
+		info ("av[%u] is %s", index1, av[index1]);
+	}
+*/
 
 	/* Initialize plugin stack, read options from plugins, etc.
 	 */
@@ -525,11 +524,11 @@ extern void init_srun_jobpack(int ac, char **av,
 	xsignal_block(pty_sigarray);
 
 /*
-int index1;
-info(" init_srun ac contains %u", ac);
-for (index1 = 0; index1 < ac; index1++) {
-	info ("av[%u] is %s", index1, av[index1]);
-}
+	int index1;
+	info(" init_srun ac contains %u", ac);
+	for (index1 = 0; index1 < ac; index1++) {
+		info ("av[%u] is %s", index1, av[index1]);
+	}
 */
 
 
@@ -898,9 +897,12 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 		}
 		global_resp = resp;
 		*got_alloc = true;
-		for (desc_index = 0; desc_index < pack_desc_count; desc_index++) {
-			_copy_opt_struct(&opt, desc[desc_index].pack_job_env[0].opt);
-			_copy_resp_struct(resp, desc[desc_index].pack_job_env[0].resp);
+		for (desc_index = 0; desc_index < pack_desc_count;
+		     desc_index++) {
+			_copy_opt_struct(&opt,
+					 desc[desc_index].pack_job_env[0].opt);
+			_copy_resp_struct(resp,desc[desc_index].pack_job_env[
+					  0].resp);
 			_print_job_information(resp);
 			_set_env_vars(resp);
 			if (_validate_relative(resp)) {
@@ -909,10 +911,13 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 			}
 			/* save job for pack-member */
 			job = job_create_allocation(resp);
-			_copy_srun_job_struct(desc[desc_index].pack_job_env[0].job, job);
+			_copy_srun_job_struct(desc[desc_index].pack_job_env[
+					      0].job, job);
 
-			opt.time_limit = NO_VAL;/* not applicable for step, only job */
-			xfree(opt.constraints);	/* not applicable for this step */
+			opt.time_limit = NO_VAL;/* not applicable for step,
+						 * only job */
+			xfree(opt.constraints);	/* not applicable for this
+						 * step */
 			if (!opt.job_name_set_cmd && opt.job_name_set_env) {
 				/* use SLURM_JOB_NAME env var */
 				opt.job_name_set_cmd = true;
@@ -945,7 +950,8 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 				*p_job = desc[0].pack_job_env[0].job;
 			}
 			/* save updated opt information for pack-member */
-			_copy_opt_struct(desc[desc_index].pack_job_env[0].opt, &opt);
+			_copy_opt_struct(desc[desc_index].pack_job_env[0].opt,
+					 &opt);
 		}
 
 	}

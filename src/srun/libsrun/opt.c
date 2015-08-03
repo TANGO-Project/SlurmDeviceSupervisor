@@ -317,7 +317,9 @@ int initialize_and_process_args(int argc, char *argv[])
 	return 1;
 
 }
-int initialize_and_process_args_jobpack(int argc, char *argv[], uint32_t group_number)
+
+int initialize_and_process_args_jobpack(int argc, char *argv[],
+					uint32_t group_number)
 {
 
 	/* initialize option defaults */
@@ -354,6 +356,7 @@ int initialize_and_process_args_jobpack(int argc, char *argv[], uint32_t group_n
 	return 1;
 
 }
+
 static int _get_task_count(void)
 {
 	char *cpus_per_node = NULL, *end_ptr = NULL;
@@ -2573,7 +2576,7 @@ static bool _opt_verify(void)
 		mpi_type = slurm_get_mpi_default();
 		(void) mpi_hook_client_init(NULL);
 	}
-	info("DHP _opt_options: ntasks = %d", opt.ntasks);
+//	info("DHP _opt_options: ntasks = %d", opt.ntasks);
 	xfree(mpi_type);
 
 	return verified;

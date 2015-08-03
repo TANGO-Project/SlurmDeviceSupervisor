@@ -196,7 +196,7 @@ void _copy_opt_struct(opt_t *to, opt_t *from);
 void _copy_env(char **to, char **from);
 void  _copy_job_desc_msg(job_desc_msg_t *to, job_desc_msg_t *from);
 void _copy_alloc_struct(resource_allocation_response_msg_t *to,
-		       resource_allocation_response_msg_t *from);
+			resource_allocation_response_msg_t *from);
 
 extern int error_exit;		/* exit code for slurm errors */
 extern int immediate_exit;	/* exit code for --imediate option & busy */

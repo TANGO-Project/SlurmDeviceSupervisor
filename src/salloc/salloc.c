@@ -170,9 +170,8 @@ int _count_jobs(int ac, char **av)
 	return pack_desc_count;
 }
 
-int _build_env_structs(int ac, char **av)
+static void _build_env_structs(int ac, char **av)
 {
-	int rc = 0;
 	int i;
 /*
 	int index;
@@ -182,7 +181,7 @@ int _build_env_structs(int ac, char **av)
 	}
 */
 
-pack_job_env = xmalloc(sizeof(pack_job_env_t) * pack_desc_count);
+	pack_job_env = xmalloc(sizeof(pack_job_env_t) * pack_desc_count);
 	for (i = 0; i < pack_desc_count; i++) {
 		pack_job_env[i].opt = xmalloc(sizeof(opt_t));
 		memset(pack_job_env[i].opt, 0, sizeof(opt_t));
@@ -190,18 +189,19 @@ pack_job_env = xmalloc(sizeof(pack_job_env_t) * pack_desc_count);
 		pack_job_env[i].env[0] = NULL;
 		pack_job_env[i].desc = xmalloc(sizeof(job_desc_msg_t));
 		memset(pack_job_env[i].desc, 0, sizeof(job_desc_msg_t));
-		pack_job_env[i].alloc = xmalloc(sizeof(resource_allocation_response_msg_t));
-		memset(pack_job_env[i].alloc, 0, sizeof(resource_allocation_response_msg_t));
+		pack_job_env[i].alloc =
+			xmalloc(sizeof(resource_allocation_response_msg_t));
+		memset(pack_job_env[i].alloc, 0,
+		       sizeof(resource_allocation_response_msg_t));
 		pack_job_env[i].packleader = false;
 		pack_job_env[i].pack_job = false;
 		pack_job_env[i].job_id = 0;
 	}
-	return rc;
+	return;
 }
 
-int _identify_job_descriptions(int ac, char **av)
+static void _identify_job_descriptions(int ac, char **av)
 {
-	int rc = 0;
 	int index, index2;
 	int i = 0;
 	int j = 0;
@@ -216,8 +216,6 @@ int _identify_job_descriptions(int ac, char **av)
 	uint16_t dependency_position = 0;
 
 	pack_job_id = xstrdup("");
-
-
 /*
 	int index3;
 	printf("in_identify_job_descriptions ac contains %u\n", ac);
@@ -292,22 +290,24 @@ int _identify_job_descriptions(int ac, char **av)
 			k++;
 		}
 
-	pack_job_env[job_index].ac = j;
-	pack_job_env[job_index].av = newcmd_cpy;
-/*int index1;
-for (index1=0; index1 < j; index1++)
-	printf("pack_job_env[%u].av[%u] = %s\n", job_index, index1, pack_job_env[job_index].av[index1]);
+		pack_job_env[job_index].ac = j;
+		pack_job_env[job_index].av = newcmd_cpy;
+/*
+		int index1;
+		for (index1=0; index1 < j; index1++)
+			printf("pack_job_env[%u].av[%u] = %s\n", job_index,
+			       index1, pack_job_env[job_index].av[index1]);
 */
-	job_index++;
+		job_index++;
 
-	for (i = 0; i < ac; i++) {
-		if(newcmd[i] != NULL)
-			xfree(newcmd[i]);
+		for (i = 0; i < ac; i++) {
+			if(newcmd[i] != NULL)
+				xfree(newcmd[i]);
+		}
+
 	}
 
-	}
-
-	return rc;
+	return;
 }
 
 resource_allocation_response_msg_t *
@@ -830,8 +830,8 @@ int main_jobpack(int argc, char *argv[])
 	if (atexit((void (*) (void)) spank_fini) < 0)
 		error("Failed to register atexit handler for plugins: %m");
 
-	rc = _build_env_structs(argc, argv);
-	rc = _identify_job_descriptions(argc, argv);
+	_build_env_structs(argc, argv);
+	 _identify_job_descriptions(argc, argv);
 
 	for (job_index = pack_desc_count; job_index > 0; job_index--) {
 		group_number = job_index - 1;
@@ -840,8 +840,8 @@ int main_jobpack(int argc, char *argv[])
 		if (packleader == true) {
 			if ((strcmp(pack_job_id, "") == 0))
 				fatal( "found packleader but no pack job id" );
-			xstrcat(pack_job_env[group_number].av[packl_dependency_position],
-			        pack_job_id);
+			xstrcat(pack_job_env[group_number].av[
+				packl_dependency_position], pack_job_id);
 		}
 		_copy_opt_struct( &opt, pack_job_env[group_number].opt);
 		_copy_job_desc_msg(&desc, pack_job_env[group_number].desc);
@@ -910,7 +910,7 @@ int main_jobpack(int argc, char *argv[])
 			 */
 		} else if ((tpgid = tcgetpgrp(STDIN_FILENO)) < 0) {
 #ifdef HAVE_ALPS_CRAY
-		        verbose("no controlling terminal");
+			verbose("no controlling terminal");
 #else
 			if (!opt.no_shell) {
 			  error("no controlling terminal: please set --no-shell");
@@ -940,8 +940,8 @@ int main_jobpack(int argc, char *argv[])
 		 * Reset saved tty attributes at exit, in case a child
 		 * process died before properly resetting terminal.
 		 */
-	        if (is_interactive)
-		        atexit (_reset_input_mode);
+		if (is_interactive)
+			atexit (_reset_input_mode);
 
 		/*
 		 * Request a job allocation
@@ -951,12 +951,11 @@ int main_jobpack(int argc, char *argv[])
 		        exit(error_exit);
 		}
 		if (opt.gid != (gid_t) -1) {
-		        if (setgid(opt.gid) < 0) {
-			        error("setgid: %m");
+			if (setgid(opt.gid) < 0) {
+				error("setgid: %m");
 				exit(error_exit);
 			}
 		}
-
 		callbacks.ping = _ping_handler;
 		callbacks.timeout = _timeout_handler;
 		callbacks.job_complete = _job_complete_handler;
@@ -964,19 +963,18 @@ int main_jobpack(int argc, char *argv[])
 		callbacks.user_msg = _user_msg_handler;
 		callbacks.node_fail = _node_fail_handler;
 		/* create message thread to handle pings and such from
-		   slurmctld */
+		 * slurmctld */
 		msg_thr = slurm_allocation_msg_thr_create(&desc.other_port,
-						  &callbacks);
+							  &callbacks);
 
 		/* NOTE: Do not process signals in separate pthread. The signal
 		 * will cause slurm_allocate_resources_blocking() to exit
 		 * immediately. */
 		for (i = 0; sig_array[i]; i++)
-		        xsignal(sig_array[i], _signal_while_allocating);
+			xsignal(sig_array[i], _signal_while_allocating);
 
 		before = time(NULL);
 		retries = 0;
-
 		if (packjob == true) {
 //info("making allocation request with group_number of %u", group_number);	/* wjb */
 		        while ((alloc = slurm_allocate_pack_resources(&desc,
@@ -994,28 +992,30 @@ int main_jobpack(int argc, char *argv[])
 			        fatal("JPCK: failed to allocate pack member");
 		} else if (packleader == true) {
 //info("making allocation request with group_number of %u", group_number);	/* wjb */
-		        while ((alloc = slurm_allocate_resources_blocking(&desc,
-			      opt.immediate, _pending_callback)) == NULL) {
-			  if (((errno != ESLURM_ERROR_ON_DESC_TO_RECORD_COPY) &&
-			       (errno != EAGAIN)) || (retries >= MAX_RETRIES))
-			          break;
-			  if (retries == 0)
-			          error("%s", msg);
-			  else
-			          debug("%s", msg);
-			  sleep (++retries);
+			while ((alloc = slurm_allocate_resources_blocking(&desc,
+				opt.immediate, _pending_callback)) == NULL) {
+				if (((errno !=
+				      ESLURM_ERROR_ON_DESC_TO_RECORD_COPY) &&
+				    (errno != EAGAIN)) || (retries >=
+				     MAX_RETRIES))
+					break;
+				if (retries == 0)
+					error("%s", msg);
+				else
+					debug("%s", msg);
+				sleep (++retries);
 			}
-			if (!alloc)
-			        fatal("JPCK: failed to allocate packleader");
-
+			if (!alloc) {
+			fatal("JPCK: failed to allocate packleader");
+			}
 			pack_job_env[group_number].job_id = alloc->job_id;
 		}
 		_copy_opt_struct(pack_job_env[group_number].opt, &opt);
 		_copy_job_desc_msg(pack_job_env[group_number].desc, &desc);
-        }
+	}
 //info("******************** exited first loop **********************");		/* wjb */
 
-        /* become the user after the allocation has been requested. */
+	/* become the user after the allocation has been requested. */
 	if (opt.uid != (uid_t) -1) {
 		if (setuid(opt.uid) < 0) {
 			error("setuid: %m");
@@ -1109,7 +1109,7 @@ int main_jobpack(int argc, char *argv[])
 
 		/* Add default task count for srun, if not already set */
 		if (opt.ntasks_set) {
-		        env_array_append_fmt(&env, "SLURM_NTASKS", "%d",
+			env_array_append_fmt(&env, "SLURM_NTASKS", "%d",
 					     opt.ntasks);
 			/* keep around for old scripts */
 			env_array_append_fmt(&env, "SLURM_NPROCS", "%d",
@@ -1251,15 +1251,16 @@ relinquish:
 	pthread_mutex_lock(&allocation_state_lock);
 	if (allocation_state != REVOKED) {
 		pthread_mutex_unlock(&allocation_state_lock);
-	for (group_number = 0; group_number < pack_desc_count;
-	     group_number++) {
-		_copy_alloc_struct(alloc, pack_job_env[group_number].alloc);
-		info("Relinquishing job allocation %u", alloc->job_id);
-		if ((slurm_complete_job(alloc->job_id, status) != 0) &&
-		    (slurm_get_errno() != ESLURM_ALREADY_DONE))
-			error("Unable to clean up job allocation %u: %m",
-			      alloc->job_id);
-	}
+		for (group_number = 0; group_number < pack_desc_count;
+		     group_number++) {
+			_copy_alloc_struct(alloc,
+					   pack_job_env[group_number].alloc);
+			info("Relinquishing job allocation %u", alloc->job_id);
+			if ((slurm_complete_job(alloc->job_id, status) != 0) &&
+			    (slurm_get_errno() != ESLURM_ALREADY_DONE))
+				error("Unable to clean up job allocation %u: %m",
+				      alloc->job_id);
+		}
 		pthread_mutex_lock(&allocation_state_lock);
 		allocation_state = REVOKED;
 	}

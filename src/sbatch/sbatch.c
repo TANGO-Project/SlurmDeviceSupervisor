@@ -103,7 +103,7 @@ if(pack_desc_count) pack_desc_count++;
 	return pack_desc_count;
 }
 
-int _build_env_structs(int ac, char **av)
+static void _build_env_structs(int ac, char **av)
 {
 	int i;
 
@@ -115,7 +115,7 @@ int _build_env_structs(int ac, char **av)
 	}
 */
 
-pack_job_env = xmalloc(sizeof(pack_job_env_t) * pack_desc_count);
+	pack_job_env = xmalloc(sizeof(pack_job_env_t) * pack_desc_count);
 	for (i = 0; i < pack_desc_count; i++) {
 		pack_job_env[i].packleader = false;
 		pack_job_env[i].pack_job = false;
@@ -127,7 +127,7 @@ pack_job_env = xmalloc(sizeof(pack_job_env_t) * pack_desc_count);
 	return;
 }
 
-int _identify_job_descriptions(int ac, char **av)
+static void _identify_job_descriptions(int ac, char **av)
 {
 	int index, index2;
 	int i = 0;
@@ -200,26 +200,30 @@ int _identify_job_descriptions(int ac, char **av)
 			}
 		} else {
 			if (_pack_l == true) {
-				pack_job_env[job_index].av[1] = (char *) xstrdup(packleader_str);
+				pack_job_env[job_index].av[1] = (char *)
+					xstrdup(packleader_str);
 				packl_dependency_position = 1;
 				i++;
 			} else if ((_pack_l == false) && (job_index >= 1)) {
-				pack_job_env[job_index].av[1] = (char *) xstrdup(pack_str);
+				pack_job_env[job_index].av[1] = (char *)
+					xstrdup(pack_str);
 				i++;
 			}
 		}
 		int k = 1;
 		for (index2 = i; index2 < j + 1; index2++) {
-			pack_job_env[job_index].av[index2] = (char * ) xstrdup(newcmd[k]);
+			pack_job_env[job_index].av[index2] = (char * )
+				xstrdup(newcmd[k]);
 			k++;
 		}
 
 		pack_job_env[job_index].ac = j;
 
 /*
-int index1;
-for (index1=0; index1 < j; index1++)
-	info("pack_job_env[%u].av[%u] = %s\n", job_index, index1, pack_job_env[job_index].av[index1]);
+	int index1;
+	for (index1=0; index1 < j; index1++)
+		info("pack_job_env[%u].av[%u] = %s\n", job_index, index1,
+		     pack_job_env[job_index].av[index1]);
 */
 		job_index++;
 	}
@@ -513,135 +517,136 @@ static int main_jobpack(int argc, char *argv[])
 		if (packleader == true) {
 			if (pack_job_id == NULL)
 				fatal( "found packleader but no pack job id" );
-			xstrcat(pack_job_env[group_number].av[packl_dependency_position],
-			        pack_job_id);
+			xstrcat(pack_job_env[group_number].av[
+				packl_dependency_position], pack_job_id);
 		}
 
-	script_name = process_options_first_pass(pack_job_env[group_number].ac,
-						 pack_job_env[group_number].av);
-	/* reinit log with new verbosity (if changed by command line) */
-	if (opt.verbose || opt.quiet) {
-		logopt.stderr_level += opt.verbose;
-		logopt.stderr_level -= opt.quiet;
-		logopt.prefix_level = 1;
-		log_alter(logopt, 0, NULL);
-	}
-
-	if (!packleader)
-		script_body = _script_donothing(&script_size);
-	else {
-	        if (opt.wrap != NULL) {
-		        script_body = _script_wrap(opt.wrap);
-		} else {
-		        script_body = _get_script_buffer(script_name, &script_size);
+		script_name = process_options_first_pass(pack_job_env[
+							 group_number].ac,
+							 pack_job_env[
+							 group_number].av);
+		/* reinit log with new verbosity (if changed by command line) */
+		if (opt.verbose || opt.quiet) {
+			logopt.stderr_level += opt.verbose;
+			logopt.stderr_level -= opt.quiet;
+			logopt.prefix_level = 1;
+			log_alter(logopt, 0, NULL);
 		}
-	}
-	if (script_body == NULL)
-		exit(error_exit);
-
-	if (process_options_second_pass(
-				(pack_job_env[group_number].ac - opt.script_argc),
-				pack_job_env[group_number].av,
-				script_name ? xbasename (script_name) :
-				!packleader ? NULL : "stdin",
-				script_body, script_size) < 0) {
-		error("sbatch parameter parsing");
-		exit(error_exit);
-	}
-
-	if (spank_init_post_opt() < 0) {
-		error("Plugin stack post-option processing failed");
-		exit(error_exit);
-	}
-
-	if (opt.get_user_env_time < 0) {
-		/* Moab does not propage the user's resource limits, so
-		 * slurmd determines the values at the same time that it
-		 * gets the user's default environment variables. */
-		(void) _set_rlimit_env();
-	}
-
-	/*
-	 * if the environment is coming from a file, the
-	 * environment at execution startup, must be unset.
-	 */
-	if (opt.export_file != NULL)
-		env_unset_environment();
-	_set_prio_process_env();
-	_set_spank_env();
-	_set_submit_dir_env();
-	_set_umask_env();
-	_set_group_number_env(group_number);
-	slurm_init_job_desc_msg(&desc);
-	if (_fill_job_desc_from_opts(&desc) == -1) {
-		exit(error_exit);
-	}
-	desc.script = (char *)script_body;
-
-	/* If can run on multiple clusters find the earliest run time
-	 * and run it there */
-	if (opt.clusters &&
-	    slurmdb_get_first_avail_cluster(&desc, opt.clusters,
-			&working_cluster_rec) != SLURM_SUCCESS) {
-		print_db_notok(opt.clusters, 0);
-		exit(error_exit);
-	}
-
-
-	if (_check_cluster_specific_settings(&desc) != SLURM_SUCCESS)
-		exit(error_exit);
-
-	if (opt.test_only) {
-		if (slurm_job_will_run(&desc) != SLURM_SUCCESS) {
-			slurm_perror("allocation failure");
-			exit (1);
+		if (!packleader)
+			script_body = _script_donothing(&script_size);
+		else {
+			if (opt.wrap != NULL) {
+				script_body = _script_wrap(opt.wrap);
+			} else {
+				script_body = _get_script_buffer(script_name,
+								 &script_size);
+			}
 		}
-		exit (0);
-	}
+		if (script_body == NULL)
+			exit(error_exit);
 
-	while (slurm_submit_batch_job(&desc, &resp) < 0) {
-		static char *msg;
-
-		if (errno == ESLURM_ERROR_ON_DESC_TO_RECORD_COPY)
-			msg = "Slurm job queue full, sleeping and retrying.";
-		else if (errno == ESLURM_NODES_BUSY) {
-			msg = "Job step creation temporarily disabled, "
-			      "retrying";
-		} else if (errno == EAGAIN) {
-			msg = "Slurm temporarily unable to accept job, "
-			      "sleeping and retrying.";
-		} else
-			msg = NULL;
-		if ((msg == NULL) || (retries >= MAX_RETRIES)) {
-			error("Batch job submission failed: %m");
+		if (process_options_second_pass(
+		(pack_job_env[group_number].ac - opt.script_argc),
+		pack_job_env[group_number].av,
+		script_name ? xbasename (script_name) :
+		!packleader ? NULL : "stdin",script_body, script_size) < 0) {
+			error("sbatch parameter parsing");
 			exit(error_exit);
 		}
 
-		if (retries)
-			debug("%s", msg);
-		else if (errno == ESLURM_NODES_BUSY)
-			info("%s", msg); /* Not an error, powering up nodes */
-		else
-			error("%s", msg);
-		sleep (++retries);
-        }
-	if (packjob == true)
-		xstrfmtcat(pack_job_id,":%u", resp->job_id);
-	if (!opt.parsable){
-		printf("Submitted batch job %u", resp->job_id);
-		if (working_cluster_rec)
-			printf(" on cluster %s", working_cluster_rec->name);
-		printf("\n");
-	} else {
-		printf("%u", resp->job_id);
-		if (working_cluster_rec)
-			printf(";%s", working_cluster_rec->name);
-		printf("\n");
-	}
+		if (spank_init_post_opt() < 0) {
+			error("Plugin stack post-option processing failed");
+			exit(error_exit);
+		}
 
-	xfree(desc.script);
-	slurm_free_submit_response_response_msg(resp);
-}
+		if (opt.get_user_env_time < 0) {
+			/* Moab does not propage the user's resource limits, so
+			* slurmd determines the values at the same time that it
+			* gets the user's default environment variables. */
+			(void) _set_rlimit_env();
+		}
+
+		/*
+		* if the environment is coming from a file, the
+		* environment at execution startup, must be unset.
+		*/
+		if (opt.export_file != NULL)
+			env_unset_environment();
+		_set_prio_process_env();
+		_set_spank_env();
+		_set_submit_dir_env();
+		_set_umask_env();
+		_set_group_number_env(group_number);
+		slurm_init_job_desc_msg(&desc);
+		if (_fill_job_desc_from_opts(&desc) == -1) {
+			exit(error_exit);
+		}
+		desc.script = (char *)script_body;
+
+		/* If can run on multiple clusters find the earliest run time
+		* and run it there */
+		if (opt.clusters &&
+		    slurmdb_get_first_avail_cluster(&desc, opt.clusters,
+		    &working_cluster_rec) != SLURM_SUCCESS) {
+			print_db_notok(opt.clusters, 0);
+			exit(error_exit);
+		}
+
+		if (_check_cluster_specific_settings(&desc) != SLURM_SUCCESS)
+			exit(error_exit);
+
+		if (opt.test_only) {
+			if (slurm_job_will_run(&desc) != SLURM_SUCCESS) {
+				slurm_perror("allocation failure");
+				exit (1);
+			}
+			exit (0);
+		}
+		while (slurm_submit_batch_job(&desc, &resp) < 0) {
+			static char *msg;
+
+			if (errno == ESLURM_ERROR_ON_DESC_TO_RECORD_COPY)
+				msg = "Slurm job queue full, sleeping and "
+				      "retrying.";
+			else if (errno == ESLURM_NODES_BUSY) {
+				msg = "Job step creation temporarily disabled, "
+				      "retrying";
+			} else if (errno == EAGAIN) {
+				msg = "Slurm temporarily unable to accept job, "
+				      "sleeping and retrying.";
+			} else
+				msg = NULL;
+			if ((msg == NULL) || (retries >= MAX_RETRIES)) {
+				error("Batch job submission failed: %m");
+				exit(error_exit);
+			}
+
+			if (retries)
+				debug("%s", msg);
+			else if (errno == ESLURM_NODES_BUSY)
+				info("%s", msg); /* Not an error, powering up nodes */
+			else
+				error("%s", msg);
+			sleep (++retries);
+		}
+		if (packjob == true)
+			xstrfmtcat(pack_job_id,":%u", resp->job_id);
+		if (!opt.parsable){
+			printf("Submitted batch job %u", resp->job_id);
+			if (working_cluster_rec)
+				printf(" on cluster %s",
+				       working_cluster_rec->name);
+			printf("\n");
+		} else {
+			printf("%u", resp->job_id);
+			if (working_cluster_rec)
+				printf(";%s", working_cluster_rec->name);
+			printf("\n");
+		}
+
+		xfree(desc.script);
+		slurm_free_submit_response_response_msg(resp);
+	}
 	return 0;
 }
 
@@ -1250,8 +1255,6 @@ static char *_script_donothing(int *size)
 	xstrcat(script, "#!/bin/sh\n");
 	xstrcat(script, "# This script was created by sbatch -- does nothing.\n\n");
 	xstrcat(script, "exit 0;\n");
-	*size = strlen(script);
-
 	*size = strlen(script);
 
 	return script;
