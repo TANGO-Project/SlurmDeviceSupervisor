@@ -144,6 +144,7 @@ slurm_allocate_resources (job_desc_msg_t *req,
 	return SLURM_PROTOCOL_SUCCESS;
 }
 
+//##########################################################################
 /*
  * slurm_allocate_pack_resources
  *	allocate resources for a job request.  This call will block until
@@ -164,8 +165,8 @@ slurm_allocate_resources (job_desc_msg_t *req,
  */
 resource_allocation_response_msg_t *
 slurm_allocate_pack_resources (const job_desc_msg_t *user_req,
-			       time_t timeout,
-			       void(*pending_callback)(uint32_t job_id))
+				   time_t timeout,
+				   void(*pending_callback)(uint32_t job_id))
 {
 	int rc;
 	slurm_msg_t req_msg;
@@ -279,6 +280,7 @@ slurm_allocate_pack_resources (const job_desc_msg_t *user_req,
 	errno = errnum;
 	return resp;
 }
+//##########################################################################
 
 /*
  * slurm_allocate_resources_blocking

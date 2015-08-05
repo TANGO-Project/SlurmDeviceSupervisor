@@ -496,6 +496,7 @@ extern int launch_p_create_job_step(srun_job_t *job, bool use_all_cpus,
 				    void (*signal_function)(int),
 				    sig_atomic_t *destroy_job)
 {
+//	debug("******** MNP entering launch plugin create_job_step"); // MNP debug
 	if (launch_common_create_job_step(job, use_all_cpus,
 					  signal_function,
 					  destroy_job) != SLURM_SUCCESS)
@@ -557,6 +558,7 @@ extern int launch_p_step_launch(
 	int rc = 0;
 	bool first_launch = 0;
 
+	debug("******** MNP %d: entering plugin launch_p_step_launch", getpid());
 	slurm_step_launch_params_t_init(&launch_params);
 	memcpy(&callbacks, step_callbacks, sizeof(callbacks));
 
@@ -602,6 +604,14 @@ extern int launch_p_step_launch(
 	launch_params.cpu_freq_max      = opt.cpu_freq_max;
 	launch_params.cpu_freq_gov      = opt.cpu_freq_gov;
 	launch_params.task_dist         = opt.distribution;
+	launch_params.num_tasks         = opt.ntasks; // MNP PMI
+	launch_params.mpi_jobid         = opt.mpi_jobid; // MNP PMI
+	debug("!!!!!!!! MNP pid=%d, in launch_p_step_launch, launch_params.mpi_jobid=%d", getpid(), launch_params.mpi_jobid);
+	launch_params.mpi_ntasks        = opt.mpi_ntasks; // MNP PMI
+	debug("!!!!!!!! MNP pid=%d, in launch_p_step_launch, launch_params.mpi_ntasks=%d", getpid(), launch_params.mpi_ntasks);
+	launch_params.mpi_stepftaskid   = opt.mpi_stepftaskid; // MNP PMI
+	debug("!!!!!!!! MNP pid=%d, in launch_p_step_launch, launch_params.num_tasks=%d", getpid(), launch_params.num_tasks);
+	debug("!!!!!!!! MNP pid=%d, in launch_p_step_launch, launch_params.mpi_stepftaskid=%d", getpid(), launch_params.mpi_stepftaskid);
 	launch_params.ckpt_dir		= opt.ckpt_dir;
 	launch_params.restart_dir       = opt.restart_dir;
 	launch_params.preserve_env      = opt.preserve_env;
@@ -688,6 +698,7 @@ extern int launch_p_step_launch(
 
 cleanup:
 
+	debug("******** MNP %d: exiting plugin launch_p_step_launch", getpid());
 	return rc;
 }
 
@@ -695,9 +706,11 @@ extern int launch_p_step_wait(srun_job_t *job, bool got_alloc)
 {
 	int rc = 0;
 
+	//debug("******** MNP %d: entering plugin launch_p_step_wait", getpid());
 	slurm_step_launch_wait_finish(job->step_ctx);
 	if ((MPIR_being_debugged == 0) && retry_step_begin &&
 	    (retry_step_cnt < MAX_STEP_RETRIES)) {
+		debug("******** MNP %d: in plugin launch_p_step_wait 1", getpid());
 		retry_step_begin = false;
 		slurm_step_ctx_destroy(job->step_ctx);
 		if (got_alloc) {
@@ -710,6 +723,7 @@ extern int launch_p_step_wait(srun_job_t *job, bool got_alloc)
 		task_state_destroy(task_state);
 		rc = -1;
 	}
+	//debug("******** MNP %d: exiting plugin launch_p_step_wait, rc=%d", getpid(), rc);
 	return rc;
 }
 

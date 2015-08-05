@@ -187,12 +187,6 @@ env_array_for_step(char ***dest,
 		   uint16_t launcher_port,
 		   bool preserve_env);
 
-void
-env_array_for_step_jobpack(char ***dest,
-		   const job_step_create_response_msg_t *step,
-		   uint16_t launcher_port,
-		   bool preserve_env, uint32_t group_number);
-
 /*
  * Return an empty environment variable array (contains a single
  * pointer to NULL).
