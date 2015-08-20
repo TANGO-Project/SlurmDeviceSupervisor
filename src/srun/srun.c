@@ -89,6 +89,10 @@
 #include "src/api/step_ctx.h"
 #include "src/api/step_launch.h"
 
+// MNP PMI pipe test start
+#include "src/common/mpi.h"
+// MNP PMI pipe test end
+
 /********************
  * Global Variables *
  ********************/
@@ -1239,6 +1243,7 @@ static int _launch_srun_steps_jobpack(bool got_alloc)
 	step_callbacks.step_signal   = launch_g_fwd_signal;
 	forkpids = xmalloc(total_jobs * sizeof(int));
 	pid_idx = 0;
+	pipe(vector_pipe);	// MNP PMI pipe test
 	for (i = 0; i < pack_desc_count; i++) {
 		job_index = desc[i].pack_group_count;
 		if (job_index == 0) job_index++;

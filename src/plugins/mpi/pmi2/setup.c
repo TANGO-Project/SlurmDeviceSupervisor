@@ -79,6 +79,7 @@ int *task_socks;
 char tree_sock_addr[128];
 pmi2_job_info_t job_info;
 pmi2_tree_info_t tree_info;
+int testpipe[2]; // MNP PMI pipe test
 
 extern bool
 in_stepd(void)
@@ -748,6 +749,35 @@ _setup_srun_socket(const mpi_plugin_client_info_t *job)
 	return SLURM_SUCCESS;
 }
 
+// MNP PMI start
+static int
+_setup_srun_job_info_combined(const mpi_plugin_client_info_t *job)
+{
+	if (job_info.jobid == job_info.orig_jobid) {
+		info("******** MNP pid=%d in pmi2 plugin _setup_srun_job_info_combined, THIS IS THE PACK LEADER", getpid());
+		close(vector_pipe[1]);				/* MNP PMI pipe test */
+		char readbuffer[80]; 				/* MNP PMI pipe test */
+		read(vector_pipe[0], readbuffer, sizeof(readbuffer)); /* MNP PMI pipe test */
+		printf("Received string: %s\n", readbuffer);	/* MNP PMI pipe test */
+		read(vector_pipe[0], readbuffer, sizeof(readbuffer)); /* MNP PMI pipe test */
+		printf("Received string: %s\n", readbuffer);	/* MNP PMI pipe test */
+		close(vector_pipe[0]);				/* MNP PMI pipe test */
+//		xstrcat(job_info.proc_mapping, readbuffer);
+		info("******** MNP pid=%d in pmi2 plugin _setup_srun_job_info_combined, updated job_info.proc_mapping=%s", getpid(), job_info.proc_mapping);
+	}
+	else {
+		info("******** MNP pid=%d in pmi2 plugin _setup_srun_job_info_combined, THIS IS A PACK MEMBER", getpid());
+		close(vector_pipe[0]);						/* MNP PMI pipe test */
+//		char message[] = "This message is from a pack member\n"; 						// MNP PMI pipe test
+		write(vector_pipe[1], job_info.proc_mapping, strlen(job_info.proc_mapping)+1);		/* MNP PMI pipe test */
+		write(vector_pipe[1], job_info.step_nodelist, strlen(job_info.step_nodelist)+1);	/* MNP PMI pipe test */
+		close(vector_pipe[1]);						/* MNP PMI pipe test */
+
+	}
+	return SLURM_SUCCESS;
+}
+// MNP PMI end
+
 static int
 _setup_srun_kvs(const mpi_plugin_client_info_t *job)
 {
@@ -856,6 +886,12 @@ pmi2_setup_srun(const mpi_plugin_client_info_t *job, char ***env)
 	rc = _setup_srun_job_info(job);
 	if (rc != SLURM_SUCCESS)
 		return rc;
+
+	// MNP PMI start
+	rc = _setup_srun_job_info_combined(job);
+	if (rc != SLURM_SUCCESS)
+		return rc;
+	// MNP PMI end
 
 	rc = _setup_srun_tree_info(job);
 	if (rc != SLURM_SUCCESS)
