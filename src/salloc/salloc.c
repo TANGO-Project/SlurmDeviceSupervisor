@@ -614,6 +614,10 @@ int main(int argc, char **argv)
 		goto relinquish;
 	}
 
+        /* add SLURM_NODELIST_MPI to env */
+        env_array_overwrite_fmt(&env, "SLURM_NODELIST_MPI",
+				"%s", alloc->node_list);
+
 	/*
 	 * Run the user's command.
 	 */
@@ -626,6 +630,9 @@ int main(int argc, char **argv)
 		/* keep around for old scripts */
 		env_array_append_fmt(&env, "SLURM_NPROCS", "%d", opt.ntasks);
 	}
+        /* add SLURM_NTASKS_MPI to env */
+        env_array_overwrite_fmt(&env, "SLURM_NTASKS_MPI",
+					"%d", opt.ntasks);
 	if (opt.cpus_set) {
 		env_array_append_fmt(&env, "SLURM_CPUS_PER_TASK", "%d",
 				     opt.cpus_per_task);
@@ -671,7 +678,7 @@ int main(int argc, char **argv)
 	xstrfmtcat(listjobids, "%d", alloc->job_id);
 	setenv("SLURM_LISTJOBIDS", listjobids, 1);
         xfree(listjobids);
-	setenv("SLURM_NUMPACK", "0", 1);
+	setenv("SLURM_NUMPACK", "1", 1);
 
 	slurm_mutex_lock(&allocation_state_lock);
 	if (allocation_state == REVOKED) {
@@ -1093,8 +1100,16 @@ int main_jobpack(int argc, char *argv[])
 		xstrcat(aggregate_hosts, aggr_nodelistptr);
 		if (group_number < (pack_desc_count - 1))
 		        xstrcat(aggregate_hosts, ",");
-		xfree(aggr_nodelistptr);
 		hostlist_destroy(hostlist);
+
+
+		env_array_overwrite_fmt(&env, "SLURM_GROUP_NUMBER",
+					"%d", group_number);
+
+		/* add SLURM_NODELIST_MPI to env */
+		env_array_overwrite_fmt(&env, "SLURM_NODELIST_MPI",
+					"%s", aggr_nodelistptr);
+		xfree(aggr_nodelistptr);
 
 		_copy_alloc_struct(pack_job_env[group_number].alloc, alloc);
 
@@ -1112,6 +1127,10 @@ int main_jobpack(int argc, char *argv[])
 			env_array_append_fmt(&env, "SLURM_NPROCS", "%d",
 					     opt.ntasks);
 		}
+		/* add SLURM_NTASKS_MPI to env */
+		env_array_overwrite_fmt(&env, "SLURM_NTASKS_MPI",
+					"%d", opt.ntasks);
+
 		pack_tot_ntasks += opt.ntasks;
 		if (opt.cpus_set) {
 		  env_array_append_fmt(&env, "SLURM_CPUS_PER_TASK", "%d",
@@ -1146,10 +1165,10 @@ int main_jobpack(int argc, char *argv[])
         /* Set SLURM_NODELIST_MPI env */
         setenv("SLURM_NODELIST_MPI", aggregate_hosts, 1);
 
+        /* Set new ENVs for jobpack */
+
         hostlist = hostlist_create(aggregate_hosts);
         hostlist_sort(hostlist);
-        hostlist_num = hostlist_count(hostlist);
-        aggr_nodelistptr = hostlist_ranged_string_xmalloc(hostlist);
 
         /* Set SLURM_LISTJOBIDS env */
 	setenv("SLURM_LISTJOBIDS", aggr_jobidptr, 1);
@@ -1162,19 +1181,22 @@ int main_jobpack(int argc, char *argv[])
         setenv("SLURM_NUMPACK", aggr_jobidptr, 1);
         xfree(aggr_jobidptr);
 
-        /* Set (reset for jobpack) SLURM_NODELIST_PACK env */
+        /* Set SLURM_NODELIST_PACK env */
+	hostlist_uniq(hostlist);
+        hostlist_num = hostlist_count(hostlist);
+        aggr_nodelistptr = hostlist_ranged_string_xmalloc(hostlist);
         setenv("SLURM_NODELIST_PACK", aggr_nodelistptr, 1);
         xfree(aggr_nodelistptr);
         xfree(aggregate_hosts);
 
-        /* Set (reset for jobpack) SLURM_NNODES_PACK env */
+        /* Set SLURM_NNODES_PACK env */
         numpacklen = snprintf(NULL, 0, "%d", hostlist_num);
         aggr_nodelistptr = xmalloc(numpacklen + 1);
         sprintf(aggr_nodelistptr, "%d", hostlist_num);
         setenv("SLURM_NNODES_PACK", aggr_nodelistptr, 1);
         xfree(aggr_nodelistptr);
 
-        /* Set (reset for jobpack) SLURM_NTASKS_PACK env */
+        /* Set SLURM_NTASKS_PACK env */
         numpacklen = snprintf(NULL, 0, "%d", pack_tot_ntasks);
         aggr_nodelistptr = xmalloc(numpacklen + 1);
         sprintf(aggr_nodelistptr, "%d", pack_tot_ntasks);
@@ -1186,6 +1208,9 @@ int main_jobpack(int argc, char *argv[])
         sprintf(aggr_nodelistptr, "[0-%d]", pack_desc_count-1);
         setenv("SLURM_PACK_GROUP", aggr_nodelistptr, 1);
         xfree(aggr_nodelistptr);
+        hostlist_destroy(hostlist);
+
+        /* End new ENVs for jobpack */
 
 	pthread_mutex_lock(&allocation_state_lock);
 	if (allocation_state == REVOKED) {
