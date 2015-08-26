@@ -1,4 +1,4 @@
-#!/usr/bin/env expect
+#!/usr/bin/expect
 ############################################################################
 # Purpose: Establish global state information for SLURM test suite
 #
@@ -80,9 +80,12 @@ if [file exists $local_globals_file] {
 # Specify the slurm install directory.
 # Used to locate binaries, libraries, and header files.
 #
-cset slurm_dir   "/usr"
-cset build_dir   "../../"
-cset src_dir     "../../"
+cset slurm_dir   "/app/slurm/nlk/install/dev-arrm2-common/"
+cset build_dir   "/app/slurm/nlk/build/dev-arrm2-common/"
+cset src_dir     "/app/slurm/nlk/git/new/"
+#cset slurm_dir   "/app/slurm/nlk/install/schedmd/"
+#cset build_dir   "/app/slurm/nlk/build/schedmd/"
+#cset src_dir     "/app/slurm/nlk/git/dev/"
 cset sacctmgr    "${slurm_dir}/bin/sacctmgr"
 cset sacct       "${slurm_dir}/bin/sacct"
 cset salloc      "${slurm_dir}/bin/salloc"
@@ -126,7 +129,7 @@ cset partition ""
 #cset mpicc	"/home/jette/mpich2-install/bin/mpicc"
 #cset use_pmi	1
 # OR for other versions of MPICH, use this
-cset mpicc       "/usr/local/bin/mpicc"
+cset mpicc       "/opt/mpi/bullxmpi/1.2.8.1/bin/mpicc"
 cset use_pmi	0
 #cset upcc       "/usr/local/bin/upcc"
 cset upcc       "/usr/bin/xlupc"
@@ -185,6 +188,7 @@ cset bin_sleep  "sleep"
 cset bin_sort   "sort"
 cset bin_touch  "touch"
 cset bin_uname	"uname"
+cset bin_usleep "usleep"
 cset bin_wc	"wc"
 cset bin_printenv "printenv"
 cset bin_uniq   "uniq"
@@ -198,7 +202,7 @@ cset bin_uniq   "uniq"
 cset max_job_delay 120
 
 #
-# Files must be propagated between nodes within this number of seconds.
+# Files must be propogated between nodes within this number of seconds.
 # The delay may be due to NFS.
 #
 cset max_file_delay 90
@@ -216,14 +220,13 @@ cset max_stress_tasks 4
 #
 # The error message that the "sleep" command prints when we run "sleep aaa".
 #
-cset sleep_error_message "(invalid time interval)|(bad character in argument)|(usage: sleep seconds)"
+cset sleep_error_message "(invalid time interval)|(bad character in argument)"
 
 # Other common variables
 set alpha                "\[a-zA-Z\]+"
 set alpha_cap            "\[A-Z\]+"
 set alpha_comma_slash    "\[a-zA-Z/,\]+"
 set alpha_numeric        "\[a-zA-Z0-9\]+"
-set alpha_numeric_colon  "\[a-zA-Z0-9_,\:\-\]+"
 set alpha_numeric_comma  "\[a-zA-Z0-9_,\-\]+"
 set alpha_numeric_under  "\[a-zA-Z0-9_\-\]+"
 set alpha_under          "\[A-Z_\]+"
@@ -285,7 +288,7 @@ proc cancel_job { job_id } {
 	}
 
 	send_user "cancelling $job_id\n"
-	set status [catch [exec $scancel -Q $job_id] result]
+	exec $scancel -Q $job_id
 	exec $bin_sleep 1
 	return [wait_for_job $job_id "DONE"]
 }
@@ -496,7 +499,7 @@ proc get_my_gid {  } {
 ################################################################
 
 proc kill_salloc {  } {
-	global bin_id bin_pkill bin_sleep number
+	global bin_id bin_pkill bin_sleep bin_usleep number
 
 	set uid [get_my_uid]
 	catch {exec $bin_pkill -INT -u $uid salloc}
@@ -523,7 +526,7 @@ proc kill_salloc {  } {
 ################################################################
 
 proc kill_srun {  } {
-	global bin_id bin_pkill bin_sleep number
+	global bin_id bin_pkill bin_sleep bin_usleep number
 
 	set uid [get_my_uid]
 	catch {exec $bin_pkill -INT -u $uid srun}
@@ -611,7 +614,6 @@ proc wait_for_file { file_name } {
 #                            DONE any terminated state
 #                            PENDING job is pending
 #                            RUNNING job is running
-#                            SUSPENDED job is suspended
 #
 # NOTE: We sleep for two seconds before replying that a job is
 # done to give time for I/O completion (stdout/stderr files)
@@ -626,7 +628,6 @@ proc wait_for_job { job_id desired_state } {
 		"DONE" {}
 		"PENDING" {}
 		"RUNNING" {}
-		"SUSPENDED" {}
 		default {
 			send_user "FAILURE: wait_for_job with invalid state: $desired_state\n"
 			return 1
@@ -666,10 +667,6 @@ proc wait_for_job { job_id desired_state } {
 					send_user "Job $job_id is $state, "
 					send_user "but we wanted RUNNING\n"
 				}
-				if {[string compare $desired_state "SUSPENDED"] == 0} {
-					send_user "Job $job_id is $state, "
-					send_user "but we wanted SUSPENDED\n"
-				}
 				return 1
 			}
 			"PENDING" {
@@ -683,14 +680,6 @@ proc wait_for_job { job_id desired_state } {
 			"RUNNING" {
 				if {[string compare $desired_state "RUNNING"] == 0} {
 					send_user "Job $job_id is RUNNING\n"
-					return 0
-				}
-				send_user "Job $job_id is in state $state, "
-				send_user "desire $desired_state\n"
-			}
-			"SUSPENDED" {
-				if {[string compare $desired_state "SUSPENDED"] == 0} {
-					send_user "Job $job_id is SUSPENDED\n"
 					return 0
 				}
 				send_user "Job $job_id is in state $state, "

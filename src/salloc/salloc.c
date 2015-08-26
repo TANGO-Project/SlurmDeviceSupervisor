@@ -211,23 +211,20 @@ static void _identify_job_descriptions(int ac, char **av)
 	char *packleader_str = xstrdup("-dpackleader");
 	char *command = NULL;
 	char **newcmd;
-	char **newcmd_cpy;
 	bool _pack_l;
 	uint16_t dependency_position = 0;
 
-	pack_job_id = xstrdup("");
 /*
 	int index3;
-	printf("in_identify_job_descriptions ac contains %u\n", ac);
+	info("in _identify_job_descriptions ac contains %u\n", ac);
 	for (index3 = 0; index3 < ac; index3++) {
-		printf("av[%u] is %s\n", index3, av[index3]);
+		info("av[%u] is %s\n", index3, av[index3]);
 	}
 */
-
+	newcmd = xmalloc(sizeof(char *) * (ac + 1));
 	while (current < ac){
-		newcmd = xmalloc(sizeof(char *) * ac);
 		newcmd[0] = xstrdup(av[0]);
-		for (i = 1; i < ac; i++) {
+		for (i = 1; i < (ac + 1); i++) {
 			newcmd[i] = NULL;
 		}
 		i = 1;
@@ -261,9 +258,10 @@ static void _identify_job_descriptions(int ac, char **av)
 		current = index + 1;
 		i = 1;
 
-		newcmd_cpy = xmalloc(sizeof(char *) * (j+1));
-		newcmd_cpy[0] =  xstrdup(newcmd[0]);
-		i=1;
+		if (dependency_position == 0) j++;
+		pack_job_env[job_index].av = xmalloc(sizeof(char *) * (j + 1));
+		pack_job_env[job_index].av[0] = (char *) xstrdup(newcmd[0]);
+		i = 1;
 		if (dependency_position != 0) {
 			if ((_pack_l == false) && (job_index >= 1)){
 				xstrcat(newcmd[dependency_position], ",pack");
@@ -274,39 +272,37 @@ static void _identify_job_descriptions(int ac, char **av)
 			}
 		} else {
 			if (_pack_l == true) {
-				newcmd_cpy[1] = xstrdup(packleader_str);
+				pack_job_env[job_index].av[1] = (char *)
+					xstrdup(packleader_str);
 				packl_dependency_position = 1;
-				j++;
 				i++;
 			} else if ((_pack_l == false) && (job_index >= 1)) {
-				newcmd_cpy[1] = xstrdup(pack_str);
-				j++;
+				pack_job_env[job_index].av[1] = (char *)
+					xstrdup(pack_str);
 				i++;
 			}
 		}
 		int k = 1;
-		for (index2 = i; index2 < j; index2++) {
-			newcmd_cpy[index2] =  xstrdup(newcmd[k]);
+		for (index2 = i; index2 < j + 1; index2++) {
+			pack_job_env[job_index].av[index2] = (char * )
+				xstrdup(newcmd[k]);
 			k++;
 		}
 
 		pack_job_env[job_index].ac = j;
-		pack_job_env[job_index].av = newcmd_cpy;
+
 /*
-		int index1;
-		for (index1=0; index1 < j; index1++)
-			printf("pack_job_env[%u].av[%u] = %s\n", job_index,
-			       index1, pack_job_env[job_index].av[index1]);
+	int index1;
+	for (index1=0; index1 < j; index1++)
+		info("pack_job_env[%u].av[%u] = %s\n", job_index, index1,
+		     pack_job_env[job_index].av[index1]);
 */
 		job_index++;
-
-		for (i = 0; i < ac; i++) {
-			if(newcmd[i] != NULL)
-				xfree(newcmd[i]);
-		}
-
 	}
-
+	for (i = 0; i < (ac + 1); i++) {
+		if(newcmd[i] != NULL)
+			xfree(newcmd[i]);
+	}
 	return;
 }
 

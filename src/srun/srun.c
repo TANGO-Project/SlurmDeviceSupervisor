@@ -447,28 +447,30 @@ static void _identify_job_descriptions(int ac, char **av)
 			}
 		} else {
 			if (_pack_l == true) {
-				pack_job_env[job_index].av[1] =
-					(char *) xstrdup(packleader_str);
+				pack_job_env[job_index].av[1] = (char *)
+					xstrdup(packleader_str);
 				packl_dependency_position = 1;
 				i++;
 			} else if ((_pack_l == false) && (job_index >= 1)) {
-				pack_job_env[job_index].av[1] =
-					(char *) xstrdup(pack_str);
+				pack_job_env[job_index].av[1] = (char *)
+					xstrdup(pack_str);
 				i++;
 			}
 		}
 		int k = 1;
-		for (index2 = i; index2 < j; index2++) {
-			pack_job_env[job_index].av[index2] =
-				(char * ) xstrdup(newcmd[k]);
+		for (index2 = i; index2 < j + 1; index2++) {
+			pack_job_env[job_index].av[index2] = (char * )
+				xstrdup(newcmd[k]);
 			k++;
 		}
+
 		pack_job_env[job_index].ac = j;
+
 /*
-		int index1;
-		for (index1=0; index1 < j; index1++)
-			info("pack_job_env[%u].av[%u] = %s\n", job_index,
-			     index1,pack_job_env[job_index].av[index1]);
+	int index1;
+	for (index1=0; index1 < j; index1++)
+		info("pack_job_env[%u].av[%u] = %s\n", job_index, index1,
+		     pack_job_env[job_index].av[index1]);
 */
 		job_index++;
 	}

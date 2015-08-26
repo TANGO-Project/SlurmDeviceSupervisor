@@ -141,7 +141,6 @@ static void _identify_job_descriptions(int ac, char **av)
 	bool _pack_l;
 	uint16_t dependency_position = 0;
 
-
 /*
 	int index3;
 	info("in _identify_job_descriptions ac contains %u\n", ac);
