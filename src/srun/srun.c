@@ -1250,7 +1250,10 @@ static void _enhance_env_jobpack(bool got_alloc)
 
 				env->select_jobinfo = job->select_jobinfo;
 				env->nodelist = job->nodelist;
-				hl = hostlist_create(job->nodelist);
+				slurm_step_ctx_t *step_ctx = job->step_ctx;
+				job_step_create_response_msg_t *step_resp = step_ctx->step_resp;
+				slurm_step_layout_t *layout = step_resp->step_layout;
+				hl = hostlist_create(layout->node_list);
 				xstrcat(nodelist_mpi,
 					hostlist_deranged_string_xmalloc(hl));
 				nodecnt_mpi += hostlist_count(hl);
