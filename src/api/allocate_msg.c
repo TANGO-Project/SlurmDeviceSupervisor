@@ -273,8 +273,6 @@ _handle_msg(void *arg, slurm_msg_t *msg)
 		_handle_ping(msg_thr, msg);
 		break;
 	case SRUN_JOB_COMPLETE:
-		//debug("******** MNP %d: allocate_msg:_handle_msg, received SRUN_JOB_COMPLETE msg", getpid());
-		break; // MNP provisional fix for "Force Terminated job" problem
 		_handle_job_complete(msg_thr, msg);
 		break;
 	case SRUN_TIMEOUT:
