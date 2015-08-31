@@ -458,7 +458,7 @@ static void _identify_job_descriptions(int ac, char **av)
 			}
 		}
 		int k = 1;
-		for (index2 = i; index2 < j + 1; index2++) {
+		for (index2 = i; index2 < j; index2++) {
 			pack_job_env[job_index].av[index2] = (char * )
 				xstrdup(newcmd[k]);
 			k++;
