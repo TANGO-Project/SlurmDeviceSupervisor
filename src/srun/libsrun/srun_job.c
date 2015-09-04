@@ -550,25 +550,13 @@ extern void init_srun_jobpack(int ac, char **av,
 	/* set default options, process commandline arguments, and
 	 * verify some basic values
 	 */
-	if(pack_desc_count != 0) {
-//	if (desc[group_index].pack_group_count != 0) {  nlk:wq
 
-		group_number =
-			desc[group_index].pack_job_env[job_index].group_number;
-		if (initialize_and_process_args_jobpack(ac, av, group_number) <
-		    0) {
-			error ("srun initialization failed");
-			exit (1);
-		}
-		desc[group_index].pack_job_env[job_index].job_id = opt.jobid;
-	} else {
-
-		if (initialize_and_process_args(ac, av) < 0) {
-			error ("srun initialization failed");
-			exit (1);
-		}
-		desc[group_index].pack_job_env[job_index].job_id = opt.jobid;
+	group_number = desc[group_index].pack_job_env[job_index].group_number;
+	if (initialize_and_process_args_jobpack(ac, av, group_number) < 0) {
+		error ("srun initialization failed");
+		exit (1);
 	}
+	desc[group_index].pack_job_env[job_index].job_id = opt.jobid;
 
 	record_ppid();
 

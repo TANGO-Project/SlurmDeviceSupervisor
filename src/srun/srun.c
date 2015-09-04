@@ -179,7 +179,7 @@ void cfmakeraw(struct termios *attr)
 
 int _count_jobs(int ac, char **av)
 {
-	int index;
+	int index, pgj;
 	char *tmp = NULL;
 	bool pack_group_job = false;
 
@@ -196,7 +196,10 @@ int _count_jobs(int ac, char **av)
 	}
 	if(pack_desc_count) pack_desc_count++;
 	if ((tmp = getenv ("SLURM_NUMPACK"))) {
-		pack_group_job = true;
+		pgj = atoi(tmp);
+                if (pgj > 1) {
+			pack_group_job = true;
+		}
 	}
 	if ((pack_desc_count == 0) && (pack_group_job == true))
 		pack_desc_count ++;
@@ -259,7 +262,7 @@ static void _build_pack_group_struct(uint32_t index, pack_job_env_t *env_struct)
 	if ((tmp = getenv ("SLURM_NUMPACK"))) {
 		numpack = atoi(tmp);
 		if (numpack <= 0)
-		numpack = 1;
+			numpack=1;
 	}
 
 	desc = xmalloc(sizeof(pack_group_struct_t) * index);
