@@ -242,29 +242,6 @@ static void _parse_pbs_resource_list(char *rl);
 
 /*---[ end forward declarations of static functions ]---------------------*/
 
-extern void _copy_opt_struct(opt_t *to, opt_t *from)
-{
-	memcpy(to, from, sizeof(opt_t));
-}
-
-/*
-extern void _copy_env_struct(env_t *to, env_t *from)
-{
-	memcpy(to, from, sizeof(env_t));
-}
-*/
-
-extern void _copy_job_desc_msg(job_desc_msg_t *to, job_desc_msg_t *from)
-{
-	memcpy(to, from, sizeof(job_desc_msg_t));
-}
-
-extern void _copy_resp_struct(submit_response_msg_t *to,
-			      submit_response_msg_t *from)
-{
-	memcpy(to, from, sizeof(submit_response_msg_t));
-}
-
 /*
  * print error message to stderr with opt.progname prepended
  */
@@ -984,8 +961,6 @@ char *process_options_first_pass(int argc, char **argv)
 		      " --wrap option.");
 		exit(error_exit);
 	}
-
-	if (packjob && !packleader) return NULL;
 
 	if (argc > optind) {
 		int i;

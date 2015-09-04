@@ -90,7 +90,6 @@ extern uint32_t pack_desc_count;
 extern char *pack_job_id;
 extern bool packleader;
 extern bool packjob;
-extern uint32_t group_number;
 extern uint32_t group_index;
 extern uint32_t job_index;
 
@@ -658,7 +657,10 @@ allocate_nodes_jobpack(bool handle_signals)
 		resp = existing_allocation();
 
 		if (!resp) {
-			fatal("JPCK: ***wjb*** failed pack member allocation. desc_index=%d desc[0]_job=%d opt_job=%d", desc_index, desc[0].pack_job_env[0].job_id, opt.jobid);
+			fatal("JPCK: ***wjb*** failed pack member allocation. "
+			      "desc_index=%d desc[0]_job=%d opt_job=%d",
+			      desc_index, desc[0].pack_job_env[0].job_id,
+			      opt.jobid);
 		}
 
 		/* save response message for pack-member */
@@ -733,7 +735,6 @@ allocate_nodes_jobpack(bool handle_signals)
 relinquish:
 	if (resp) {
 		if (!destroy_job)
-//info("## probably need to check for packleader & loop for all pack jobs here ##");
 			slurm_complete_job(resp->job_id, 1);
 		slurm_free_resource_allocation_response_msg(resp);
 	}
