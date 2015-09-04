@@ -185,81 +185,7 @@ void cfmakeraw(struct termios *attr)
 }
 #endif
 
-/*
-static int
-_build_group_jobid_array( char* str )
-{
-	int count = 0;
-	char *jobid = NULL, *tmp_char = NULL, *group_jobid_list = NULL;
-	int i, j=0;
 
-	if ( str == NULL)
-		return SLURM_ERROR;
-	// count the number of group jobids
-	group_jobid_list = xstrdup( str );
-	jobid = strtok_r( group_jobid_list, ",", &tmp_char );
-	while (jobid) {
-		count++;
-		jobid = strtok_r (NULL, ",", &tmp_char);
-	}
-	tmp_char = NULL;
-
-	group_ids = xmalloc(sizeof(int) * count);
-
-	group_jobid_list = xstrdup( str );
-	jobid = strtok_r( group_jobid_list, ",", &tmp_char );
-	while (jobid) {
-		i = slurm_xlate_job_id(jobid);
-		if (i <= 0) {
-			error( "Invalid job id: %s", jobid );
-			exit( 1 );
-		}
-		group_ids[j] = i;
-//		info("group_ids[%u] = %u", j, group_ids[j]);
-		j++;
-		jobid = strtok_r (NULL, ",", &tmp_char);
-	}
-	return SLURM_SUCCESS;
-}
-*/
-
-/*
-static int
-_build_group_jobid_array( char* str )
-{
-	int count = 0;
-	char *jobid = NULL, *tmp_char = NULL, *group_jobid_list = NULL;
-	int i, j=0;
-
-	if ( str == NULL)
-		return SLURM_ERROR;
-	// count the number of group jobids
-	group_jobid_list = xstrdup( str );
-	jobid = strtok_r( group_jobid_list, ",", &tmp_char );
-	while (jobid) {
-		count++;
-		jobid = strtok_r (NULL, ",", &tmp_char);
-	}
-	tmp_char = NULL;
-
-	group_ids = xmalloc(sizeof(int) * count);
-
-	group_jobid_list = xstrdup( str );
-	jobid = strtok_r( group_jobid_list, ",", &tmp_char );
-	while (jobid) {
-		i = slurm_xlate_job_id(jobid);
-		if (i <= 0) {
-			error( "Invalid job id: %s", jobid );
-			exit( 1 );
-		}
-		group_ids[j] = i;
-//		info("group_ids[%u] = %u", j, group_ids[j]);
-		j++;
-		jobid = strtok_r (NULL, ",", &tmp_char);
-	}
-	return SLURM_SUCCESS;
-}
-*/
 
 int _count_jobs(int ac, char **av)
 {
@@ -343,12 +269,12 @@ static void _build_pack_group_struct(uint32_t index, pack_job_env_t *env_struct)
 	int i, j, struct_index;
 	char *tmp = NULL;
 	uint32_t numpack;
+
 	if ((tmp = getenv ("SLURM_NUMPACK"))) {
 		numpack = atoi(tmp);
 		if (numpack <= 0)
 			numpack=1;
 	}
-
 	desc = xmalloc(sizeof(pack_group_struct_t) * index);
 	total_jobs = index;
 	for (i = 0; i < index; i++) {
@@ -367,6 +293,12 @@ static void _build_pack_group_struct(uint32_t index, pack_job_env_t *env_struct)
 		_build_env_structs(struct_index, &desc[i].pack_job_env[0]);
 		if (opt.ngrpidx != 0) desc[i].groupjob = true;
 		for (j = 0; j < opt.ngrpidx; j++) {
+			if (opt.groupidx[j] >= numpack) {
+				fatal( "Invalid group-number(%u). Max "
+				       "group-number is %u for current "
+				       "allocation", opt.groupidx[j],
+				       (numpack - 1) );
+			}
 			desc[i].pack_job_env[j].group_number =
 			  opt.groupidx[j];
 		}
@@ -392,7 +324,6 @@ static void _identify_job_descriptions(int ac, char **av)
 	int index3;
 	info("in _identify_job_descriptions ac contains %u\n", ac);
 	for (index3 = 0; index3 < ac; index3++) {
-
 		info("av[%u] is %s\n", index3, av[index3]);
 	}
 */
@@ -1336,23 +1267,6 @@ static void _pre_launch_srun_jobpack(void)
 	pre_launch_srun_job_pack(job, 0, 1);
 }
 
-/*
-static void _pre_launch_srun_jobpack(void)
-{
-	srun_job_t *job;
-	int i, j, job_index;
-
-	for (i = 0; i < pack_desc_count; i++) {
-		job_index = desc[i].pack_group_count;
-		if (job_index == 0) job_index++;
-		for (j = 0; j <job_index; j++) {
-			job = _get_srun_job(i, j);
-			pre_launch_srun_job_pack(job, 0, 1);
-		}
-	}
-}
-*/
-
 
 static int _launch_srun_steps_jobpack(bool got_alloc)
 {
@@ -1362,12 +1276,6 @@ static int _launch_srun_steps_jobpack(bool got_alloc)
 	slurm_step_io_fds_t cio_fds = SLURM_STEP_IO_FDS_INITIALIZER;
 	slurm_step_launch_callbacks_t step_callbacks;
 
-	/* MNP start experimental code to pipe stdin */
-//	int stdinpipe[2];
-//	if (pipe(stdinpipe) < 0) {
-//		debug("******** MNP error creating stdin pipe in parent srun");
-//		exit(0);
-//	}
 	/* MNP end experimental code to pipe stdin */
 
 	/* For each job description, set stdio fds and fork child srun
