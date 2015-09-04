@@ -119,11 +119,9 @@ bool packleader = false;
 uint16_t packl_dependency_position = 0;
 pack_group_struct_t *desc = NULL;
 pack_job_env_t *pack_job_env = NULL;
-uint32_t group_number = -1;
 uint32_t group_index = 0;
 uint32_t job_index = 0;
 static uint32_t total_jobs = 0;
-int *group_ids;
 
 bool srun_max_timer = false;
 bool srun_shutdown  = false;
@@ -212,6 +210,7 @@ _build_group_jobid_array( char* str )
 int _count_jobs(int ac, char **av)
 {
 	int index;
+	char *tmp = NULL;
 	bool pack_group_job = false;
 
 	for (index = 0; index < ac; index++) {
@@ -226,6 +225,9 @@ int _count_jobs(int ac, char **av)
 		}
 	}
 	if(pack_desc_count) pack_desc_count++;
+	if ((tmp = getenv ("SLURM_NUMPACK"))) {
+		pack_group_job = true;
+	}
 	if ((pack_desc_count == 0) && (pack_group_job == true))
 		pack_desc_count ++;
 	return pack_desc_count;
@@ -233,7 +235,6 @@ int _count_jobs(int ac, char **av)
 
 int _build_env_structs(int count, pack_job_env_t *pack_job_env)
 {
-	int rc = 0;
 	int i;
 
 	for (i = 0; i < count; i++) {
@@ -250,7 +251,7 @@ int _build_env_structs(int count, pack_job_env_t *pack_job_env)
 		pack_job_env[i].packleader = false;
 		pack_job_env[i].pack_job = false;
 		pack_job_env[i].job_id = 0;
-		pack_job_env[i].group_number=0;
+		pack_job_env[i].group_number = 0;
 		pack_job_env[i].av = (char **) NULL;
 		pack_job_env[i].ac = 0;
 
@@ -264,12 +265,23 @@ int _build_env_structs(int count, pack_job_env_t *pack_job_env)
 		pack_job_env[i].env->env = NULL;
 		pack_job_env[i].env->ckpt_dir = NULL;
 	}
-	return rc;
+	return;
 }
+static void _free_env_structs(int count, pack_job_env_t *pack_job_env)
+{
+	int i;
+
+	for (i = 0; i < count; i++) {
+		xfree(pack_job_env[i].opt);
+		xfree(pack_job_env[i].env);
+		xfree(pack_job_env[i].job);
+		xfree(pack_job_env[i].resp);
+	}
+	return;
+ }
 
 int _build_pack_group_struct(uint32_t index, pack_job_env_t *env_struct)
 {
-	int rc = 0;
 	int i, j, struct_index;
 	char *tmp = NULL;
 	uint32_t numpack;
@@ -300,12 +312,11 @@ int _build_pack_group_struct(uint32_t index, pack_job_env_t *env_struct)
 			  opt.groupidx[j];
 		}
 	}
-	return rc;
+	return;
 }
 
 int _identify_job_descriptions(int ac, char **av)
 {
-	int rc = 0;
 	int index, index2;
 	int i = 0;
 	int j = 0;
@@ -317,8 +328,6 @@ int _identify_job_descriptions(int ac, char **av)
 	char **newcmd;
 	bool _pack_l;
 	uint16_t dependency_position = 0;
-
-	pack_job_env = xmalloc(sizeof(pack_job_env_t) * pack_desc_count);
 
 /*
 	int index3;
@@ -379,17 +388,20 @@ int _identify_job_descriptions(int ac, char **av)
 			}
 		} else {
 			if (_pack_l == true) {
-				pack_job_env[job_index].av[1] = (char *) xstrdup(packleader_str);
+				pack_job_env[job_index].av[1] =
+					(char *) xstrdup(packleader_str);
 				packl_dependency_position = 1;
 				i++;
 			} else if ((_pack_l == false) && (job_index >= 1)) {
-				pack_job_env[job_index].av[1] = (char *) xstrdup(pack_str);
+				pack_job_env[job_index].av[1] =
+					(char *) xstrdup(pack_str);
 				i++;
 			}
 		}
 		int k = 1;
 		for (index2 = i; index2 < j; index2++) {
-			pack_job_env[job_index].av[index2] = (char * ) xstrdup(newcmd[k]);
+			pack_job_env[job_index].av[index2] =
+				(char * ) xstrdup(newcmd[k]);
 			k++;
 		}
 		pack_job_env[job_index].ac = j;
@@ -405,12 +417,11 @@ for (index1=0; index1 < j; index1++)
 			xfree(newcmd[i]);
 	}
 
-	return rc;
+	return;
 }
 
 int _identify_group_job_descriptions(int ac, char **av)
 {
-	int rc = 0;
 	int index, index1, index2;
 	int i = 0;
 	int j = 0;
@@ -461,8 +472,8 @@ int _identify_group_job_descriptions(int ac, char **av)
 		if(desc[job_index].groupjob == false) {
 			if (_pack_l == false) {
 				if (job_index >= 1)
-					desc[job_index].pack_job_env[0].pack_job =
-						true;
+					desc[job_index].pack_job_env[
+						0].pack_job = true;
 			} else {
 				desc[job_index].pack_job_env[0].packleader =
 					true;
@@ -504,7 +515,7 @@ int _identify_group_job_descriptions(int ac, char **av)
 		}
 
 		int k = 1;
-		for (index2 = i; index2 < j + 1; index2++) {
+		for (index2 = i; index2 < j; index2++) {
 			desc[job_index].pack_job_env[0].av [index2] =
 				xstrdup(newcmd[k]);
 			k++;
@@ -518,7 +529,8 @@ int _identify_group_job_descriptions(int ac, char **av)
 				desc[job_index].pack_job_env[index].av =
 					xmalloc(sizeof(char *) * (j+2));
 				for (index1 = 0; index1 < j + 1; index1++) {
-					desc[job_index].pack_job_env[index].av[index1] =
+					desc[job_index].pack_job_env[index].av[
+						index1] =
 						xstrdup(newcmd[index1]);
 				}
 				desc[job_index].pack_job_env[index].ac = j;
@@ -530,7 +542,7 @@ int _identify_group_job_descriptions(int ac, char **av)
 		if(newcmd[i] != NULL)
 			xfree(newcmd[i]);
 	}
-	return rc;
+	return;
 }
 
 int srun(int ac, char **av)
@@ -785,10 +797,10 @@ info("in _srun_jobpack inputs were as follows:\n");
 	log_init(xbasename(av[0]), logopt, 0, NULL);
 	init_srun(ac, av, &logopt, debug_level, 1);
 	_build_pack_group_struct(pack_desc_count, pack_job_env);
+	_free_env_structs(pack_desc_count, pack_job_env);
 
 	_identify_group_job_descriptions(ac, av);
 
-//info("************ entering loop 1 ****************************** ");			/* wjb */
 	for (group_index = 0; group_index < pack_desc_count; group_index++) {
 		group_count = desc[group_index].pack_group_count;
 		if (group_count == 0) group_count++;
@@ -806,8 +818,7 @@ info("in _srun_jobpack inputs were as follows:\n");
 			}
 		}
 	}
-//info("************ exited loop 1 ****************************** ");			/* wjb */
-//info("############# entering loop 2 ############################");			/* wjb */
+
 	for (desc_index = pack_desc_count; desc_index > 0; desc_index--) {
 		group_index = desc_index-1;
 		group_count = desc[group_index].pack_group_count;
@@ -819,8 +830,11 @@ info("in _srun_jobpack inputs were as follows:\n");
 			if (packleader == true) {
 
 				if (pack_job_id == NULL)
-					fatal( "found packleader but no pack job id" );
-				xstrcat(desc[group_index].pack_job_env[job_index].av[packl_dependency_position],
+					fatal( "found packleader but no pack "
+					       "job id" );
+				xstrcat(desc[group_index].pack_job_env[
+					job_index].av[
+					packl_dependency_position],
 					pack_job_id);
 				log_init(xbasename(desc[group_index].pack_job_env[job_index].av[0]), logopt, 0, NULL);
 				init_srun_jobpack(desc[group_index].pack_job_env[job_index].ac, desc[group_index].pack_job_env[job_index].av, &logopt, debug_level, 1);
@@ -829,7 +843,6 @@ info("in _srun_jobpack inputs were as follows:\n");
 			create_srun_jobpack(&desc[group_index].pack_job_env[job_index].job, &got_alloc, 0, 1);
 		}
 	}
-//info("############# exited loop 2 ############################");			/* wjb */
 
 	_create_srun_steps_jobpack();
 	debug("******** MNP all job steps now created");

@@ -833,7 +833,6 @@ int main_jobpack(int argc, char *argv[])
 	rc = _build_env_structs(argc, argv);
 	rc = _identify_job_descriptions(argc, argv);
 
-//info("******************** entering first loop **********************");		/* wjb */
 	for (job_index = pack_desc_count; job_index > 0; job_index--) {
 		group_number = job_index - 1;
 		packleader = pack_job_env[group_number].packleader;
@@ -1080,7 +1079,6 @@ int main_jobpack(int argc, char *argv[])
 		 */
 		goto relinquish;
 	}
-//info("#########################entering loop 2 #############################");			/* wjb */
 	for (group_number = 0; group_number < pack_desc_count;
 	     group_number++) {
 		_copy_opt_struct(&opt, pack_job_env[group_number].opt);
@@ -1147,7 +1145,6 @@ int main_jobpack(int argc, char *argv[])
 		env_array_set_environment(env, group_number);
 		env_array_free(env);
 	}
-//info("#########################exited loop 2 #############################");			/* wjb */
 
         hostlist = hostlist_create(aggregate_hosts);
         hostlist_sort(hostlist);
@@ -1218,7 +1215,8 @@ int main_jobpack(int argc, char *argv[])
 
 	pthread_mutex_lock(&allocation_state_lock);
 	if (suspend_flag)
-		pthread_cond_wait(&allocation_state_cond, &allocation_state_lock);
+		pthread_cond_wait(&allocation_state_cond,
+				  &allocation_state_lock);
 	command_pid = _fork_command(command_argv);
 	pthread_cond_broadcast(&allocation_state_cond);
 	pthread_mutex_unlock(&allocation_state_lock);
@@ -1594,7 +1592,6 @@ static void _pending_callback(uint32_t job_id)
 	pending_job_id = job_id;
 	if (packjob) {
 		pack_job_env[group_number].job_id = job_id;
-//info("saving pending jobid %u in pack_job_env[%u].job_id", job_id, group_number);		/* wjb */
 		xstrfmtcat(pack_job_id,":%u", job_id);
 	}
 }

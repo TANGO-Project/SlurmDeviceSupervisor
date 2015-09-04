@@ -105,7 +105,6 @@ if(pack_desc_count) pack_desc_count++;
 
 int _build_env_structs(int ac, char **av)
 {
-	int rc = 0;
 	int i;
 
 /*
@@ -118,27 +117,18 @@ int _build_env_structs(int ac, char **av)
 
 pack_job_env = xmalloc(sizeof(pack_job_env_t) * pack_desc_count);
 	for (i = 0; i < pack_desc_count; i++) {
-		pack_job_env[i].opt = xmalloc(sizeof(opt_t));
-		memset(pack_job_env[i].opt, 0, sizeof(opt_t));
-		pack_job_env[i].desc = xmalloc(sizeof(job_desc_msg_t));
-		memset(pack_job_env[i].desc, 0, sizeof(job_desc_msg_t));
-		pack_job_env[i].resp = xmalloc(sizeof(submit_response_msg_t));
-		memset(pack_job_env[i].resp, 0, sizeof(submit_response_msg_t));
 		pack_job_env[i].packleader = false;
 		pack_job_env[i].pack_job = false;
 		pack_job_env[i].job_id = 0;
-		pack_job_env[i].script_name = NULL;
-		pack_job_env[i].script_body = NULL;
 		pack_job_env[i].av = (char **) NULL;
 		pack_job_env[i].ac = 0;
 
 	}
-	return rc;
+	return;
 }
 
 int _identify_job_descriptions(int ac, char **av)
 {
-	int rc = 0;
 	int index, index2;
 	int i = 0;
 	int j = 0;
@@ -237,7 +227,7 @@ for (index1=0; index1 < j; index1++)
 		if(newcmd[i] != NULL)
 			xfree(newcmd[i]);
 	}
-	return rc;
+	return;
 }
 
 int main(int argc, char **argv)
@@ -517,7 +507,6 @@ static int main_jobpack(int argc, char *argv[])
 	_build_env_structs(argc, argv);
 	_identify_job_descriptions(argc, argv);
 	for (job_index = pack_desc_count; job_index > 0; job_index--) {
-//info("********** top of main loop ****************");				/* wjb */
 		group_number = job_index - 1;
 		packleader = pack_job_env[group_number].packleader;
 		packjob = pack_job_env[group_number].pack_job;
@@ -527,7 +516,6 @@ static int main_jobpack(int argc, char *argv[])
 			xstrcat(pack_job_env[group_number].av[packl_dependency_position],
 			        pack_job_id);
 		}
-		_copy_opt_struct( &opt, pack_job_env[group_number].opt);
 
 	script_name = process_options_first_pass(pack_job_env[group_number].ac,
 						 pack_job_env[group_number].av);
@@ -653,7 +641,6 @@ static int main_jobpack(int argc, char *argv[])
 
 	xfree(desc.script);
 	slurm_free_submit_response_response_msg(resp);
-//info("*************** end of main loop******************");			/* wjb */
 }
 	return 0;
 }

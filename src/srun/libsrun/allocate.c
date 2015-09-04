@@ -92,7 +92,6 @@ extern uint32_t pack_desc_count;
 extern char *pack_job_id;
 extern bool packleader;
 extern bool packjob;
-extern uint32_t group_number;
 extern uint32_t group_index;
 extern uint32_t job_index;
 
@@ -621,7 +620,7 @@ allocate_nodes_jobpack(bool handle_signals)
 	if (packjob == true) {
 		while (!resp) {
 			resp = slurm_allocate_pack_resources(j, opt.immediate,
-							     _set_pending_job_id);
+			       _set_pending_job_id);
 			if (destroy_job) {
 				/* cancelled by signal */
 				break;
@@ -633,7 +632,8 @@ allocate_nodes_jobpack(bool handle_signals)
 		if (! resp) {
 			fatal( "no response to pack job allocation request" );
 		}
-		_copy_resp_struct(desc[group_index].pack_job_env[job_index].resp, resp);
+		_copy_resp_struct(desc[group_index].pack_job_env[
+				  job_index].resp, resp);
 		return resp;
 	}
 
@@ -715,7 +715,8 @@ allocate_nodes_jobpack(bool handle_signals)
 				goto relinquish;
 			}
 			/* save updated opt for pack-member */
-			_copy_opt_struct(desc[desc_index].pack_job_env[0].opt, &opt);
+			_copy_opt_struct(desc[desc_index].pack_job_env[0].opt,
+					 &opt);
 #endif
 		} else if (destroy_job) {
 				goto relinquish;
