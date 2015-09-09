@@ -83,24 +83,11 @@ static const char *syms[] = {
  * sruns for aggregation
  */
 int *vector_pipe;	// MNP PMI
-int *nodelist_pipe;	// MNP PMI
-int *ntasks_pipe;	// MNP PMI
-int *nnodes_pipe;	// MNP PMI
-
-int num_steps;		// MNP PMI
-int mpi_step_idx;	// MNP PMI
-
-/* Pipes used to pass MPI-related data between forked
- * sruns for aggregation
- */
-int *vector_pipe;	// MNP PMI
-int *nodelist_pipe;	// MNP PMI
-int *ntasks_pipe;	// MNP PMI
 int *nnodes_pipe;	// MNP PMI
 int *pmiport_pipe;	// MNP PMI
 
-int num_steps;		// MNP PMI
-int mpi_step_idx;	// MNP PMI
+int srun_num_steps;	// MNP PMI
+int srun_step_idx;	// MNP PMI
 
 static slurm_mpi_ops_t ops;
 static plugin_context_t *g_context = NULL;

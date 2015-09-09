@@ -1378,24 +1378,20 @@ static int _launch_srun_steps_jobpack(bool got_alloc)
 	forkpids = xmalloc(total_jobs * sizeof(int));
 	pid_idx = 0;
 	// MNP PMI start
-	/* Allocate and create five pipes for each step to be launched */
+	/* Allocate and create required pipes for each step to be launched */
 	vector_pipe = xmalloc(pack_desc_count * 2 * sizeof(int));
-	nodelist_pipe = xmalloc(pack_desc_count * 2 * sizeof(int));
-	ntasks_pipe = xmalloc(pack_desc_count * 2 * sizeof(int));
 	nnodes_pipe = xmalloc(pack_desc_count * 2 * sizeof(int));
 	pmiport_pipe = xmalloc(pack_desc_count * 2 * sizeof(int));
 	for (i = 0; i < pack_desc_count; i++) {
 		debug("******** MNP in _launch_srun_steps_jobpack, initalizing pipes, i=%d", i);
 		pipe(&vector_pipe[i*2]);
-		pipe(&nodelist_pipe[i*2]);
-		pipe(&ntasks_pipe[i*2]);
 		pipe(&nnodes_pipe[i*2]);
 		pipe(&pmiport_pipe[i*2]);
 	}
 	// MNP PMI end
-	num_steps = pack_desc_count; // MNP PMI
+	srun_num_steps = pack_desc_count; // MNP PMI
 	for (i = 0; i < pack_desc_count; i++) {
-		mpi_step_idx = i; // MNP PMI
+		srun_step_idx = i; // MNP PMI
 		job_index = desc[i].pack_group_count;
 		if (job_index == 0) job_index++;
 		for (j = 0; j <job_index; j++) {
