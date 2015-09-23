@@ -90,11 +90,11 @@
 #include "src/api/step_launch.h"
 
 // MNP PMI pipe test start
-#include "src/common/mpi.h"
+#include "src/common/slurm_mpi.h"
 // MNP PMI pipe test end
 
 // MNP PMI
-#include "src/common/mpi.h"
+//#include "src/common/mpi.h"
 // MNP PMI
 
 /********************
