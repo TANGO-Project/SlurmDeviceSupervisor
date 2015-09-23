@@ -49,6 +49,7 @@
 #include "src/common/xstring.h"
 #include "src/slurmctld/slurmctld.h"
 #include "src/slurmctld/job_scheduler.h"
+#include "src/slurmctld/preempt.h"
 
 const char	plugin_name[]	= "Preempt by partition priority plugin";
 const char	plugin_type[]	= "preempt/partition_prio";
@@ -120,6 +121,9 @@ extern List find_preemptable_jobs(struct job_record *job_ptr)
 		if (job_ptr->details &&
 		    (job_ptr->details->expanding_jobid == job_p->job_id))
 			continue;
+
+		if (slurm_preempt_skip_pack(job_p))
+			continue; /* Members of job_pack, can't be preempted */
 
 		/* This job is a preemption candidate */
 		if (preemptee_job_list == NULL) {

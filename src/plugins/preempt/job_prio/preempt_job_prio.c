@@ -67,6 +67,7 @@
 #include "src/common/slurm_priority.h"
 #include "src/slurmctld/job_scheduler.h"
 #include "src/slurmctld/locks.h"
+#include "src/slurmctld/preempt.h"
 #include "src/slurmctld/slurmctld.h"
 
 #define EPSILON	10*1E15
@@ -796,6 +797,7 @@ extern List find_preemptable_jobs(struct job_record *job_ptr)
 	preemptee_candidate_iterator = list_iterator_create(job_list);
 	while ((preemptee_job_ptr = (struct job_record *)
 				    list_next(preemptee_candidate_iterator))) {
+
 		if (!IS_JOB_RUNNING(preemptee_job_ptr) &&
 		    !IS_JOB_SUSPENDED(preemptee_job_ptr))
 			continue;
@@ -816,6 +818,9 @@ extern List find_preemptable_jobs(struct job_record *job_ptr)
 		if (CHECK_FOR_PREEMPTOR_OVERALLOC &&
 		    !_account_preemptable(preemptor_job_ptr, preemptee_job_ptr))
 			continue;
+
+		if (slurm_preempt_skip_pack(preemptee_job_ptr))
+			continue; /* Members of job_pack, can't be preempted */
 
 		/* This job is a valid preemption candidate and should be added
 		 * to the list. Create the list as needed. */

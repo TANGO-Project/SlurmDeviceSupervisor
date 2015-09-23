@@ -193,6 +193,33 @@ extern int slurm_preempt_fini(void)
 	return rc;
 }
 
+/* *********************************************************************** */
+/*  TAG(                  slurm_preempt_skip_pack                       )  */
+/* *********************************************************************** */
+extern bool slurm_preempt_skip_pack(struct job_record *job_ptr)
+{
+	/* check if preempt candidate is member of a job pack
+	 * if so, it cannot be preempted.
+	 */
+	List pack_depend;
+	ListIterator depend_iter;
+	struct depend_spec *dep_ptr;
+
+	if (job_ptr->details == NULL)
+		return false;
+	pack_depend = job_ptr->details->depend_list;
+	if (pack_depend == NULL)
+		return false;
+	depend_iter = list_iterator_create(pack_depend);
+	while ((dep_ptr = (struct depend_spec *) list_next(depend_iter))) {
+		if ((dep_ptr->depend_type == SLURM_DEPEND_PACK)
+		    || (dep_ptr->depend_type == SLURM_DEPEND_PACKLEADER)) {
+			list_iterator_destroy(depend_iter);
+			return true;
+		}
+	}
+	return false;
+}
 
 /* *********************************************************************** */
 /*  TAG(                  slurm_find_preemptable_jobs                 )  */
