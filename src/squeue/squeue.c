@@ -230,6 +230,9 @@ _print_job ( bool clear_old )
 		if (params.long_list) {
 			xstrcat(params.format,
 				"%.18i %.9P %.8j %.8u %.8T %.10M %.9l %.6D %R");
+		} else if (params.dependency) {
+			xstrcat(params.format,
+				"%.18i %.9P %.10E %.8j %.8u %.2t %.10M %.6D %R");
 		} else {
 			xstrcat(params.format,
 				"%.18i %.9P %.8j %.8u %.2t %.10M %.6D %R");

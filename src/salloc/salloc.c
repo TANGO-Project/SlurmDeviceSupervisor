@@ -1126,6 +1126,9 @@ int main_jobpack(int argc, char *argv[])
 		if (group_number < (pack_desc_count - 1))
 		        xstrcat(aggr_jobidptr, ",");
 
+		xstrcat(aggregate_hosts, alloc->node_list);
+		xstrcat(aggregate_hosts, ",");
+
 		env_array_set_environment(env, group_number);
 		env_array_free(env);
 	}
@@ -1146,26 +1149,26 @@ int main_jobpack(int argc, char *argv[])
         setenv("SLURM_NUMPACK", aggr_jobidptr, 1);
         xfree(aggr_jobidptr);
 
-        /* Set SLURM_NODELIST_PACK env */
+        /* Set SLURM_NODELIST env */
 	hostlist_uniq(hostlist);
         hostlist_num = hostlist_count(hostlist);
         aggr_nodelistptr = hostlist_ranged_string_xmalloc(hostlist);
-        setenv("SLURM_NODELIST_PACK", aggr_nodelistptr, 1);
+        setenv("SLURM_NODELIST", aggr_nodelistptr, 1);
         xfree(aggr_nodelistptr);
         xfree(aggregate_hosts);
 
-        /* Set SLURM_NNODES_PACK env */
+        /* Set SLURM_NNODES env */
         numpacklen = snprintf(NULL, 0, "%d", hostlist_num);
         aggr_nodelistptr = xmalloc(numpacklen + 1);
         sprintf(aggr_nodelistptr, "%d", hostlist_num);
-        setenv("SLURM_NNODES_PACK", aggr_nodelistptr, 1);
+        setenv("SLURM_NNODES", aggr_nodelistptr, 1);
         xfree(aggr_nodelistptr);
 
-        /* Set SLURM_NTASKS_PACK env */
+        /* Set SLURM_NTASKS env */
         numpacklen = snprintf(NULL, 0, "%d", pack_tot_ntasks);
         aggr_nodelistptr = xmalloc(numpacklen + 1);
         sprintf(aggr_nodelistptr, "%d", pack_tot_ntasks);
-        setenv("SLURM_NTASKS_PACK", aggr_nodelistptr, 1);
+        setenv("SLURM_NTASKS", aggr_nodelistptr, 1);
         xfree(aggr_nodelistptr);
 
         /* Set SLURM_PACK_GROUP env */

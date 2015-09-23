@@ -2349,16 +2349,16 @@ static void _add_jobpack_envs(char **member_env, int numpack, int ntasks,
 			     "%s", list_jobids);
 	xfree(list_jobids);
 
-	/* add SLURM_NODELIST_PACK & SLURM_NNODES_PACK to member_env */
+	/* add SLURM_NODELIST & SLURM_NNODES to member_env */
 	nnodes_pack = get_pack_nodelist(job_ptr->job_id, &nodelist_pack);
-	env_array_append_fmt(&member_env, "SLURM_NODELIST_PACK",
+	env_array_append_fmt(&member_env, "SLURM_NODELIST",
 			     "%s", nodelist_pack);
 	xfree(nodelist_pack);
-	env_array_append_fmt(&member_env, "SLURM_NNODES_PACK",
+	env_array_append_fmt(&member_env, "SLURM_NNODES",
 			     "%d", nnodes_pack);
 
-	/* add SLURM_NTASKS_PACK to member_env */
-	env_array_append_fmt(&member_env, "SLURM_NTASKS_PACK",
+	/* add SLURM_NTASKS to member_env */
+	env_array_append_fmt(&member_env, "SLURM_NTASKS",
 			     "%d", ntasks);
 
         /* add SLURM_PACK_GROUP env */

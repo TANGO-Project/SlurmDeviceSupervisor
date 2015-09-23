@@ -76,6 +76,7 @@ struct squeue_parameters {
 	bool long_list;
 	bool no_header;
 	bool priority_flag;
+	bool dependency;
 	int  verbose;
 
 	char* accounts;

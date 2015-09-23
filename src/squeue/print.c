@@ -1426,8 +1426,21 @@ int _print_job_dependency(job_info_t * job, int width, bool right_justify,
 {
 	if (job == NULL)	/* Print the Header instead */
 		_print_str("DEPENDENCY", width, right_justify, true);
-	else if (job->dependency)
-		_print_str(job->dependency, width, right_justify, true);
+	else if (job->dependency) {
+	        if (params.dependency) {
+		        char tmp[strlen(job->dependency)+1];
+			strcpy (tmp, job->dependency);
+			if (!strncmp(job->dependency, "pack packleader=", 16)) {
+			        strcpy(tmp, &job->dependency[16]);
+			}
+			else if (!strncmp(job->dependency, "packleader", 10)) {
+			        strcpy(tmp, job->dependency);
+			}
+			_print_str(tmp, width, right_justify, true);
+		}
+		else
+			_print_str(job->dependency, width, right_justify, true);
+	}
 	else
 		_print_str("", width, right_justify, true);
 	if (suffix)
