@@ -45,6 +45,7 @@ generated_html = \
 	job_container_plugins.html \
 	job_exit_code.html \
 	job_launch.html \
+	job_packs.html \
 	job_submit_plugins.html \
 	jobcompplugins.html \
 	launch_plugins.html \

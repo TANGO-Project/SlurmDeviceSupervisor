@@ -824,7 +824,7 @@ extern List find_preemptable_jobs(struct job_record *job_ptr)
 			continue;
 
 		if (preemptor_job_ptr->pack_leader != 0) {
-			if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+			if (debug_flags & DEBUG_FLAG_PRIO) {
 				info("JPCK: pack_member %d can't be preempted "
 				      "by job %d", preemptor_job_ptr->job_id,
 				      job_ptr->job_id);

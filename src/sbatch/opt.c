@@ -3325,7 +3325,8 @@ static void _opt_list(void)
 static void _usage(void)
 {
 	printf(
-"Usage: sbatch [-N nnodes] [-n ntasks]\n"
+"Usage: sbatch job_description(0) [ : job_description(1)] [...] [ : job_description(n)] \n"
+"              Where job_descriptions is \n"
 "              [-c ncpus] [-r n] [-p partition] [--hold] [--parsable] [-t minutes]\n"
 "              [-D path] [--immediate] [--no-kill] [--overcommit]\n"
 "              [--input file] [--output file] [--error file]\n"
@@ -3357,7 +3358,8 @@ static void _help(void)
 	slurm_ctl_conf_t *conf;
 
 	printf (
-"Usage: sbatch [OPTIONS...] executable [args...]\n"
+"Usage: sbatch job_description(0) [ : job_description(1)] [...] [ : job_description(n)] \n"
+"              Each job_descriptiong is [OPTIONS...] executable [args...]\n"
 "\n"
 "Parallel run options:\n"
 "  -a, --array=indexes         job array index values\n"

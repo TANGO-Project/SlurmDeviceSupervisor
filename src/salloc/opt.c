@@ -2124,7 +2124,8 @@ static void _opt_list(void)
 static void _usage(void)
 {
  	printf(
-"Usage: salloc [-N numnodes|[min nodes]-[max nodes]] [-n num-processors]\n"
+"Usage: salloc job_description(0) [ : job_description(1)] [...] [ : job_description(n)] \n"
+"              Where job_descriptions is \n"
 "              [[-c cpus-per-node] [-r n] [-p partition] [--hold] [-t minutes]\n"
 "              [--immediate[=secs]] [--no-kill] [--overcommit] [-D path]\n"
 "              [--oversubscribe] [-J jobname] [--jobid=id]\n"
@@ -2155,7 +2156,7 @@ static void _help(void)
 	slurm_ctl_conf_t *conf;
 
         printf (
-"Usage: salloc [OPTIONS...] [executable [args...]]\n"
+"Usage: salloc job_description(0) [ : job_description(1)] [...] [ : job_description(n)] \n"
 "\n"
 "Parallel run options:\n"
 "  -A, --account=name          charge job to specified account\n"

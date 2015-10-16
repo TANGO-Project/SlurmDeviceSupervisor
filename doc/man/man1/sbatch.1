@@ -4,7 +4,14 @@
 sbatch \- Submit a batch script to Slurm.
 
 .SH "SYNOPSIS"
-sbatch [\fIoptions\fP] \fIscript\fP [\fIargs\fP...]
+\fBsbatch\fR [\fIOPTIONS(0)\fR...]  \fIscript(0) \fR[\fIargs(0)\fR...] \fR[ : \fR[\fIOPTIONS(n)\fR...]  \fIscript(n) \fR[\fIargs(n)\fR...]\fR]
+
+Options(n) script(n) defines multiple jobs in a co-scheduled job_pack.
+For more details on job_packs see the document
+.br
+http://slurm.schedmd.com/job_packs.html
+
+
 
 .SH "DESCRIPTION"
 sbatch submits a batch script to Slurm.  The batch script may be given to

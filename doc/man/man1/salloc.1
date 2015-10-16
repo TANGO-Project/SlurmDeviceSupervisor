@@ -5,7 +5,12 @@ salloc \- Obtain a Slurm job allocation (a set of nodes), execute a command,
 and then release the allocation when the command is finished.
 
 .SH "SYNOPSIS"
-salloc [\fIoptions\fP] [<\fIcommand\fP> [\fIcommand args\fR]]
+\fBsalloc\fR [\fIOPTIONS(0)\fR...]  \fIscript(0) \fR[\fIargs(0)\fR...] \fR[ : \fR[\fIOPTIONS(n)\fR...]\fR]
+
+Options(n) script(n) defines multiple jobs in a co-scheduled job_pack.
+For more details on job_packs see the document
+.br
+http://slurm.schedmd.com/job_packs.html
 
 .SH "DESCRIPTION"
 salloc is used to allocate a Slurm job allocation, which is a set of resources

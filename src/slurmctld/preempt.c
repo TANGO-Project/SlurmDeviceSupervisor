@@ -202,6 +202,7 @@ extern int slurm_preempt_fini(void)
 extern List slurm_find_preemptable_jobs(struct job_record *job_ptr)
 {
 	List candidates;
+	uint64_t debug_flags = slurm_get_debug_flags();
 	if (slurm_preempt_init() < 0)
 		return NULL;
 	if (job_ptr->pack_leader == 0)
@@ -210,14 +211,14 @@ extern List slurm_find_preemptable_jobs(struct job_record *job_ptr)
 	if (job_ptr->pack_leader == job_ptr->job_id) {
 		/* leader can preempt */
 		candidates = (*(ops.find_jobs))(job_ptr);
-		if ((slurm_get_debug_flags() & DEBUG_FLAG_JOB_PACK)
+		if ((debug_flags & DEBUG_FLAG_PRIO)
 		    && candidates) {
 			info("JPCK: Pack leader %d found preemptable candidates"
 			     , job_ptr->job_id);
 		}
 		return candidates;
 	}
-	if (slurm_get_debug_flags() & DEBUG_FLAG_JOB_PACK) {
+	if (debug_flags & DEBUG_FLAG_PRIO) {
 		info("JPCK: Pack member %d can't preempt any jobs",
 		     job_ptr->job_id);
 	}

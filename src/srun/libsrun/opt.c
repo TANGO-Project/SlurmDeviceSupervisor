@@ -2939,7 +2939,9 @@ static bool _under_parallel_debugger (void)
 static void _usage(void)
 {
  	printf(
-"Usage: srun [-N nnodes] [-n ntasks] [-i in] [-o out] [-e err]\n"
+"Usage: srun job_description(0) [ : job_description(1)] [...] [ : job_description(n)] \n"
+"            Where job_descriptions is \n"
+"            [-N nnodes] [-n ntasks] [-i in] [-o out] [-e err]\n"
 "            [-c ncpus] [-r n] [-p partition] [--hold] [-t minutes]\n"
 "            [-D path] [--immediate[=secs]] [--overcommit] [--no-kill]\n"
 "            [--oversubscribe] [--label] [--unbuffered] [-m dist] [-J jobname]\n"
@@ -2981,7 +2983,7 @@ static void _help(void)
 	slurm_ctl_conf_t *conf;
 
         printf (
-"Usage: srun [OPTIONS...] executable [args...]\n"
+"Usage: srun job_description(0) [ : job_description(1)] [...] [ : job_description(n)] \n"
 "\n"
 "Parallel run options:\n"
 "  -A, --account=name          charge job to specified account\n"

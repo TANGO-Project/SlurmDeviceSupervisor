@@ -4,7 +4,12 @@
 srun \- Run parallel jobs
 
 .SH "SYNOPSIS"
-\fBsrun\fR [\fIOPTIONS\fR...]  \fIexecutable \fR[\fIargs\fR...]
+\fBsrun\fR [\fIOPTIONS(0)\fR...]  \fIexecutable(0) \fR[\fIargs(0)\fR...] \fR[ : \fR[\fIOPTIONS(n)\fR...]  \fIexecutable(n) \fR[\fIargs(n)\fR...]\fR]
+
+Options(n) executable(n) defines multiple jobs in a co-scheduled job_pack.
+For more details on job_packs see the document
+.br
+http://slurm.schedmd.com/job_packs.html
 
 .SH "DESCRIPTION"
 Run a parallel job on cluster managed by Slurm.  If necessary, srun will
