@@ -92,8 +92,12 @@ extern List find_preemptable_jobs(struct job_record *job_ptr)
 		return preemptee_job_list;
 	}
 	if (!IS_JOB_PENDING(job_ptr)) {
-		error("find_preemptable_jobs: job %u not pending",
-		      job_ptr->job_id);
+		/* possible to get here with a job_pack member cancelled
+		 * because the leader can never run */
+		if (!IS_JOB_CANCELLED(job_ptr)) {
+			error("find_preemptable_jobs: job %u not pending",
+				job_ptr->job_id);
+		}
 		return preemptee_job_list;
 	}
 	if (job_ptr->part_ptr == NULL) {
