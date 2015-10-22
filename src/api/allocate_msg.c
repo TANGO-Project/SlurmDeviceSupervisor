@@ -236,7 +236,6 @@ static void _handle_job_complete(struct allocation_msg_thread *msg_thr,
 	if (msg_thr->callback.job_complete != NULL)
 		(msg_thr->callback.job_complete)(comp);
 
-	slurm_free_srun_job_complete_msg(msg->data);
 	//debug("******** MNP %d: exiting _handle_job_complete", getpid());
 }
 
