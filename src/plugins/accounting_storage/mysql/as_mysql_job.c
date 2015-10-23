@@ -629,7 +629,7 @@ no_rollup_change:
 		if (job_ptr->account)
 			xstrfmtcat(query, "account='%s', ", job_ptr->account);
 		if (packid)							/* wjb */
-			xstrfmtcat(query, ", packid=%u", packid);		/* wjb */
+			xstrfmtcat(query, "packid=%u, ", packid);		/* wjb */
 		if (partition)
 			xstrfmtcat(query, "`partition`='%s', ", partition);
 		if (block_id)
