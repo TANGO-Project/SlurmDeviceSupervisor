@@ -848,8 +848,8 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 	} else {
 		/* Combined job allocation and job step launch */
 		if (desc[group_index].groupjob == true)
-			fatal("Pack job didn't find the existing "
-			      "allocation");
+			fatal("–pack-group used for a job that is not a "
+			      "job_pack");
 		if ((tmp = getenv ("SLURM_NUMPACK"))) {
 			numpack = atoi(tmp);
 			if (numpack > 1 ) {
