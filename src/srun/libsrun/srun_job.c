@@ -128,6 +128,7 @@ static void _handle_pipe(void);
 static void _print_job_information(resource_allocation_response_msg_t *resp);
 static void _run_srun_epilog (srun_job_t *job);
 static void _run_srun_prolog (srun_job_t *job);
+static void _run_srun_prolog_jobpack (void);
 static int _run_srun_script (srun_job_t *job, char *script);
 static void _set_env_vars(resource_allocation_response_msg_t *resp);
 static void  _set_prio_process_env(void);
@@ -140,6 +141,16 @@ static void *_srun_signal_mgr(void *no_data);
 static void _step_opt_exclusive(void);
 static int _validate_relative(resource_allocation_response_msg_t *resp);
 
+
+static opt_t *_get_opt(int desc_idx, int job_idx)
+{
+	return desc[desc_idx].pack_job_env[job_idx].opt;
+}
+
+static srun_job_t *_get_srun_job(int desc_idx, int job_idx)
+{
+	return desc[desc_idx].pack_job_env[job_idx].job;
+}
 
 /*
  * Create an srun job structure w/out an allocation response msg.
@@ -985,7 +996,7 @@ extern void pre_launch_srun_job_pack(srun_job_t *job, bool slurm_started,
 	if (slurm_started)
 		return;
 
-	_run_srun_prolog(job);
+	_run_srun_prolog_jobpack(); // MNP new function to support prolog for multi-step srun
 	if (_call_spank_local_user (job) < 0) {
 		error("Failure in local plugin stack");
 		slurm_step_launch_abort(job->step_ctx);
@@ -1426,6 +1437,27 @@ static void _run_srun_prolog (srun_job_t *job)
 	if (opt.prolog && xstrcasecmp(opt.prolog, "none") != 0) {
 		rc = _run_srun_script(job, opt.prolog);
 		debug("srun prolog rc = %d", rc);
+	}
+}
+
+static void _run_srun_prolog_jobpack (void)
+{
+	int job_index, i, j, rc;
+	srun_job_t *job;
+	opt_t *opt_ptr;
+
+	for (i=0; i < pack_desc_count; i++) {
+		job_index = desc[i].pack_group_count;
+		if (job_index == 0) job_index++;
+		for (j=0; j < job_index; j++) {
+			opt_ptr = _get_opt(i,j);
+			job = _get_srun_job(i,j);
+			if (opt_ptr->prolog && strcasecmp(opt_ptr->prolog, "none") != 0) {
+				debug("******** MNP pid=%d: in _run_srun_prolog_jobpack, running prolog for i=%d, j=%d", getpid(),i,j);
+				rc = _run_srun_script(job, opt_ptr->prolog);
+				debug("srun prolog rc = %d", rc);
+			}
+		}
 	}
 }
 
