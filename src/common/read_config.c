@@ -4743,7 +4743,6 @@ extern char * debug_flags2str(uint64_t debug_flags)
 			xstrcat(rc, ",");
 		xstrcat(rc, "Wiki");
 	}
-	}
 	if (debug_flags & DEBUG_FLAG_JOB_PACK) {
 		if (rc)
 			xstrcat(rc, ",");
