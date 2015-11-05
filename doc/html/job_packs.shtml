@@ -10,6 +10,7 @@ Co-Scheduling Jobs. The document is divided into the following sections:</p>
 <li><a href="#Section1">Definition of Terms</a></li>
 <li><a href="#Section2">Specification Language and Command Line Syntax</a></li>
 <li><a href="#Section3">Resource Allocation</a></li>
+<li><a href="#Section4">Limitations</a></li>
 </ul>
 
 
@@ -312,6 +313,31 @@ return errors to the client (srun, salloc). The controller doesn't have a
 chance to intervene. This condition will exist until an internal timeout expires.
 </p>
 
+<h5>Pack leader fails with Run Time Exhausted during step creation</h5>
+
+<p>
+When a member is exclusively allocated (either--exclusive or Shared=EXCLUSIVE) on a
+partition, and the member is in the pack-group of more than one step
+<br />(srun --pack-group=0 ... : --pack-group=0 ...) <br />
+then step creation fails.
+</p>
+
+<p>
+During task assignment for the first step, exclusive allocation means all cpus
+are marked assigned in cons-res internal tables. When a subsequent step on
+on that srun attempts task assignment it finds no cpus, so cons-res backs out
+and tries later. Eventually the pack_leader times out.
+</p>
+
+<p>
+When this condition occures, the job is terminated with the message
+<br />
+<b>JPCK: nodes  busy, assume job_pack with exclusive allocation</b>
+</p>
+
+
+<a name="Section4"></a>
+<h2>Limitations</h2>
 
 <h4>PrologFlags=Alloc</h4>
 
