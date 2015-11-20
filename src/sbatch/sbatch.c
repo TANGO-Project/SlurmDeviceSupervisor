@@ -115,11 +115,19 @@ static void _build_env_structs(int ac, char **av)
 	}
 */
 
-	pack_job_env = xmalloc(sizeof(pack_job_env_t) * pack_desc_count);
+pack_job_env = xmalloc(sizeof(pack_job_env_t) * pack_desc_count);
 	for (i = 0; i < pack_desc_count; i++) {
+		pack_job_env[i].opt = xmalloc(sizeof(opt_t));
+		memset(pack_job_env[i].opt, 0, sizeof(opt_t));
+		pack_job_env[i].desc = xmalloc(sizeof(job_desc_msg_t));
+		memset(pack_job_env[i].desc, 0, sizeof(job_desc_msg_t));
+		pack_job_env[i].resp = xmalloc(sizeof(submit_response_msg_t));
+		memset(pack_job_env[i].resp, 0, sizeof(submit_response_msg_t));
 		pack_job_env[i].packleader = false;
 		pack_job_env[i].pack_job = false;
 		pack_job_env[i].job_id = 0;
+		pack_job_env[i].script_name = NULL;
+		pack_job_env[i].script_body = NULL;
 		pack_job_env[i].av = (char **) NULL;
 		pack_job_env[i].ac = 0;
 
@@ -517,9 +525,10 @@ static int main_jobpack(int argc, char *argv[])
 		if (packleader == true) {
 			if (pack_job_id == NULL)
 				fatal( "found packleader but no pack job id" );
-			xstrcat(pack_job_env[group_number].av[
-				packl_dependency_position], pack_job_id);
+			xstrcat(pack_job_env[group_number].av[packl_dependency_position],
+			        pack_job_id);
 		}
+		_copy_opt_struct( &opt, pack_job_env[group_number].opt);
 
 		script_name = process_options_first_pass(pack_job_env[
 							 group_number].ac,
@@ -1255,6 +1264,8 @@ static char *_script_donothing(int *size)
 	xstrcat(script, "#!/bin/sh\n");
 	xstrcat(script, "# This script was created by sbatch -- does nothing.\n\n");
 	xstrcat(script, "exit 0;\n");
+	*size = strlen(script);
+
 	*size = strlen(script);
 
 	return script;

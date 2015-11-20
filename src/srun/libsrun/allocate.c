@@ -86,12 +86,11 @@ pthread_cond_t msg_cond = PTHREAD_COND_INITIALIZER;
 allocation_msg_thread_t *msg_thr = NULL;
 struct pollfd global_fds[1];
 
-extern char **environ;
-
 extern uint32_t pack_desc_count;
 extern char *pack_job_id;
 extern bool packleader;
 extern bool packjob;
+extern uint32_t group_number;
 extern uint32_t group_index;
 extern uint32_t job_index;
 
@@ -1024,8 +1023,7 @@ job_desc_msg_create_from_opts (void)
 		j->time_limit          = opt.time_limit;
 	if (opt.time_min != NO_VAL)
 		j->time_min            = opt.time_min;
-	if (opt.shared != (uint16_t) NO_VAL)
-		j->shared = opt.shared;
+	j->shared = opt.shared;
 
 	if (opt.warn_signal)
 		j->warn_signal = opt.warn_signal;

@@ -242,6 +242,29 @@ static void _parse_pbs_resource_list(char *rl);
 
 /*---[ end forward declarations of static functions ]---------------------*/
 
+extern void _copy_opt_struct(opt_t *to, opt_t *from)
+{
+	memcpy(to, from, sizeof(opt_t));
+}
+
+/*
+extern void _copy_env_struct(env_t *to, env_t *from)
+{
+	memcpy(to, from, sizeof(env_t));
+}
+*/
+
+extern void _copy_job_desc_msg(job_desc_msg_t *to, job_desc_msg_t *from)
+{
+	memcpy(to, from, sizeof(job_desc_msg_t));
+}
+
+extern void _copy_resp_struct(submit_response_msg_t *to,
+			      submit_response_msg_t *from)
+{
+	memcpy(to, from, sizeof(submit_response_msg_t));
+}
+
 /*
  * print error message to stderr with opt.progname prepended
  */
@@ -1336,7 +1359,10 @@ static void _set_options(int argc, char **argv)
 	}
 
 	optind = 0;
-
+//	int index;
+//	for (index=0; index < argc; index++) {
+//	info("argv[%u] is %s\n", index, argv[index]);				/* wjb */
+//	}
 	while ((opt_char = getopt_long(argc, argv, opt_string,
 				       optz, &option_index)) != -1) {
 		switch (opt_char) {

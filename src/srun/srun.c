@@ -89,6 +89,10 @@
 #include "src/api/step_ctx.h"
 #include "src/api/step_launch.h"
 
+/********************
+ * Global Variables *
+ ********************/
+
 #if defined (HAVE_DECL_STRSIGNAL) && !HAVE_DECL_STRSIGNAL
 #  ifndef strsignal
  extern char *strsignal(int);
@@ -119,9 +123,11 @@ bool packleader = false;
 uint16_t packl_dependency_position = 0;
 pack_group_struct_t *desc = NULL;
 pack_job_env_t *pack_job_env = NULL;
+uint32_t group_number = -1;
 uint32_t group_index = 0;
 uint32_t job_index = 0;
 static uint32_t total_jobs = 0;
+int *group_ids;
 
 bool srun_max_timer = false;
 bool srun_shutdown  = false;
@@ -171,10 +177,47 @@ void cfmakeraw(struct termios *attr)
 }
 #endif
 
+/*
+static int
+_build_group_jobid_array( char* str )
+{
+	int count = 0;
+	char *jobid = NULL, *tmp_char = NULL, *group_jobid_list = NULL;
+	int i, j=0;
+
+	if ( str == NULL)
+		return SLURM_ERROR;
+	// count the number of group jobids
+	group_jobid_list = xstrdup( str );
+	jobid = strtok_r( group_jobid_list, ",", &tmp_char );
+	while (jobid) {
+		count++;
+		jobid = strtok_r (NULL, ",", &tmp_char);
+	}
+	tmp_char = NULL;
+
+	group_ids = xmalloc(sizeof(int) * count);
+
+	group_jobid_list = xstrdup( str );
+	jobid = strtok_r( group_jobid_list, ",", &tmp_char );
+	while (jobid) {
+		i = slurm_xlate_job_id(jobid);
+		if (i <= 0) {
+			error( "Invalid job id: %s", jobid );
+			exit( 1 );
+		}
+		group_ids[j] = i;
+//		info("group_ids[%u] = %u", j, group_ids[j]);
+		j++;
+		jobid = strtok_r (NULL, ",", &tmp_char);
+	}
+	return SLURM_SUCCESS;
+}
+*/
+
 int _count_jobs(int ac, char **av)
 {
 	int index;
-	char *tmp = NULL;
 	bool pack_group_job = false;
 
 	for (index = 0; index < ac; index++) {
@@ -189,9 +232,6 @@ int _count_jobs(int ac, char **av)
 		}
 	}
 	if(pack_desc_count) pack_desc_count++;
-	if ((tmp = getenv ("SLURM_NUMPACK"))) {
-		pack_group_job = true;
-	}
 	if ((pack_desc_count == 0) && (pack_group_job == true))
 		pack_desc_count ++;
 	return pack_desc_count;
@@ -231,18 +271,7 @@ static void _build_env_structs(int count, pack_job_env_t *pack_job_env)
 	}
 	return;
 }
-static void _free_env_structs(int count, pack_job_env_t *pack_job_env)
-{
-	int i;
 
-	for (i = 0; i < count; i++) {
-		xfree(pack_job_env[i].opt);
-		xfree(pack_job_env[i].env);
-		xfree(pack_job_env[i].job);
-		xfree(pack_job_env[i].resp);
-	}
-	return;
- }
 
 static void _build_pack_group_struct(uint32_t index, pack_job_env_t *env_struct)
 {
@@ -292,6 +321,8 @@ static void _identify_job_descriptions(int ac, char **av)
 	char **newcmd;
 	bool _pack_l;
 	uint16_t dependency_position = 0;
+
+	pack_job_env = xmalloc(sizeof(pack_job_env_t) * pack_desc_count);
 
 /*
 	int index3;
@@ -671,8 +702,6 @@ int srun(int ac, char **av)
 
 	memset(&step_callbacks, 0, sizeof(step_callbacks));
 	step_callbacks.step_signal   = launch_g_fwd_signal;
-
-	/* re_launch: */
 relaunch:
 	pre_launch_srun_job(job, 0, 1);
 
@@ -761,10 +790,10 @@ int _srun_jobpack(int ac, char **av)
 	log_init(xbasename(av[0]), logopt, 0, NULL);
 	init_srun(ac, av, &logopt, debug_level, 1);
 	_build_pack_group_struct(pack_desc_count, pack_job_env);
-	_free_env_structs(pack_desc_count, pack_job_env);
 
 	_identify_group_job_descriptions(ac, av);
 
+//info("************ entering loop 1 ****************************** ");			/* wjb */
 	for (group_index = 0; group_index < pack_desc_count; group_index++) {
 		group_count = desc[group_index].pack_group_count;
 		if (group_count == 0) group_count++;
@@ -792,7 +821,8 @@ int _srun_jobpack(int ac, char **av)
 			}
 		}
 	}
-
+//info("************ exited loop 1 ****************************** ");			/* wjb */
+//info("############# entering loop 2 ############################");			/* wjb */
 	for (desc_index = pack_desc_count; desc_index > 0; desc_index--) {
 		group_index = desc_index-1;
 		group_count = desc[group_index].pack_group_count;
@@ -828,6 +858,7 @@ int _srun_jobpack(int ac, char **av)
 +					    job_index].job, &got_alloc, 0, 1);
 		}
 	}
+//info("############# exited loop 2 ############################");			/* wjb */
 
 	_create_srun_steps_jobpack();
 	debug("******** MNP all job steps now created");
@@ -1179,6 +1210,22 @@ static void _pre_launch_srun_jobpack(void)
 	pre_launch_srun_job_pack(job, 0, 1);
 }
 
+/*
+static void _pre_launch_srun_jobpack(void)
+{
+	srun_job_t *job;
+	int i, j, job_index;
+
+	for (i = 0; i < pack_desc_count; i++) {
+		job_index = desc[i].pack_group_count;
+		if (job_index == 0) job_index++;
+		for (j = 0; j <job_index; j++) {
+			job = _get_srun_job(i, j);
+			pre_launch_srun_job_pack(job, 0, 1);
+		}
+	}
+}
+*/
 
 
 static int _launch_srun_steps_jobpack(bool got_alloc)

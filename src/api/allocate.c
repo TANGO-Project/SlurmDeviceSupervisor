@@ -165,8 +165,8 @@ slurm_allocate_resources (job_desc_msg_t *req,
  */
 resource_allocation_response_msg_t *
 slurm_allocate_pack_resources (const job_desc_msg_t *user_req,
-				   time_t timeout,
-				   void(*pending_callback)(uint32_t job_id))
+			       time_t timeout,
+			       void(*pending_callback)(uint32_t job_id))
 {
 	int rc;
 	slurm_msg_t req_msg;
