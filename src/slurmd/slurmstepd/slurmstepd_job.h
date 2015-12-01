@@ -85,7 +85,7 @@ typedef struct {
 	int             id;	    /* local task id                        */
 	uint32_t        gtid;	    /* global task id                       */
 	uint32_t        mpi_ntasks; /* MPI number of tasks                  */ // MNP PMI
-	uint32_t        mpi_taskid; /* MPI taskid                           */ // MNP PMI
+	uint32_t        utaskid;    /* MPI taskid                           */ // MNP PMI
 	pid_t           pid;	    /* task pid                             */
 
 	char           *ifname;     /* standard input file name             */

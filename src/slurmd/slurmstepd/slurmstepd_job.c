@@ -669,9 +669,9 @@ task_info_create(int taskid, int gtaskid, uint32_t mpi_ntasks, // MNP PMI
 	t->id          = taskid;
 	t->gtid	       = gtaskid;
 	t->mpi_ntasks  = mpi_ntasks; // MNP PMI
-	t->mpi_taskid  = gtaskid + mpi_stepftaskid; // MNP PMI
+	t->utaskid     = gtaskid + mpi_stepftaskid; // MNP PMI
 	debug("!!!!!!!! MNP pid=%d, in task_info_create, t->gtid=%d", getpid(), t->gtid);
-	debug("!!!!!!!! MNP pid=%d, in task_info_create, t->mpi_taskid=%d", getpid(), t->mpi_taskid);
+	debug("!!!!!!!! MNP pid=%d, in task_info_create, t->utaskid=%d", getpid(), t->utaskid);
 	t->pid         = (pid_t) -1;
 	t->ifname      = ifname;
 	t->ofname      = ofname;

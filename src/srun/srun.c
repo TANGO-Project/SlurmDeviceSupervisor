@@ -89,12 +89,8 @@
 #include "src/api/step_ctx.h"
 #include "src/api/step_launch.h"
 
-// MNP PMI pipe test start
-#include "src/common/slurm_mpi.h"
-// MNP PMI pipe test end
-
 // MNP PMI
-//#include "src/common/mpi.h"
+#include "src/common/slurm_mpi.h"
 // MNP PMI
 
 /********************
@@ -134,7 +130,7 @@ pack_job_env_t *pack_job_env = NULL;
 uint32_t group_number = -1;
 uint32_t group_index = 0;
 uint32_t job_index = 0;
-static uint32_t total_jobs = 0;
+static uint32_t total_steps = 0;
 int *group_ids;
 
 bool srun_max_timer = false;
@@ -276,7 +272,7 @@ static void _build_pack_group_struct(uint32_t index, pack_job_env_t *env_struct)
 			numpack=1;
 	}
 	desc = xmalloc(sizeof(pack_group_struct_t) * index);
-	total_jobs = index;
+	total_steps = index;
 	for (i = 0; i < index; i++) {
 		desc[i].groupjob = false;
 		initialize_and_process_args(env_struct[i].ac,
@@ -287,7 +283,7 @@ static void _build_pack_group_struct(uint32_t index, pack_job_env_t *env_struct)
 		 * at least 1 set of structures is built */
 		struct_index = opt.ngrpidx;
 		if (struct_index == 0) struct_index ++;
-		total_jobs += (struct_index-1);
+		total_steps += (struct_index-1);
 		desc[i].pack_job_env =
 			xmalloc(sizeof(pack_job_env_t) * struct_index);
 		_build_env_structs(struct_index, &desc[i].pack_job_env[0]);
@@ -1074,16 +1070,20 @@ static void _create_srun_steps_jobpack(void)
 	resource_allocation_response_msg_t *resp = NULL;
 
 	debug("******** MNP in _create_srun_steps_jobpack, pack_desc_count=%d", pack_desc_count);
-	/* For each job description, set MPI jobid to jobid of first step */ // MNP PMI
+	/* For each step to be launched, set MPI jobid to jobid of first step */ // MNP PMI
 	opt_ptr = _get_opt(0, 0);  // MNP PMI
 	mpi_jobid = opt_ptr->jobid; // MNP PMI
 	for (i = 0; i < pack_desc_count; i++) { // MNP PMI
-		opt_ptr = _get_opt(i, 0); // MNP PMI
-		opt_ptr->mpi_jobid = mpi_jobid; // MNP PMI
-		debug("******** MNP in _create_srun_steps_jobpack, i=%d, opt_ptr->mpi_jobid=%d", i, opt_ptr->mpi_jobid);
+		job_index = desc[i].pack_group_count; // MNP PMI
+		if (job_index == 0) job_index++; // MNP PMI
+		for (j = 0; j <job_index; j++) { // MNP PMI
+			opt_ptr = _get_opt(i, j); // MNP PMI
+			opt_ptr->mpi_jobid = mpi_jobid; // MNP PMI
+			debug("******** MNP in _create_srun_steps_jobpack, i=%d, j=%d, opt_ptr->mpi_jobid=%d", i, j, opt_ptr->mpi_jobid);
+		} // MNP PMI
 	} // MNP PMI
 
-	/* For each job description, create a job step */
+	/* For each step to be launched, create a job step */
 	for (i = 0; i < pack_desc_count; i++) {
 		job_index = desc[i].pack_group_count;
 		if (job_index == 0) job_index++;
@@ -1108,14 +1108,18 @@ static void _create_srun_steps_jobpack(void)
 		}
 	}
 
-	/* For each job description, set MPI task count and MPI node count */ // MNP PMI
+	/* For each step to be launched, set MPI task count and MPI node count */ // MNP PMI
 	for (i = 0; i < pack_desc_count; i++) { // MNP PMI
-		opt_ptr = _get_opt(i, 0); // MNP PMI
-		opt_ptr->mpi_jobid = mpi_jobid; // MNP PMI
-		opt_ptr->mpi_ntasks = mpi_curtaskid; // MNP PMI
-		debug("******** MNP in _create_srun_steps_jobpack, i=%d, opt_ptr->mpi_ntasks=%d", i, opt_ptr->mpi_ntasks);
-		opt_ptr->mpi_nnodes = mpi_curnodecnt; // MNP PMI
-		debug("******** MNP in _create_srun_steps_jobpack, i=%d, opt_ptr->mpi_nnodes=%d", i, opt_ptr->mpi_nnodes);
+		job_index = desc[i].pack_group_count; // MNP PMI
+		if (job_index == 0) job_index++; // MNP PMI
+		for (j = 0; j <job_index; j++) { // MNP PMI
+			opt_ptr = _get_opt(i, j); // MNP PMI
+			opt_ptr->mpi_jobid = mpi_jobid; // MNP PMI
+			opt_ptr->mpi_ntasks = mpi_curtaskid; // MNP PMI
+			debug("******** MNP in _create_srun_steps_jobpack, i=%d, j=%d, opt_ptr->mpi_ntasks=%d", i, j, opt_ptr->mpi_ntasks);
+			opt_ptr->mpi_nnodes = mpi_curnodecnt; // MNP PMI
+			debug("******** MNP in _create_srun_steps_jobpack, i=%d, j=%d, opt_ptr->mpi_nnodes=%d", i, j, opt_ptr->mpi_nnodes);
+		} // MNP PMI
 	} // MNP PMI
 }
 
@@ -1283,23 +1287,27 @@ static int _launch_srun_steps_jobpack(bool got_alloc)
 	 */
 	memset(&step_callbacks, 0, sizeof(step_callbacks));
 	step_callbacks.step_signal   = launch_g_fwd_signal;
-	forkpids = xmalloc(total_jobs * sizeof(int));
+	forkpids = xmalloc(total_steps * sizeof(int));
 	pid_idx = 0;
 	// MNP PMI start
 	/* Allocate and create required pipes for each step to be launched */
-	vector_pipe = xmalloc(pack_desc_count * 2 * sizeof(int));
-	nnodes_pipe = xmalloc(pack_desc_count * 2 * sizeof(int));
-	pmiport_pipe = xmalloc(pack_desc_count * 2 * sizeof(int));
-	for (i = 0; i < pack_desc_count; i++) {
+	vector_pipe = xmalloc(total_steps * 2 * sizeof(int));
+	nnodes_pipe = xmalloc(total_steps * 2 * sizeof(int));
+	pmiport_pipe = xmalloc(total_steps * 2 * sizeof(int));
+//	for (i = 0; i < pack_desc_count; i++) { // MNP PMI old code
+	for (i = 0; i < total_steps; i++) { // MNP PMI new code
 		debug("******** MNP in _launch_srun_steps_jobpack, initalizing pipes, i=%d", i);
 		pipe(&vector_pipe[i*2]);
 		pipe(&nnodes_pipe[i*2]);
 		pipe(&pmiport_pipe[i*2]);
 	}
 	// MNP PMI end
-	srun_num_steps = pack_desc_count; // MNP PMI
+//	srun_num_steps = pack_desc_count; // MNP PMI old code
+	srun_num_steps = total_steps; // MNP PMI new code
+	srun_step_idx = 0; // MNP PMI new code
+	debug("******** MNP in _launch_srun_steps_jobpack, getting ready to fork sruns, srun_num_steps=total_steps=%d", srun_num_steps);
 	for (i = 0; i < pack_desc_count; i++) {
-		srun_step_idx = i; // MNP PMI
+//		srun_step_idx = i; // MNP PMI old code
 		job_index = desc[i].pack_group_count;
 		if (job_index == 0) job_index++;
 		for (j = 0; j <job_index; j++) {
@@ -1319,14 +1327,14 @@ static int _launch_srun_steps_jobpack(bool got_alloc)
 				exit(0);
 			} else if (pid == 0) {
 				/* Child srun process */
-				debug("******** MNP child srun (PID %d) running", getpid());
+				debug("******** MNP child srun (PID %d) running, srun_step_idx=%d", getpid(), srun_step_idx);
 				debug("******** MNP %d: launching step for pack desc[%d].pack_job_env[%d]", getpid(), i, j);
 				/* MNP start experimental code to pipe stdin */
 //				dup2(stdinpipe[0], STDIN_FILENO);
 //				close(stdinpipe[0]);
 				/* MNP end experimental code to pipe stdin */
 				if (!launch_g_step_launch(job, &cio_fds, &global_rc, &step_callbacks)) {
-					debug("******** MNP %d: error from launch_g_step_launch, global_rc=%d", getpid(), global_rc);
+					debug("******** MNP %d: waiting for step launch, global_rc=%d", getpid(), global_rc);
 					if (launch_g_step_wait(job, got_alloc) == -1) {
 						debug("******** MNP child srun PID %d: error from launch_g_step_wait", getpid());
 						exit(0);
@@ -1339,6 +1347,7 @@ static int _launch_srun_steps_jobpack(bool got_alloc)
 			} else {
 				forkpids[pid_idx] = pid;
 				pid_idx++;
+				srun_step_idx++;
 				debug("******** MNP in parent srun, adding child pid=%d to forkpids[%d]", pid, i);
 			}
 		}
@@ -1350,7 +1359,7 @@ static int _launch_srun_steps_jobpack(bool got_alloc)
 //	close(stdinpipe[1]);
 //	printf("This is the parent");
 	/* MNP end experimental code to pipe stdin */
-	for (i = 0; i < total_jobs; i++) {
+	for (i = 0; i < total_steps; i++) {
 		int status;
 		while (waitpid(forkpids[i], &status, 0) == -1);
 		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {

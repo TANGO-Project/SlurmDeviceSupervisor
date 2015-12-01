@@ -332,7 +332,7 @@ _setup_mpi(stepd_step_rec_t *job, int ltaskid)
 	debug("******** MNP pid=%d, in _setup_mpi, minfo->nnodes=%d", getpid(), minfo->nnodes);
 	minfo->ltasks = job->node_tasks;
 //	minfo->gtaskid = job->task[ltaskid]->gtid; // MNP PMI old code
-	minfo->gtaskid = job->task[ltaskid]->mpi_taskid; // MNP PMI new code
+	minfo->gtaskid = job->task[ltaskid]->utaskid; // MNP PMI new code
 	debug("******** MNP pid=%d, in _setup_mpi, minfo->gtaskid=%d", getpid(), minfo->gtaskid);
 	minfo->ltaskid = job->task[ltaskid]->id; // MNP PMI old code
 //	minfo->ltaskid = minfo->gtaskid; // MNP PMI new code
