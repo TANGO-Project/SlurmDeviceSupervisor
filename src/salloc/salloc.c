@@ -301,8 +301,8 @@ for (index1=0; index1 < j; index1++)
 	job_index++;
 
 	for (i = 0; i < ac; i++) {
-	        if(newcmd[i] != NULL)
-		        xfree(newcmd[i]);
+		if(newcmd[i] != NULL)
+			xfree(newcmd[i]);
 	}
 
 	}
@@ -810,9 +810,7 @@ int main_jobpack(int argc, char *argv[])
 	slurm_allocation_callbacks_t callbacks;
 	int numpacklen = 0;
 	int hostlist_num;
-	int pack_tot_ntasks = 0;
-	char *aggr_jobidptr = NULL;
-	char *aggr_nodelistptr = NULL;
+	char *workptr = NULL;
 	char *aggregate_hosts = NULL;
 	hostlist_t hostlist = NULL;
 
@@ -1094,11 +1092,11 @@ int main_jobpack(int argc, char *argv[])
 		alloc = existing_allocation();
 
 		hostlist = hostlist_create(alloc->node_list);
-		aggr_nodelistptr = hostlist_deranged_string_xmalloc(hostlist);
-		xstrcat(aggregate_hosts, aggr_nodelistptr);
+		workptr = hostlist_deranged_string_xmalloc(hostlist);
+		xstrcat(aggregate_hosts, workptr);
 		if (group_number < (pack_desc_count - 1))
 		        xstrcat(aggregate_hosts, ",");
-		xfree(aggr_nodelistptr);
+		xfree(workptr);
 		hostlist_destroy(hostlist);
 
 		_copy_alloc_struct(pack_job_env[group_number].alloc, alloc);
@@ -1117,7 +1115,6 @@ int main_jobpack(int argc, char *argv[])
 			env_array_append_fmt(&env, "SLURM_NPROCS", "%d",
 					     opt.ntasks);
 		}
-		pack_tot_ntasks += opt.ntasks;
 		if (opt.cpus_set) {
 		  env_array_append_fmt(&env, "SLURM_CPUS_PER_TASK", "%d",
 				       opt.cpus_per_task);
@@ -1140,49 +1137,42 @@ int main_jobpack(int argc, char *argv[])
 			xfree(cluster_name);
 		}
 
-		xstrfmtcat(aggr_jobidptr, "%d", alloc->job_id);
+		xstrfmtcat(workptr, "%d", alloc->job_id);
 		if (group_number < (pack_desc_count - 1))
-		        xstrcat(aggr_jobidptr, ",");
+		        xstrcat(workptr, ",");
 
 		env_array_set_environment(env, group_number);
-		env_array_free(env);
 	}
 //info("#########################exited loop 2 #############################");			/* wjb */
 
-        hostlist = hostlist_create(aggregate_hosts);
-        hostlist_sort(hostlist);
-        hostlist_num = hostlist_count(hostlist);
-        aggr_nodelistptr = hostlist_ranged_string_xmalloc(hostlist);
+	env_array_free(env);
 
         /* Set SLURM_LISTJOBIDS env */
-	setenv("SLURM_LISTJOBIDS", aggr_jobidptr, 1);
-        if(aggr_jobidptr != NULL) xfree(aggr_jobidptr);
+	setenv("SLURM_LISTJOBIDS", workptr, 1);
+        if(workptr != NULL) xfree(workptr);
 
         /* Set SLURM_NUMPACK env */
         numpacklen = snprintf(NULL, 0, "%d", pack_desc_count);
-        aggr_jobidptr = xmalloc(numpacklen + 1);
-        sprintf(aggr_jobidptr, "%d", pack_desc_count);
-        setenv("SLURM_NUMPACK", aggr_jobidptr, 1);
-        xfree(aggr_jobidptr);
+        workptr = xmalloc(numpacklen + 1);
+        sprintf(workptr, "%d", pack_desc_count);
+        setenv("SLURM_NUMPACK", workptr, 1);
+        xfree(workptr);
 
         /* Set SLURM_NODELIST_PACK env */
-        setenv("SLURM_NODELIST_PACK", aggr_nodelistptr, 1);
-        xfree(aggr_nodelistptr);
+	hostlist = hostlist_create(aggregate_hosts);
+        hostlist_sort(hostlist);
+        hostlist_num = hostlist_count(hostlist);
+	workptr = hostlist_ranged_string_xmalloc(hostlist);
+        setenv("SLURM_NODELIST_PACK", workptr, 1);
+        xfree(workptr);
         xfree(aggregate_hosts);
 
         /* Set SLURM_NNODES_PACK env */
         numpacklen = snprintf(NULL, 0, "%d", hostlist_num);
-        aggr_nodelistptr = xmalloc(numpacklen + 1);
-        sprintf(aggr_nodelistptr, "%d", hostlist_num);
-        setenv("SLURM_NNODES_PACK", aggr_nodelistptr, 1);
-        xfree(aggr_nodelistptr);
-
-        /* Set SLURM_NTASKS_PACK env */
-        numpacklen = snprintf(NULL, 0, "%d", pack_tot_ntasks);
-        aggr_nodelistptr = xmalloc(numpacklen + 1);
-        sprintf(aggr_nodelistptr, "%d", pack_tot_ntasks);
-        setenv("SLURM_NTASKS_PACK", aggr_nodelistptr, 1);
-        xfree(aggr_nodelistptr);
+        workptr = xmalloc(numpacklen + 1);
+        sprintf(workptr, "%d", hostlist_num);
+        setenv("SLURM_NNODES_PACK", workptr, 1);
+        xfree(workptr);
 
 	pthread_mutex_lock(&allocation_state_lock);
 	if (allocation_state == REVOKED) {

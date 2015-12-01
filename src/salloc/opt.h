@@ -185,8 +185,6 @@ typedef struct {
 	uint32_t job_id;
 	opt_t *opt;
 	char **env;
-//	char *script_name;
-//	void *script_body;
 	job_desc_msg_t *desc;
 	resource_allocation_response_msg_t *alloc;
 	uint32_t ac;
