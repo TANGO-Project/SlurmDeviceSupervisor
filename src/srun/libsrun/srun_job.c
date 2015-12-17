@@ -119,7 +119,7 @@ static void       _set_ntasks(allocation_info_t *info);
 static srun_job_t *_job_create_structure(allocation_info_t *info);
 static char *     _normalize_hostlist(const char *hostlist);
 static int _become_user(void);
-static void _call_spank_fini(void);				/* wjb */
+static void _call_spank_fini(void);
 static int  _call_spank_local_user(srun_job_t *job);
 static void _default_sigaction(int sig);
 static long _diff_tv_str(struct timeval *tv1, struct timeval *tv2);
@@ -139,6 +139,7 @@ static int _shepherd_spawn(srun_job_t *job, bool got_alloc);
 static void *_srun_signal_mgr(void *no_data);
 static void _step_opt_exclusive(void);
 static int _validate_relative(resource_allocation_response_msg_t *resp);
+
 
 /*
  * Create an srun job structure w/out an allocation response msg.
@@ -448,15 +449,6 @@ extern void init_srun(int ac, char **av,
 	}
 	xsignal_block(pty_sigarray);
 
-/*
-int index1;
-info(" init_srun ac contains %u", ac);
-for (index1 = 0; index1 < ac; index1++) {
-	info ("av[%u] is %s", index1, av[index1]);
-}
-*/
-
-
 	/* Initialize plugin stack, read options from plugins, etc.
 	 */
 	init_spank_env();
@@ -680,7 +672,6 @@ extern void create_srun_job(srun_job_t **p_job, bool *got_alloc,
 
 		if ( !(resp = allocate_nodes(handle_signals)) )
 			exit(error_exit);
-
 		global_resp = resp;
 		*got_alloc = true;
 		_print_job_information(resp);
@@ -746,6 +737,8 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 	resource_allocation_response_msg_t *resp;
 	srun_job_t *job = NULL;
 	int desc_index = 0;
+	char *tmp = NULL;
+	int numpack;
 
 	/* now global "opt" should be filled in and available,
 	 * create a job from opt
@@ -843,6 +836,17 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 		}
 	} else {
 		/* Combined job allocation and job step launch */
+		if (desc[group_index].groupjob == true)
+			fatal("Pack job didn't find the existing "
+			      "allocation");
+		if ((tmp = getenv ("SLURM_NUMPACK"))) {
+			numpack = atoi(tmp);
+			if (numpack > 1 ) {
+				fatal("Pack job didn't use the existing "
+				      "allocation");
+			}
+
+		}
 #if defined HAVE_FRONT_END && (!defined HAVE_BG || defined HAVE_BG_L_P || !defined HAVE_BG_FILES) && (!defined HAVE_REAL_CRAY)
 		uid_t my_uid = getuid();
 		if ((my_uid != 0) &&

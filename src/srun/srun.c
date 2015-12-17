@@ -723,6 +723,8 @@ int srun(int ac, char **av)
 
 	memset(&step_callbacks, 0, sizeof(step_callbacks));
 	step_callbacks.step_signal   = launch_g_fwd_signal;
+
+	/* re_launch: */
 relaunch:
 	pre_launch_srun_job(job, 0, 1);
 
