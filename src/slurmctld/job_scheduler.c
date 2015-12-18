@@ -3540,6 +3540,8 @@ static bool _xref_packleader(struct job_record *job_ptr, List depend_list)
 				list_iterator_destroy(depend_iter);
 				return false;
 			}
+			/*  TBD -- test for account, or user_id if desired
+			 * for now we don't think this is needed
 			if (strcmp(dep_job_ptr->account,job_ptr->account)
 									!= 0) {
 				if (debug_flags & DEBUG_FLAG_JOB_PACK) {
@@ -3551,7 +3553,7 @@ static bool _xref_packleader(struct job_record *job_ptr, List depend_list)
 				list_iterator_destroy(depend_iter);
 				return false;
 			}
-
+			*/
 			/* This is a pack member, identify its leader */
 			dep_job_ptr->pack_leader = job_ptr->job_id;
 			/* Reformat dependency string so scontrol identifies

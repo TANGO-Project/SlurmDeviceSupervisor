@@ -661,6 +661,10 @@ Resources allocated to this job should be used to expand the specified job.
 The job to expand must share the same QOS (Quality of Service) and partition.
 Gang scheduling of resources in the partition is also not supported.
 .TP
+\fBpack\fR and \fBpackleader:job_id[:jobid...]\fR
+This job is part of a job_pack.
+See the \fBCo-Scheduled Jobs\fR html document for details.
+.TP
 \fBsingleton\fR
 This job can begin execution after any previously launched jobs
 sharing the same job name and user have terminated.
