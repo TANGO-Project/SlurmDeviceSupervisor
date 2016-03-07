@@ -2465,10 +2465,6 @@ extern void print_job_dependency(struct job_record *job_ptr)
 			dep_str = "packleader";
 		else if (dep_ptr->depend_type == SLURM_DEPEND_EXPAND)
 			dep_str = "expand";
-		else if (dep_ptr->depend_type == SLURM_DEPEND_PACK)
-			dep_str = "pack";
-		else if (dep_ptr->depend_type == SLURM_DEPEND_PACKLEADER)
-			dep_str = "packleader";
 		else
 			dep_str = "unknown";
 
@@ -2527,10 +2523,6 @@ static void _depend_list2str(struct job_record *job_ptr, bool set_or_flag)
 			dep_str = "packleader";
 		else if (dep_ptr->depend_type == SLURM_DEPEND_EXPAND)
 			dep_str = "expand";
-		else if (dep_ptr->depend_type == SLURM_DEPEND_PACK)
-			dep_str = "pack";
-		else if (dep_ptr->depend_type == SLURM_DEPEND_PACKLEADER)
-			dep_str = "packleader";
 		else
 			dep_str = "unknown";
 
@@ -2763,10 +2755,6 @@ extern int test_job_dependency(struct job_record *job_ptr)
 				job_ptr->details->whole_node =
 					djob_ptr->details->whole_node;
 			}
-		} else if (dep_ptr->depend_type == SLURM_DEPEND_PACK) {
-			depends = true;
-		} else if (dep_ptr->depend_type == SLURM_DEPEND_PACKLEADER) {
-			depends = true;
 		} else
 			failure = true;
 		if (clear_dep) {

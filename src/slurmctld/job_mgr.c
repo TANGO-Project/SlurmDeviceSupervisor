@@ -5031,6 +5031,10 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 	struct job_record *mbr_job;
 
 	job_ptr = find_job_record(job_id);
+	if (job_ptr == NULL) {
+		info("JPCK: RBS job_complete failed to find job=%d (assume ESLURM_ALREADY_DONE)", job_id);
+		return ESLURM_ALREADY_DONE;
+	}
 
 	if (job_ptr->details != NULL) {
 		pack_depend = job_ptr->details->depend_list;

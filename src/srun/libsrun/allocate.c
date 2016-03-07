@@ -599,6 +599,8 @@ allocate_nodes_jobpack(bool handle_signals)
 	int i;
 	int job_index;
 
+	 _copy_opt_struct(pack_job_env[group_number].opt, &opt);
+
 	if (!j)
 		return NULL;
 
