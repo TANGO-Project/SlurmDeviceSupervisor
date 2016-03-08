@@ -4027,12 +4027,14 @@ static void _orphan_members(struct job_record *job_ptr)
 	while ((ldr_dep_ptr =
 		       (struct depend_spec *) list_next(depend_iter))) {
 		mbr_job_ptr = ldr_dep_ptr->job_ptr;
-		if (slurm_get_debug_flags() & DEBUG_FLAG_JOB_PACK) {
-			info("JPCK: job_pack (leader=%d) never runs, "
-			      "kill member %d", job_ptr->job_id,
-			      mbr_job_ptr->job_id);
+		if (mbr_job_ptr) {
+			if (slurm_get_debug_flags() & DEBUG_FLAG_JOB_PACK) {
+				info("JPCK: job_pack (leader=%d) never runs, "
+				     "kill member %d", job_ptr->job_id,
+				     mbr_job_ptr->job_id);
+			}
+			mbr_job_ptr->pack_leader = 0;
 		}
-		mbr_job_ptr->pack_leader = 0;
 	}
 	list_iterator_destroy(depend_iter);
 }

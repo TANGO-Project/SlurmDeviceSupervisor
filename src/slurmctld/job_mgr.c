@@ -4482,6 +4482,12 @@ static int _kill_job_pack(uint32_t pack_id, struct job_record *job_ptr,
 	dep_ptr = (struct depend_spec *) list_next(dep_iter);
 	while (dep_ptr != NULL) {
 		mbr_ptr = dep_ptr->job_ptr;
+		if (mbr_ptr == NULL) {
+			error("JPCK: job_ptr for member=%d in job_pack "
+			      "leader=%d is NULL", dep_ptr->job_id,
+			      job_ptr->job_id);
+			continue;
+		}
 		if (!IS_JOB_COMPLETING(mbr_ptr)
 		    && !IS_JOB_FINISHED(mbr_ptr)) {
 			if (debug_flags & DEBUG_FLAG_JOB_PACK) {
