@@ -376,6 +376,10 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 				verbose("Resources allocated for job %u and "
 					"being configured, please wait",
 					job->ctx_params.job_id);
+			} else if (job->pack_member &&
+				   rc == ESLURM_NODES_BUSY) {
+				   fatal("JPCK: nodes  busy, assume "
+				         "job_pack with exclusive allocation");
 			} else {
 				info("Job step creation temporarily disabled, "
 				     "retrying");

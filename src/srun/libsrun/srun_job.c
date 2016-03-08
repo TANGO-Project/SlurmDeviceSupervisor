@@ -723,6 +723,7 @@ extern void create_srun_job(srun_job_t **p_job, bool *got_alloc,
 		global_resp = NULL;
 		slurm_free_resource_allocation_response_msg(resp);
 	}
+	job->pack_member = false;
 
 	/*
 	 *  Become --uid user
@@ -821,10 +822,10 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 		if (_validate_relative(resp))
 			exit(error_exit);
 		job = job_step_create_allocation(resp);
+		job->pack_member = true;
 		_copy_srun_job_struct(desc[group_index].pack_job_env[
 				      job_index].job, job);
 		slurm_free_resource_allocation_response_msg(resp);
-
 		if (opt.begin != 0) {
 			error("--begin is ignored because nodes"
 			      " are already allocated.");
@@ -898,6 +899,7 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 			}
 			/* save job for pack-member */
 			job = job_create_allocation(resp);
+			job->pack_member = true;
 			_copy_srun_job_struct(desc[desc_index].pack_job_env[
 					      0].job, job);
 
