@@ -2736,7 +2736,7 @@ extern int select_nodes(struct job_record *job_ptr, bool test_only,
 	struct depend_spec *dep_ptr;
 	int rc;
 	char* jpck_nodes;
-	int debug_flags;
+	uint64_t debug_flags;
 
 
 	if (job_ptr->details == NULL
@@ -4182,7 +4182,7 @@ static void _deallocate_packmbrs(struct job_record *job_ptr)
 	ListIterator depend_iter;
 	struct depend_spec *dep_ptr;
 	struct job_record *dep_job_ptr;
-	int debug_flags;
+	uint64_t debug_flags;
 
 	debug_flags = slurm_get_debug_flags();
 	depend_iter = list_iterator_create(job_ptr->details->depend_list);
@@ -4214,7 +4214,7 @@ static int _allocate_packmbrs(struct job_record *job_ptr,
 	struct depend_spec *dep_ptr;
 	struct job_record *dep_job_ptr;
 	int rc, ipj;
-	int debug_flags;
+	uint64_t debug_flags;
 	char* err_msg = NULL;
 	char* jpck_nodes;
 

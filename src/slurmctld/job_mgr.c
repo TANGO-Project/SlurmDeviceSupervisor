@@ -5139,12 +5139,24 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 		while ((ldr_dep_ptr = (struct depend_spec *)
 				      list_next(dpnd_iter))) {
 			if (ldr_dep_ptr->depend_type == SLURM_DEPEND_PACK) {
-				if (debug_flags & DEBUG_FLAG_JOB_PACK) {
-					info("JPCK: pack member %d waiting for "
-					     "leader %d to complete",
-					     job_id, job_ptr->pack_leader);
+				if (job_ptr->batch_flag > 0) {
+					if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+						info("JPCK: pack member "
+						     "%d waiting for leader %d "
+					             "to complete", job_id,
+						     job_ptr->pack_leader);
+					}
+					return SLURM_SUCCESS;
+				} else {
+					if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+						info("JPCK: pack member %d "
+						    "(leader %d) is completing",
+						     job_id,
+						     job_ptr->pack_leader);
+					}
+					return _job_complete(job_id, uid, false,
+							false, job_return_code);
 				}
-				return SLURM_SUCCESS;
 			}
 			if (ldr_dep_ptr->depend_type != SLURM_DEPEND_PACKLEADER)
 				continue;
@@ -5162,8 +5174,8 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 				continue;
 			}
 			if (debug_flags & DEBUG_FLAG_JOB_PACK) {
-				info("JPCK: Completing pack member jobid=%d",
-				     ldr_dep_ptr->job_id);
+				info("JPCK: Leader %d completing pack member "
+				     "jobid=%d", job_id, ldr_dep_ptr->job_id);
 			}
 			rc = _job_complete(ldr_dep_ptr->job_id, uid,
 					   false, false, job_return_code);

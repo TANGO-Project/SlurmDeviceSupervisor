@@ -1362,6 +1362,11 @@ static int _launch_srun_steps_jobpack(bool got_alloc)
 		if (job_index == 0) job_index++;
 		for (j = 0; j <job_index; j++) {
 			opt_ptr = _get_opt(i, j);
+			if (i == 0) {
+				srun_mpi_combine = opt_ptr->mpi_combine;
+				debug2("JPCK: setting mpi_combine i=%d j=%d "
+					"val=%d", i,j,srun_mpi_combine);
+			}
 			memcpy(&opt, opt_ptr, sizeof(opt_t));
 			job = _get_srun_job(i, j);
 			env = _get_env(i, j);
