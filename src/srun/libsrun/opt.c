@@ -648,6 +648,7 @@ static void _opt_default(void)
 	opt.delay_boot = NO_VAL;
 	opt.ngrpidx = 0;
 	opt.groupidx = NULL;
+	opt.mpi_combine = true;
 }
 
 /*---[ env var processing ]-----------------------------------------------*/
@@ -3032,6 +3033,10 @@ static void _opt_list(void)
 		info("resv_port_cnt     : %d", opt.resv_port_cnt);
 	info("power             : %s", power_flags_str(opt.power_flags));
 	info("pack_group        : %s", opt.pack_group);
+	if (opt.mpi_combine)
+		info("mpi_combine : yes");
+	else
+		info("mpi_combine : yes");
 	str = print_commandline(opt.argc, opt.argv);
 	info("remote command    : `%s'", str);
 	if (opt.mcs_label)

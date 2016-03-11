@@ -85,8 +85,8 @@ int *nnodes_pipe;
 int *pmi2port_pipe;
 int *pmi1port_pipe;
 
-int srun_num_steps;	// MNP PMI
-int srun_step_idx;	// MNP PMI
+int srun_num_steps;
+int srun_step_idx;
 uint32_t packstepid[2];
 bool srun_mpi_combine;
 
