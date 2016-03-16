@@ -868,7 +868,7 @@ _combine_srun_job_info(const mpi_plugin_client_info_t *job)
 			job_info.nnodes+=nnodes;
 			curnodeidx+=nnodes;
 			/* Close read end of pipes */
-			close(vector_pipe_out[j+0]);
+			close(vector_pipe[j+0]);
 			close(nnodes_pipe[j+0]);
 			debug("******** MNP pid=%d, step#%d in _combine_srun_job_info 5", getpid(), srun_step_idx);
 		}
