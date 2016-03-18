@@ -14,7 +14,7 @@ reorganize based on what maked sense for the end user -->
 <li><a href="#Section2">Command Changes</a></li>
 <li><a href="#Section3">Configuration Changes</a></li>
 <li><a href="#Section4">Job Management</a></li>
-<li><a href="#Section5">MPI Support</a></li>
+<li><a href="#Section5">MPMD MPI Support</a></li>
 <li><a href="#Section6">Environment Variables</a></li>
 <li><a href="#Section7">Accounting</a></li>
 <li><a href="#Section8">Limitations</a></li>
@@ -26,7 +26,8 @@ reorganize based on what maked sense for the end user -->
 Asymmetric Resources. It is the scheduling of multiple jobs
 submitted by a single salloc, sbatch or srun command, and the
 launching of multiple job steps using a single srun command, such that the
-jobs and steps run concurrently to run a common application. Tasks belonging
+jobs and steps run concurrently to run a common application, possibly using different executables.
+The support of job packs enables also a tight integration of multiple program, multiple data (MPMD) support with MPI. Tasks belonging
 to the co-scheduled jobs and steps can all participate in the same
 MPI_COMM_WORLD communicator.
 </p>
@@ -465,8 +466,9 @@ When this condition occures, the job is terminated with the message
 <b>JPCK: nodes  busy, assume Job Pack with exclusive allocation</b>
 </p>
 <a name="Section5"></a>
-<h2>MPI Support</h2>
-Job Packs allow a single MPI application with multiple executables to be
+<h2>MPMD MPI Support</h2>
+Job Packs provide a tight integration of MPMD (multiple program multiple data) MPI support
+with srun. Through job packs a single MPI application with multiple executables can be
 distributed across multiple co-scheduled jobs and steps. Each executable
 within the application can be targeted to a particular resource allocation
 (job) that matches its requirements. By default, all the steps launched
@@ -666,29 +668,6 @@ command will display the new information.
  <p>
 Using the sacct command,  designating  job accounting field options
 PackID, PackJobID, and PackStepid displays the new data.
-
-<a name="Section8"></a>
-<h2>Limitations</h2>
-
-<h4>PrologFlags=Alloc</h4>
-
-<p>
-This slurm.conf option does not work in the current release. This limitation
-will be fixed in a future release.
-</p>
-
-<p>
-When test whether a Job Pack can run, the pack members are actually allocated
-so the prolog script is executed. If any member cannot be allocated, the
-resources are deallocated, but that script will have executed, possibly taking
-actions that can't be reversed.
-</p>
-
-<p>
-A workaround is to execute tasks that usually would be put in a prolog as a
-srun on the entire allocation.
-</p>
-
 
 <a name="Section9"></a>
 <h2>Example</h2>
