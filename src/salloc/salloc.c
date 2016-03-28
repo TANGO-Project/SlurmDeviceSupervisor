@@ -812,6 +812,7 @@ int main_jobpack(int argc, char *argv[])
 	_build_env_structs(argc, argv);
 	_identify_job_descriptions(argc, argv);
 
+	alloc = NULL;
 	for (job_index = pack_desc_count; job_index > 0; job_index--) {
 		group_number = job_index - 1;
 		packleader = pack_job_env[group_number].packleader;
@@ -1155,7 +1156,7 @@ int main_jobpack(int argc, char *argv[])
 
 	/* Set SLURM_LISTJOBIDS env */
 	setenv("SLURM_LISTJOBIDS", aggr_jobidptr, 1);
-	if(aggr_jobidptr != NULL) xfree(aggr_jobidptr);
+	xfree(aggr_jobidptr);
 
 	/* Set SLURM_NUMPACK env */
 	numpacklen = snprintf(NULL, 0, "%d", pack_desc_count);

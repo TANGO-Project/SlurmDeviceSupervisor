@@ -201,7 +201,6 @@ int _chk_jobpack_depends(job_step_info_t * step, int width, int right)
 	//	        goto no_jobpack;
 	if (!strncmp(job_ptr[i].dependency,
 		     "packleader", 10)) {
-	        jobids = xmalloc(strlen(&job_ptr[i].dependency[11]) + 1);
 		jobids = xstrdup(&job_ptr[i].dependency[11]);
 		int j;
 		char *member_id = jobids;

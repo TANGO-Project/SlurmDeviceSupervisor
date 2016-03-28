@@ -4370,7 +4370,6 @@ static void _addto_jobpack_pelog_env(struct job_record **job_pptr)
 	struct job_record *dep_job_ptr;
 	struct job_record *job_ptr, *jptr;
 	char **env = NULL;
-	int numpack;
 	char *tmp;
 
 	job_ptr = *job_pptr;
@@ -4391,8 +4390,7 @@ static void _addto_jobpack_pelog_env(struct job_record **job_pptr)
 
 	env = env_array_create();
 
-	numpack = jptr->numpack;
-	env_array_append_fmt(&env, "SLURM_NUMPACK", "%d", numpack);
+	env_array_append_fmt(&env, "SLURM_NUMPACK", "%d", jptr->numpack);
 
 	env_array_append_fmt(&env, "SLURM_NODELIST_PACK_GROUP_0",
 			     "%s", jptr->nodes);
