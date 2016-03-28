@@ -1044,7 +1044,8 @@ _parse_pack_group(const char *pack_group)
 
 	struct _range *ranges = NULL;
 	int capacity = 0;
-	int nr, tglen, i, j, k;
+	int nr = 0;
+	int tglen, i, j, k;
 	char *p, *end;
 	char cur_tok[1024];
 	uint32_t grp;

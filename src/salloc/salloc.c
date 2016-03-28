@@ -245,7 +245,6 @@ static void _identify_job_descriptions(int ac, char **av)
 				pack_job_env[job_index].packleader = true;
 		}
 		current = index + 1;
-		i = 1;
 
 		if (dependency_position == 0) j++;
 		pack_job_env[job_index].av = xmalloc(sizeof(char *) * (j + 1));
@@ -350,8 +349,10 @@ int main(int argc, char **argv)
 	log_init(xbasename(argv[0]), logopt, 0, NULL);
 	_set_exit_code();
 
-	if(_count_jobs(argc, argv)) {
+	if (_count_jobs(argc, argv)) {
 		rc = main_jobpack(argc, argv);
+		if (rc != 0)
+			error("jobpack processing failed");
 		return 0;
 	}
 
@@ -991,9 +992,7 @@ int main_jobpack(int argc, char *argv[])
 			}
 			if (!alloc)
 				fatal("JPCK: failed to allocate packleader");
-			pack_job_env[group_number].job_id = alloc->job_id;
-			debug2("JPCK: Dependency for packleader %u is "
-			       "%s", pack_job_env[group_number].job_id,
+			debug2("JPCK: Dependency for packleader is %s",
 			       pack_job_env[group_number].av[
 			       packl_dependency_position]);
 		}

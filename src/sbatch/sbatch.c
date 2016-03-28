@@ -171,7 +171,6 @@ static void _identify_job_descriptions(int ac, char **av)
 				pack_job_env[job_index].packleader = true;
 		}
 		current = index + 1;
-		i = 1;
 
 		if (dependency_position == 0) j++;
 		pack_job_env[job_index].av = xmalloc(sizeof(char *) * (j + 1));
