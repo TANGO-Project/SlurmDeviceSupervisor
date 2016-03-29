@@ -655,6 +655,7 @@ allocate_nodes_jobpack(bool handle_signals)
 	}
 	if (!resp) {
 		fatal("JPCK: failed to allocate packleader");
+		return NULL; /* Fix Clang false positive */
 	}
 	desc[0].pack_job_env[0].job_id = resp->job_id;
 	_copy_resp_struct(desc[group_index].pack_job_env[job_index].resp, resp);

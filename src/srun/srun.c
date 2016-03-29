@@ -360,7 +360,6 @@ static void _identify_job_descriptions(int ac, char **av)
 				pack_job_env[job_index].packleader = true;
 		}
 		current = index + 1;
-		i = 1;
 
 		if (dependency_position == 0) j++;
 		pack_job_env[job_index].av = xmalloc(sizeof(char *) * (j + 1));
@@ -1213,7 +1212,7 @@ static void _enhance_env_jobpack(bool got_alloc)
 				      "disregarding --pty option");
 				opt.pty = false;
 			}
-			if (opt.pty) {
+			if (opt.pty && job) {
 				struct termios term;
 				int fd = STDIN_FILENO;
 
@@ -1247,7 +1246,6 @@ static void _enhance_env_jobpack(bool got_alloc)
 	}
 
 	/* Set SLURM_XXX_MPI envs */
-	n = 0;
 	if (nodelist_mpi) {
 		char *ch = strrchr(nodelist_mpi, ',');
 		if (ch != NULL) *ch = '\0';

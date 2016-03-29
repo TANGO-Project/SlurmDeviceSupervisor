@@ -2807,7 +2807,7 @@ extern int   spank_unset_job_env(const char *name)
 extern int pelog_set_env(int overwrite)
 {
 	int i, len;
-	char *name, *eq, *value;
+	char *name = NULL, *eq, *value;
 	char *tmp_str = NULL;
 
 	for (i = 0; environ[i]; i++) {

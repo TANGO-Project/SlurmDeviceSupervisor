@@ -4382,7 +4382,10 @@ static void _addto_jobpack_pelog_env(struct job_record **job_pptr)
 	if (job_ptr->pelog_env_size) return;
 
 	jptr = find_job_record(job_ptr->pack_leader);
-
+	if (!jptr) {
+		error("Didn't find pack leader: %d", job_ptr->pack_leader);
+		return;
+	}
 	if (jptr && jptr->details == NULL)
 		return;
 	if (jptr && jptr->details->depend_list == NULL)

@@ -16446,8 +16446,10 @@ uint32_t get_pack_nodelist(uint32_t job_id,  char **nodelist)
 	bitstr_t *job_node_bitmap = NULL;
 	uint32_t node_count;
 
-	if (nodelist == NULL)
+	if (nodelist == NULL) {
 		fatal("get_pack_nodelist -- nodelist is NULL");
+		return SLURM_ERROR;
+	}
 
 	job_ptr = find_job_record(job_id);
 	if (job_ptr == NULL) {
