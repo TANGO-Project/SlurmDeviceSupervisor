@@ -992,6 +992,7 @@ int main_jobpack(int argc, char *argv[])
 			}
 			if (!alloc)
 				fatal("JPCK: failed to allocate packleader");
+			pack_job_env[group_number].job_id = alloc->job_id;
 			debug2("JPCK: Dependency for packleader is %s",
 			       pack_job_env[group_number].av[
 			       packl_dependency_position]);
