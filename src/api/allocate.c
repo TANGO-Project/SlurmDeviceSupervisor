@@ -63,7 +63,6 @@ extern pid_t getsid(pid_t pid);		/* missing from <unistd.h> */
 #include "src/common/parse_time.h"
 #include "src/common/slurm_auth.h"
 #include "src/common/slurm_protocol_defs.h"
-#include "src/srun/libsrun/opt.h"
 
 #define BUFFER_SIZE 1024
 #define MAX_ALLOC_WAIT 60	/* seconds */
