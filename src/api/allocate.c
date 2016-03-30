@@ -144,9 +144,11 @@ slurm_allocate_resources (job_desc_msg_t *req,
 }
 
 /*
- * slurm_allocate_pack_resources
- *	allocate resources for a job request.  This call will block until
- *	the allocation is granted, or the specified timeout limit is reached.
+ * _slurm_allocate_resources_cb
+ * 	Helper function to trigger blocking or non-blocking callbacks.
+ *	allocate resources for a job request.  If blocking is true, this call
+ *	will block until the allocation is granted, or the specified timeout
+ *	limit is reached.
  * IN req - description of resource allocation request
  * IN timeout - amount of time, in seconds, to wait for a response before
  * 	giving up.
@@ -155,16 +157,19 @@ slurm_allocate_resources (job_desc_msg_t *req,
  *      the controller will put the job in the PENDING state.  If
  *      pending callback is not NULL, it will be called with the job_id
  *      of the pending job as the sole parameter.
+ * IN blocking - Whether this call should block and wait for an allocation to be
+ *      granted.
  *
  * RET allocation structure on success, NULL on error set errno to
  *	indicate the error (errno will be ETIMEDOUT if the timeout is reached
  *      with no allocation granted)
  * NOTE: free the response using slurm_free_resource_allocation_response_msg()
  */
-resource_allocation_response_msg_t *
-slurm_allocate_pack_resources (const job_desc_msg_t *user_req,
-			       time_t timeout,
-			       void(*pending_callback)(uint32_t job_id))
+static resource_allocation_response_msg_t *
+_slurm_allocate_resources_cb(const job_desc_msg_t *user_req,
+				   time_t timeout,
+				   void(*pending_callback)(uint32_t job_id),
+				   bool blocking)
 {
 	int rc;
 	slurm_msg_t req_msg;
@@ -254,7 +259,10 @@ slurm_allocate_pack_resources (const job_desc_msg_t *user_req,
 			slurm_free_resource_allocation_response_msg(resp);
 			if (pending_callback != NULL)
 				pending_callback(job_id);
+			if (!blocking)
 				break;
+			resp = _wait_for_allocation_response(job_id, listen,
+							     timeout);
 			/* If NULL, we didn't get the allocation in
 			   the time desired, so just free the job id */
 			if ((resp == NULL) && (errno != ESLURM_ALREADY_DONE)) {
@@ -276,6 +284,27 @@ slurm_allocate_pack_resources (const job_desc_msg_t *user_req,
 	xfree(req);
 	errno = errnum;
 	return resp;
+}
+
+/*
+ * slurm_allocate_resources_callback
+ *	allocate resources for a job request. non-blocking with callback.
+ * IN req - description of resource allocation request
+ * IN pending_callback - If the allocation cannot be granted immediately,
+ *      the controller will put the job in the PENDING state.  If
+ *      pending callback is not NULL, it will be called with the job_id
+ *      of the pending job as the sole parameter.
+ *
+ * RET allocation structure on success, NULL on error set errno to
+ *	indicate the error.
+ * NOTE: free the response using slurm_free_resource_allocation_response_msg()
+ */
+resource_allocation_response_msg_t *
+slurm_allocate_resources_callback(const job_desc_msg_t *user_req,
+				  void(*pending_callback)(uint32_t job_id))
+{
+	return _slurm_allocate_resources_cb(user_req, 1, pending_callback,
+					    false);
 }
 
 /*
@@ -301,118 +330,10 @@ slurm_allocate_resources_blocking (const job_desc_msg_t *user_req,
 				   time_t timeout,
 				   void(*pending_callback)(uint32_t job_id))
 {
-	int rc;
-	slurm_msg_t req_msg;
-	slurm_msg_t resp_msg;
-	resource_allocation_response_msg_t *resp = NULL;
-	char *hostname = NULL;
-	uint32_t job_id;
-	job_desc_msg_t *req;
-	listen_t *listen = NULL;
-	int errnum = SLURM_SUCCESS;
-
-	slurm_msg_t_init(&req_msg);
-	slurm_msg_t_init(&resp_msg);
-
-	/* make a copy of the user's job description struct so that we
-	 * can make changes before contacting the controller */
-	req = (job_desc_msg_t *)xmalloc(sizeof(job_desc_msg_t));
-	if (req == NULL)
-		return NULL;
-	memcpy(req, user_req, sizeof(job_desc_msg_t));
-
-	/*
-	 * set Node and session id for this request
-	 */
-	if (req->alloc_sid == NO_VAL)
-		req->alloc_sid = getsid(0);
-
-	if (user_req->alloc_node != NULL) {
-		req->alloc_node = xstrdup(user_req->alloc_node);
-	} else if ((hostname = xshort_hostname()) != NULL) {
-		req->alloc_node = hostname;
-	} else {
-		error("Could not get local hostname,"
-		      " forcing immediate allocation mode.");
-		req->immediate = 1;
-	}
-
-	if (!req->immediate) {
-		listen = _create_allocation_response_socket(hostname);
-		if (listen == NULL) {
-			xfree(req->alloc_node);
-			xfree(req);
-			return NULL;
-		}
-		req->alloc_resp_port = listen->port;
-	}
-
-	req_msg.msg_type = REQUEST_RESOURCE_ALLOCATION;
-	req_msg.data     = req;
-
-	rc = slurm_send_recv_controller_msg(&req_msg, &resp_msg);
-
-	if (rc == SLURM_SOCKET_ERROR) {
-		int errnum = errno;
-		destroy_forward(&req_msg.forward);
-		destroy_forward(&resp_msg.forward);
-		if (!req->immediate)
-			_destroy_allocation_response_socket(listen);
-		xfree(req->alloc_node);
-		xfree(req);
-		errno = errnum;
-		return NULL;
-	}
-
-	switch (resp_msg.msg_type) {
-	case RESPONSE_SLURM_RC:
-		if (_handle_rc_msg(&resp_msg) < 0) {
-			/* will reach this when the allocation fails */
-			errnum = errno;
-		} else {
-			/* shouldn't get here */
-			errnum = -1;
-		}
-		break;
-	case RESPONSE_RESOURCE_ALLOCATION:
-		/* Yay, the controller has acknowledged our request!  But did
-		   we really get an allocation yet? */
-		resp = (resource_allocation_response_msg_t *) resp_msg.data;
-		if (resp->node_cnt > 0) {
-			/* yes, allocation has been granted */
-			errno = SLURM_PROTOCOL_SUCCESS;
-		} else if (!req->immediate) {
-			if (resp->error_code != SLURM_SUCCESS)
-				info("%s", slurm_strerror(resp->error_code));
-			/* no, we need to wait for a response */
-			job_id = resp->job_id;
-			slurm_free_resource_allocation_response_msg(resp);
-			if (pending_callback != NULL)
-				pending_callback(job_id);
-			resp = _wait_for_allocation_response(job_id, listen,
-							     timeout);
-			/* If NULL, we didn't get the allocation in
-			   the time desired, so just free the job id */
-			if ((resp == NULL) && (errno != ESLURM_ALREADY_DONE)) {
-				errnum = errno;
-				slurm_complete_job(job_id, -1);
-			}
-		}
-		break;
-	default:
-		errnum = SLURM_UNEXPECTED_MSG_ERROR;
-		resp = NULL;
-	}
-
-	destroy_forward(&req_msg.forward);
-	destroy_forward(&resp_msg.forward);
-	if (!req->immediate)
-		_destroy_allocation_response_socket(listen);
-	xfree(req->alloc_node);
-	xfree(req);
-	errno = errnum;
-	return resp;
+	return _slurm_allocate_resources_cb(user_req, timeout, pending_callback,
+					    true);
 }
+
 
 /*
  * slurm_job_will_run - determine if a job would execute immediately if

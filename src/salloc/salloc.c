@@ -963,8 +963,9 @@ int main_jobpack(int argc, char *argv[])
 		before = time(NULL);
 		retries = 0;
 		if (packjob == true) {
-			while ((alloc = slurm_allocate_pack_resources(&desc,
-			      opt.immediate, _pending_callback)) == NULL) {
+			while ((alloc =
+				slurm_allocate_resources_callback(
+					&desc, _pending_callback)) == NULL) {
 			  if (((errno != ESLURM_ERROR_ON_DESC_TO_RECORD_COPY) &&
 			       (errno != EAGAIN)) || (retries >= MAX_RETRIES))
 				break;

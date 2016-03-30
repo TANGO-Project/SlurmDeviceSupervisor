@@ -625,8 +625,8 @@ allocate_nodes_jobpack(bool handle_signals)
 
 	if (packjob == true) {
 		while (!resp) {
-			resp = slurm_allocate_pack_resources(j, opt.immediate,
-			       _set_pending_job_id);
+			resp = slurm_allocate_resources_callback(
+							j, _set_pending_job_id);
 			if (destroy_job) {
 				/* cancelled by signal */
 				break;
