@@ -317,7 +317,6 @@ static int
 _setup_mpi(stepd_step_rec_t *job, int ltaskid)
 {
 	mpi_plugin_task_info_t minfo[1];
-	char addrbuf[1024];
 
 	minfo->jobid = job->mpi_jobid;
 	minfo->stepid = job->stepid;
@@ -329,8 +328,6 @@ _setup_mpi(stepd_step_rec_t *job, int ltaskid)
 	minfo->ltaskid = job->task[ltaskid]->id;
 	minfo->self = job->envtp->self;
 	minfo->client = job->envtp->cli;
-	slurm_print_slurm_addr (minfo->self, addrbuf, sizeof(addrbuf));
-	slurm_print_slurm_addr (minfo->self, addrbuf, sizeof(addrbuf));
 
 	/* set environment variables for PMI client */
 	env_array_overwrite_fmt(&job->env, "PMI_JOBID", "%u",minfo->jobid);
