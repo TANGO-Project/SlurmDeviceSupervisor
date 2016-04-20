@@ -535,6 +535,12 @@ static int main_jobpack(int argc, char *argv[])
 			error("sbatch parameter parsing");
 			exit(error_exit);
 		}
+		if (opt.array_inx != NULL) {
+			error("Job arrays are not supported with JobPacks.\n"
+			      "If a pack member job was submitted it will be "
+			      "killed.");
+			exit(error_exit);
+		}
 
 		if (spank_init_post_opt() < 0) {
 			error("Plugin stack post-option processing failed");
