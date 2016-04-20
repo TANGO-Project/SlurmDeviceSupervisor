@@ -962,34 +962,10 @@ extern void pre_launch_srun_job(srun_job_t *job, bool slurm_started,
 	if (slurm_started)
 		return;
 
-	_run_srun_prolog(job);
-	if (_call_spank_local_user (job) < 0) {
-		error("Failure in local plugin stack");
-		slurm_step_launch_abort(job->step_ctx);
-		exit(error_exit);
-	}
-}
-
-extern void pre_launch_srun_job_pack(srun_job_t *job, bool slurm_started,
-		bool handle_signals)
-{
-	pthread_attr_t thread_attr;
-
-	if (handle_signals && !signal_thread) {
-		slurm_attr_init(&thread_attr);
-		while (pthread_create(&signal_thread, &thread_attr,
-				      _srun_signal_mgr, job)) {
-			error("pthread_create error %m");
-			sleep(1);
-		}
-		slurm_attr_destroy(&thread_attr);
-	}
-
-	/* if running from poe This already happened in srun. */
-	if (slurm_started)
-		return;
-
-	_run_srun_prolog_jobpack();
+	if (job->pack_member)
+		_run_srun_prolog_jobpack();
+	else
+		_run_srun_prolog(job);
 	if (_call_spank_local_user (job) < 0) {
 		error("Failure in local plugin stack");
 		slurm_step_launch_abort(job->step_ctx);

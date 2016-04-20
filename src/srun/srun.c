@@ -1278,7 +1278,7 @@ static void _pre_launch_srun_jobpack(void)
 	srun_job_t *job;
 
 	job = _get_srun_job(0, 0);
-	pre_launch_srun_job_pack(job, 0, 1);
+	pre_launch_srun_job(job, 0, 1);
 }
 
 
