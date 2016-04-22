@@ -178,56 +178,6 @@ static void _merge_job_reason(job_info_t *job_ptr, job_info_t *task_ptr)
 	xstrfmtcat(job_ptr->state_desc, ",%s", task_desc);
 }
 
-/* check the job_id of the input step_ptr to see if it is a packleader
-   and if so iterate through the list of packmember job_ids associated
-   with the packleader and print them subordinate to the packleader */
-int _chk_jobpack_depends(job_step_info_t * step, int width, int right)
-{
-	job_info_msg_t * job_info_ptr;
-	job_info_t * job_ptr;
-	int error_code, i;
-	char *jobids = NULL;
-	char tmp[12];
-
-	error_code = slurm_load_job(&job_info_ptr, step->job_id, 0);
-	if (error_code) {
-	        slurm_perror ("slurm_load_job error");
-		return SLURM_ERROR;
-	}
-	job_ptr = job_info_ptr->job_array;
-	for (i = 0; i < job_info_ptr->record_count; i++)
-	        if (job_ptr[i].job_id == step->job_id) break;
-	//	if (i == job_info_ptr->record_count)
-	//	        goto no_jobpack;
-	if (!strncmp(job_ptr[i].dependency,
-		     "packleader", 10)) {
-		jobids = xstrdup(&job_ptr[i].dependency[11]);
-		int j;
-		char *member_id = jobids;
-		char *comma = strchr(member_id, ',');
-		while (comma != NULL) {
-		        *comma = '\0';
-			for (j = 0; j < job_info_ptr->record_count; j++)
-			        if (job_ptr[j].job_id == atoi(member_id))
-				        break;
-			sprintf(tmp, "\\_ %s", member_id);
-			_print_str(tmp, width, right, true);
-			printf("\n");
-			member_id = comma + 1;
-			if (member_id != NULL)
-			        comma = strchr(member_id, ',');
-			else
-			        comma = NULL;
-		}
-		if (strlen(member_id)) {
-		        sprintf(tmp, "\\_ %s", member_id);
-			_print_str(tmp, width, right, true);
-			printf("\n");
-		}
-	}
-	return SLURM_SUCCESS;
-}
-
 /* Combine pending tasks of a job array into a single record.
  * The tasks may have been split into separate job records because they were
  * modified or started, but the records can be re-combined if pending. */
