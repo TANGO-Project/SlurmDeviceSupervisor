@@ -96,7 +96,6 @@ char *	getenvp(char **env, const char *name);
 int	setenvf(char ***envp, const char *name, const char *fmt, ...);
 int	setenvfs(const char *fmt, ...);
 void	unsetenvp(char **env, const char *name);
-uint32_t group_number;
 
 int	setup_env(env_t *env, bool preserve_env);
 
