@@ -503,8 +503,6 @@ extern void deallocate_nodes(struct job_record *job_ptr, bool timeout,
 	}
 
 	acct_policy_job_fini(job_ptr);
-	if (select_g_job_fini(job_ptr) != SLURM_SUCCESS)
-		error("select_g_job_fini(%u): %m", job_ptr->job_id);
 	if (job_ptr->node_bitmap != NULL) {
 		if (select_g_job_fini(job_ptr) != SLURM_SUCCESS)
 			error("select_g_job_fini(%u): %m", job_ptr->job_id);
