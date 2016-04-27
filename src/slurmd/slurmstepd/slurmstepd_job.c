@@ -459,11 +459,6 @@ batch_stepd_step_rec_create(batch_job_launch_msg_t *msg)
 	slurm_mutex_init(&job->state_mutex);
 	if (msg->cpus_per_node)
 		job->cpus    = msg->cpus_per_node[0];
-//	job->mpi_jobid  = msg->mpi_jobid; // JPCK MNP PMI TODO: need to uncomment these lines to support batch launch?
-//	job->mpi_stepid = msg->mpi_stepid; // JPCK MNP PMI
-//	job->mpi_ntasks = msg->mpi_ntasks; // JPCK MNP PMI
-//	job->mpi_nnodes = msg->mpi_nnodes; // JPCK MNP PMI
-//	job->mpi_stepftaskid = msg->mpi_stepftaskid; // JPCK MNP PMI
 	job->node_tasks  = 1;
 	job->ntasks  = msg->ntasks;
 	job->jobid   = msg->job_id;
