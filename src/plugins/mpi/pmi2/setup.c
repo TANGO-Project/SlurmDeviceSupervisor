@@ -134,7 +134,7 @@ void _adjust_vect_nodeidx(char *vecstr, char *newvecstr, int curnodeidx)
 		num = atoi(numstr);
 		num+=curnodeidx;
 		sprintf(newnumstr, "%d", num);
-		_replace(sub, numstr, newnumstr); // xstrsubstitute doesn't work
+		_replace(sub, numstr, newnumstr);
 		numstr[0]= '\0';
 	}
 	xfree(numstr);
@@ -152,10 +152,13 @@ void _combine_vect_lists(char *vect_list1, char *vect_list2)
 {
 	char *p, *p1;
 
+	if (strlen(vect_list1)+strlen(vect_list2) > VECT_MAX_SIZE) {
+		error("mpi/pmi2: vector list too long");
+	}
 	p = strstr(vect_list2, "(vector");
 	p+=7;
 	p1 = strstr(vect_list1, "))");
-	p1[1]='\0';;
+	p1[1]='\0';
 	strcat(p1, p);
 }
 
@@ -833,7 +836,7 @@ _combine_srun_job_info(const mpi_plugin_client_info_t *job)
 		for (i=1; i < srun_num_steps; i++) {
 			j=i*2;
 			read(vector_pipe_out[j+0], readbuffer,
-			     sizeof(readbuffer));
+			     VECT_MAX_SIZE);
 			strcpy(comb_vect_list, job_info.proc_mapping);
 			_adjust_vect_nodeidx(readbuffer, adj_vect_list,
 					     curnodeidx);
