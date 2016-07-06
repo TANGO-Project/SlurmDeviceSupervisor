@@ -8753,7 +8753,6 @@ static void _list_delete_job(void *job_entry)
 	step_list_purge(job_ptr);
 	select_g_select_jobinfo_free(job_ptr->select_jobinfo);
 	xfree(job_ptr->wckey);
-	resv_port_jobpack_free(job_ptr);
 	xfree(job_ptr->resv_port_array);
 	xfree(job_ptr->resv_ports);
 
