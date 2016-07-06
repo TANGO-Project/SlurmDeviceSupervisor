@@ -4393,6 +4393,9 @@ static void _addto_jobpack_pelog_env(struct job_record **job_pptr)
 
 	env_array_append_fmt(&env, "SLURM_NUMPACK", "%d", jptr->numpack);
 
+	env_array_append_fmt(&env, "SLURM_PACKLEADERID",
+			     "%d", jptr->pack_leader);
+
 	env_array_append_fmt(&env, "SLURM_NODELIST_PACK_GROUP_0",
 			     "%s", jptr->nodes);
 
@@ -4478,6 +4481,9 @@ static void _addto_jobpack_pelog_env_prolog (struct job_record **job_pptr)
 
 	numpack = job_ptr->numpack;
 	env_array_append_fmt(&env, "SLURM_NUMPACK", "%d", numpack);
+
+	env_array_append_fmt(&env, "SLURM_PACKLEADERID",
+			     "%d", job_ptr->pack_leader);
 
 	env_array_append_fmt(&env, "SLURM_NODELIST_PACK_GROUP_0",
 			     "%s", job_ptr->nodes);
