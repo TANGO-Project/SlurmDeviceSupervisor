@@ -711,7 +711,8 @@ _create_task_out_eio(int fd, uint16_t type,
 	out->magic = TASK_OUT_MAGIC;
 #endif
 	out->type = type;
-	out->gtaskid = task->gtid;
+//	out->gtaskid = task->gtid; // MNP PMY old code
+	out->gtaskid = task->mpi_taskid; // MNP PMI new code
 	out->ltaskid = task->id;
 	out->job = job;
 	out->buf = cbuf_create(MAX_MSG_LEN, MAX_MSG_LEN*4);

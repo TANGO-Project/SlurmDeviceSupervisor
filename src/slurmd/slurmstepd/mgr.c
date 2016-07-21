@@ -2042,6 +2042,9 @@ _wait_for_any_task(stepd_step_rec_t *job, bool waitflag)
 			 * place or concurrent searches of the environment can
 			 * generate invalid memory references. */
 			job->envtp->env = env_array_copy((const char **) job->env);
+			env_t *env = job->envtp; // MNP debug
+			debug("******** MNP pid=%d, pack desc#=0, env->jobid=%d, env->stepid=%d, env->nodelist=%s", getpid(), env->jobid, env->stepid, env->nodelist);
+			debug("******** MNP pid=%d, env->ntasks=%d, env->procid=%d, env->localid=%d", getpid(), env->ntasks, env->procid, env->localid);
 			setup_env(job->envtp, false);
 			tmp_env = job->env;
 			job->env = job->envtp->env;

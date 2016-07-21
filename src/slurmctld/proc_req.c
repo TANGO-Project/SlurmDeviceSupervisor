@@ -2422,6 +2422,7 @@ static void _slurm_rpc_job_step_create(slurm_msg_t * msg)
 		slurm_send_rc_msg(msg, error_code);
 	} else {
 		slurm_step_layout_t *layout = step_rec->step_layout;
+		debug("******** MNP in _slurm_rpc_job_step_create, layout->task_cnt=%d", layout->task_cnt);
 
 		if (slurmctld_conf.debug_flags & DEBUG_FLAG_STEPS)
 			info("sched: %s: StepId=%u.%u %s %s",

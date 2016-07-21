@@ -84,6 +84,8 @@ typedef struct {
 
 	int             id;	    /* local task id                        */
 	uint32_t        gtid;	    /* global task id                       */
+	uint32_t        mpi_ntasks; /* MPI number of tasks                  */ // MNP PMI
+	uint32_t        mpi_taskid; /* MPI taskid                           */ // MNP PMI
 	pid_t           pid;	    /* task pid                             */
 
 	char           *ifname;     /* standard input file name             */
@@ -130,6 +132,9 @@ typedef struct {
 	uint32_t       stepid; /* Current step id (or NO_VAL)               */
 	uint32_t       array_job_id;  /* job array master job ID            */
 	uint32_t       array_task_id; /* job array ID                       */
+	uint32_t       mpi_jobid;  /* MPI jobid (same for all steps)        */ // MNP PMI
+	uint32_t       mpi_ntasks; /* number of MPI tasks for all steps     */ // MNP PMI
+	uint32_t       mpi_stepftaskid; /* first MPI taskid for this step   */ // MNP PMI
 	uint32_t       nnodes; /* number of nodes in current job            */
 	uint32_t       ntasks; /* total number of tasks in current job      */
 	uint32_t       nodeid; /* relative position of this node in job     */
@@ -244,6 +249,8 @@ srun_info_t * srun_info_create(slurm_cred_t *cred, slurm_addr_t *respaddr,
 void  srun_info_destroy(srun_info_t *srun);
 
 stepd_step_task_info_t * task_info_create(int taskid, int gtaskid,
+					  uint32_t mpi_ntasks, // MNP PMI
+					  uint32_t mpi_stepftaskid, // MNP PMI
 					  char *ifname, char *ofname,
 					  char *efname);
 

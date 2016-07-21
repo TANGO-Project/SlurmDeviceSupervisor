@@ -157,10 +157,15 @@ _job_init_task_info(stepd_step_rec_t *job, uint32_t **gtid,
 		xmalloc(job->node_tasks * sizeof(stepd_step_task_info_t *));
 
 	for (i = 0; i < job->node_tasks; i++) {
+		debug("******** MNP pid=%d, in _job_init_task_info", getpid());
+		debug("******** MNP pid=%d, job->jobid=%d, job->stepid=%d, node_id=%d, gtid=%d", getpid(), job->jobid, job->stepid, node_id, gtid[node_id][i]);
 		in = _expand_stdio_filename(ifname, gtid[node_id][i], job);
 		out = _expand_stdio_filename(ofname, gtid[node_id][i], job);
 		err = _expand_stdio_filename(efname, gtid[node_id][i], job);
-		job->task[i] = task_info_create(i, gtid[node_id][i], in, out,
+		job->task[i] = task_info_create(i, gtid[node_id][i],
+						job->mpi_ntasks, // MNP PMI
+						job->mpi_stepftaskid, // MNP PMI
+						in, out,
 						err);
 		if ((job->flags & LAUNCH_MULTI_PROG) == 0) {
 			job->task[i]->argc = job->argc;
@@ -274,6 +279,10 @@ stepd_step_rec_create(launch_tasks_request_msg_t *msg, uint16_t protocol_version
 	job->ntasks	= msg->ntasks;
 	job->jobid	= msg->job_id;
 	job->stepid	= msg->job_step_id;
+	job->mpi_jobid	= msg->mpi_jobid; // MNP PMI
+	job->mpi_ntasks	= msg->mpi_ntasks; // MNP PMI
+	debug("******** MNP pid=%d, in stepd_step_rec_create, job->mpi_ntasks=%d", getpid(), job->mpi_ntasks);
+	job->mpi_stepftaskid = msg->mpi_stepftaskid; // MNP PMI
 
 	job->uid	= (uid_t) msg->uid;
 	job->user_name  = xstrdup(msg->user_name);
@@ -449,6 +458,9 @@ batch_stepd_step_rec_create(batch_job_launch_msg_t *msg)
 	slurm_mutex_init(&job->state_mutex);
 	if (msg->cpus_per_node)
 		job->cpus    = msg->cpus_per_node[0];
+//	job->mpi_jobid  = msg->mpi_jobid; // MNP PMI TODO: need to uncomment these lines to support batch launch?
+//	job->mpi_ntasks = msg->mpi_ntasks; // MNP PMI
+//	job->mpi_stepftaskid = msg->mpi_stepftaskid; // MNP PMI
 	job->node_tasks  = 1;
 	job->ntasks  = msg->ntasks;
 	job->jobid   = msg->job_id;
@@ -543,6 +555,8 @@ batch_stepd_step_rec_create(batch_job_launch_msg_t *msg)
 		in_name = fname_create(job, msg->std_in, 0);
 
 	job->task[0] = task_info_create(0, 0,
+					job->mpi_ntasks, // MNP PMI
+					job->mpi_stepftaskid, // MNP PMI
 					in_name,
 					_batchfilename(job, msg->std_out),
 					_batchfilename(job, msg->std_err));
@@ -637,7 +651,8 @@ srun_info_destroy(srun_info_t *srun)
 }
 
 extern stepd_step_task_info_t *
-task_info_create(int taskid, int gtaskid,
+task_info_create(int taskid, int gtaskid, uint32_t mpi_ntasks, // MNP PMI
+		uint32_t mpi_stepftaskid, // MNP PMI
 		 char *ifname, char *ofname, char *efname)
 {
 	stepd_step_task_info_t *t = xmalloc(sizeof(stepd_step_task_info_t));
@@ -650,6 +665,10 @@ task_info_create(int taskid, int gtaskid,
 	t->state       = STEPD_STEP_TASK_INIT;
 	t->id          = taskid;
 	t->gtid	       = gtaskid;
+	t->mpi_ntasks  = mpi_ntasks; // MNP PMI
+	t->mpi_taskid  = gtaskid + mpi_stepftaskid; // MNP PMI
+	debug("!!!!!!!! MNP pid=%d, in task_info_create, t->gtid=%d", getpid(), t->gtid);
+	debug("!!!!!!!! MNP pid=%d, in task_info_create, t->mpi_taskid=%d", getpid(), t->mpi_taskid);
 	t->pid         = (pid_t) -1;
 	t->ifname      = ifname;
 	t->ofname      = ofname;
