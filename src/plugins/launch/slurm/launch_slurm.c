@@ -273,6 +273,7 @@ static void _task_start(launch_tasks_response_msg_t *msg)
 
 
 	for (i = 0; i < msg->count_of_pids; i++) {
+		debug("******** MNP pid=%d, in launch_slurm.c:_task_start, i=%d, taskid=msg->task_ids[i]=%d", getpid(), i, msg->task_ids[i]); // MNP PMI
 		taskid = msg->task_ids[i];
 		table = &MPIR_proctable[taskid];
 		table->host_name = xstrdup(msg->node_name);

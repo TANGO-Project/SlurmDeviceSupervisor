@@ -1161,8 +1161,10 @@ _launch_handler(struct step_launch_state *sls, slurm_msg_t *resp)
 			bit_set(sls->tasks_exited, msg->task_ids[i]);
 		}
 	} else {
-		for (i = 0; i < msg->count_of_pids; i++)
+		for (i = 0; i < msg->count_of_pids; i++) {
+			debug("******** MNP pid=%d, in step_launch.c:_launch_handler, i=%d, msg->task_ids[i]=%d", getpid(), i, msg->task_ids[i]); // MNP PMI
 			bit_set(sls->tasks_started, msg->task_ids[i]);
+		}
 	}
 	if (sls->callback.task_start != NULL)
 		(sls->callback.task_start)(msg);

@@ -675,6 +675,8 @@ int srun(int ac, char **av)
 		env->ws_col   = job->ws_col;
 		env->ws_row   = job->ws_row;
 	}
+	opt.mpi_ntasks = opt.ntasks; // MNP PMI
+	opt.mpi_stepftaskid = 0; // MNP PMI
 	setup_env(env, opt.preserve_env);
 	xfree(env->task_count);
 	xfree(env);
@@ -1177,6 +1179,14 @@ static void _enhance_env_jobpack(bool got_alloc)
 			memcpy(opt_ptr, &opt, sizeof(opt_t));
 		}
 	}
+
+	/* For each job description, set MPI task count */ // MNP PMI
+	for (i = 0; i < pack_desc_count; i++) { // MNP PMI
+		opt_ptr = _get_opt(i, 0); // MNP PMI
+		opt_ptr->mpi_jobid = mpi_jobid; // MNP PMI
+		opt_ptr->mpi_ntasks = mpi_curtaskid; // MNP PMI
+		debug("******** MNP in _create_srun_steps_jobpack, i=%d, opt_ptr->mpi_ntasks=%d", i, opt_ptr->mpi_ntasks);
+	} // MNP PMI
 }
 
 static void _pre_launch_srun_jobpack(void)

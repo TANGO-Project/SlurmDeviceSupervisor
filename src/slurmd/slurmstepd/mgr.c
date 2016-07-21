@@ -2351,6 +2351,8 @@ _send_launch_resp(stepd_step_rec_t *job, int rc)
 	resp.local_pids = xmalloc(job->node_tasks * sizeof(*resp.local_pids));
 	resp.task_ids = xmalloc(job->node_tasks * sizeof(*resp.task_ids));
 	for (i = 0; i < job->node_tasks; i++) {
+		debug("******** MNP pid=%d in _send_launch_resp, i=%d, job->task[i]->gtid=%d", getpid(), i, job->task[i]->gtid);
+		debug("******** MNP pid=%d in _send_launch_resp, i=%d, job->task[i]->mpi_taskid=%d", getpid(), i, job->task[i]->mpi_taskid);
 		resp.local_pids[i] = job->task[i]->pid;
 		resp.task_ids[i] = job->task[i]->gtid;
 	}

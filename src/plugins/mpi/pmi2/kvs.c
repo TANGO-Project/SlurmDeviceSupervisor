@@ -105,8 +105,10 @@ temp_kvs_init(void)
 	/* put the tree cmd here to simplify message sending */
 	if (in_stepd()) {
 		cmd = TREE_CMD_KVS_FENCE;
+		info("******** MNP pid=%d in temp_kvs_init, cmd set to TREE_CMD_KVS_FENCE", getpid());
 	} else {
 		cmd = TREE_CMD_KVS_FENCE_RESP;
+		info("******** MNP pid=%d in temp_kvs_init, cmd set to TREE_CMD_KVS_FENCE_RESP", getpid());
 	}
 
 	buf = init_buf(1024);
@@ -134,7 +136,7 @@ temp_kvs_init(void)
 
 	tasks_to_wait = 0;
 	children_to_wait = 0;
-
+	info("******** MNP pid=%d exiting temp_kvs_init", getpid());
 	return SLURM_SUCCESS;
 }
 
@@ -143,7 +145,7 @@ temp_kvs_add(char *key, char *val)
 {
 	Buf buf;
 	uint32_t size;
-
+	debug("******** MNP pid=%d, entering _temp_kvs_add", getpid());
 	if ( key == NULL || val == NULL )
 		return SLURM_SUCCESS;
 
@@ -159,6 +161,7 @@ temp_kvs_add(char *key, char *val)
 	temp_kvs_cnt += size;
 	free_buf(buf);
 
+	debug("******** MNP pid=%d, exiting _temp_kvs_add", getpid());
 	return SLURM_SUCCESS;
 }
 
@@ -167,7 +170,7 @@ temp_kvs_merge(Buf buf)
 {
 	char *data;
 	uint32_t offset, size;
-
+	debug("******** MNP pid=%d, entering _temp_kvs_merge", getpid());
 	size = remaining_buf(buf);
 	if (size == 0) {
 		return SLURM_SUCCESS;
@@ -182,6 +185,7 @@ temp_kvs_merge(Buf buf)
 	memcpy(&temp_kvs_buf[temp_kvs_cnt], &data[offset], size);
 	temp_kvs_cnt += size;
 
+	debug("******** MNP pid=%d, exiting _temp_kvs_add", getpid());
 	return SLURM_SUCCESS;
 }
 
@@ -226,6 +230,10 @@ temp_kvs_send(void)
 
 	xfree(nodelist);
 
+	if( free_hl ){
+		hostlist_destroy(hl);
+	}
+	info("******** MNP pid=%d exiting temp_kvs_send", getpid());
 	return rc;
 }
 
@@ -234,6 +242,7 @@ temp_kvs_send(void)
 extern int
 kvs_init(void)
 {
+	debug("******** MNP pid=%d, entering kvs_init", getpid());
 	debug3("mpi/pmi2: in kvs_init");
 
 	hash_size = ((job_info.ntasks + TASKS_PER_BUCKET - 1) / TASKS_PER_BUCKET);
@@ -243,6 +252,7 @@ kvs_init(void)
 	if (getenv(PMI2_KVS_NO_DUP_KEYS_ENV))
 		no_dup_keys = 1;
 
+	debug("******** MNP pid=%d, exiting kvs_init", getpid());
 	return SLURM_SUCCESS;
 }
 
@@ -256,6 +266,7 @@ kvs_get(char *key)
 	char *val = NULL;
 	int i;
 
+	debug("******** MNP pid=%d, entering kvs_get", getpid());
 	debug3("mpi/pmi2: in kvs_get, key=%s", key);
 
 	bucket = &kvs_hash[HASH(key)];
@@ -270,6 +281,7 @@ kvs_get(char *key)
 
 	debug3("mpi/pmi2: out kvs_get, val=%s", val);
 
+	debug("******** MNP pid=%d, exiting kvs_get", getpid());
 	return val;
 }
 
@@ -279,6 +291,7 @@ kvs_put(char *key, char *val)
 	kvs_bucket_t *bucket;
 	int i;
 
+	debug("******** MNP pid=%d, entering kvs_put", getpid());
 	debug3("mpi/pmi2: in kvs_put");
 
 	bucket = &kvs_hash[HASH(key)];
@@ -305,6 +318,7 @@ kvs_put(char *key, char *val)
 	bucket->count ++;
 
 	debug3("mpi/pmi2: put kvs %s=%s", key, val);
+	debug("******** MNP pid=%d, exiting kvs_put", getpid());
 	return SLURM_SUCCESS;
 }
 
@@ -314,6 +328,7 @@ kvs_clear(void)
 	kvs_bucket_t *bucket;
 	int i, j;
 
+	debug("******** MNP pid=%d, entering kvs_clear", getpid());
 	for (i = 0; i < hash_size; i ++){
 		bucket = &kvs_hash[i];
 		for (j = 0; j < bucket->count; j ++) {
@@ -323,5 +338,6 @@ kvs_clear(void)
 	}
 	xfree(kvs_hash);
 
+	debug("******** MNP pid=%d, exiting kvs_clear", getpid());
 	return SLURM_SUCCESS;
 }
