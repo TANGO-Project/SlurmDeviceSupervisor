@@ -97,7 +97,7 @@ temp_kvs_init(void)
 	uint32_t nodeid, num_children, size;
 	Buf buf = NULL;
 
-	debug("******** MNP pid=%d entering temp_kvs_init, kvs_seq=%d", getpid(), kvs_seq);
+	debug("******** MNP pid=%d tid=%d entering temp_kvs_init, kvs_seq=%d", getpid(), (int)pthread_self(), kvs_seq);
 	xfree(temp_kvs_buf);
 	temp_kvs_cnt = 0;
 	temp_kvs_size = TEMP_KVS_SIZE_INC;
@@ -106,10 +106,10 @@ temp_kvs_init(void)
 	/* put the tree cmd here to simplify message sending */
 	if (in_stepd()) {
 		cmd = TREE_CMD_KVS_FENCE;
-		debug("******** MNP pid=%d in temp_kvs_init, cmd set to TREE_CMD_KVS_FENCE", getpid());
+		debug("******** MNP pid=%d tid=%d in temp_kvs_init, cmd set to TREE_CMD_KVS_FENCE", getpid(), (int)pthread_self());
 	} else {
 		cmd = TREE_CMD_KVS_FENCE_RESP;
-		debug("******** MNP pid=%d in temp_kvs_init, cmd set to TREE_CMD_KVS_FENCE_RESP", getpid());
+		debug("******** MNP pid=%d tid=%d in temp_kvs_init, cmd set to TREE_CMD_KVS_FENCE_RESP", getpid(), (int)pthread_self());
 	}
 
 	buf = init_buf(1024);
@@ -137,7 +137,7 @@ temp_kvs_init(void)
 
 	tasks_to_wait = 0;
 	children_to_wait = 0;
-	debug("******** MNP pid=%d exiting temp_kvs_init", getpid());
+	debug("******** MNP pid=%d tid=%d exiting temp_kvs_init", getpid(), (int)pthread_self());
 	return SLURM_SUCCESS;
 }
 
@@ -146,7 +146,7 @@ temp_kvs_add(char *key, char *val)
 {
 	Buf buf;
 	uint32_t size;
-	debug("******** MNP pid=%d, entering _temp_kvs_add", getpid());
+	debug("******** MNP pid=%d tid=%d, entering temp_kvs_add", getpid(), (int)pthread_self());
 	if ( key == NULL || val == NULL )
 		return SLURM_SUCCESS;
 
@@ -171,7 +171,8 @@ temp_kvs_merge(Buf buf)
 {
 	char *data;
 	uint32_t offset, size;
-	debug("******** MNP pid=%d, entering _temp_kvs_merge", getpid());
+	debug("******** MNP pid=%d tid=%d, entering temp_kvs_merge", getpid(), (int)pthread_self());
+
 	size = remaining_buf(buf);
 	if (size == 0) {
 		return SLURM_SUCCESS;
@@ -186,7 +187,8 @@ temp_kvs_merge(Buf buf)
 	memcpy(&temp_kvs_buf[temp_kvs_cnt], &data[offset], size);
 	temp_kvs_cnt += size;
 
-	debug("******** MNP pid=%d, exiting _temp_kvs_add", getpid());
+	debug("******** MNP pid=%d tid=%d, exiting temp_kvs_merge", getpid(), (int)pthread_self());
+
 	return SLURM_SUCCESS;
 }
 
@@ -204,7 +206,7 @@ temp_kvs_send(void)
 	hostlist_t hl = NULL;
 	char free_hl = 0;
 
-	debug("******** MNP pid=%d entering temp_kvs_send", getpid());
+	debug("******** MNP pid=%d tid=%d entering temp_kvs_send", getpid(), (int)pthread_self());
 	if (! in_stepd()) {	/* srun */
 		hl = hostlist_create(job_info.step_nodelist);
 		free_hl = 1;
@@ -215,7 +217,7 @@ temp_kvs_send(void)
 	/* cmd included in temp_kvs_buf */
 	kvs_seq++; /* expecting new kvs after now */
 
-	debug("******** MNP pid=%d in temp_kvs_send, incremented kvs_seq, kvs_seq=%d", getpid(), kvs_seq);
+	debug("******** MNP pid=%d tid=%d in temp_kvs_send, incremented kvs_seq, kvs_seq=%d", getpid(), (int)pthread_self(), kvs_seq);
 
 	while (1) {
 		if (retry == 1)
@@ -246,7 +248,7 @@ temp_kvs_send(void)
 	if( free_hl ){
 		hostlist_destroy(hl);
 	}
-	debug("******** MNP pid=%d exiting temp_kvs_send", getpid());
+	debug("******** MNP pid=%d tid=%d exiting temp_kvs_send", getpid(), (int)pthread_self());
 	return rc;
 }
 
@@ -255,7 +257,7 @@ temp_kvs_send(void)
 extern int
 kvs_init(void)
 {
-	debug("******** MNP pid=%d, entering kvs_init", getpid());
+	debug("******** MNP pid=%d tid=%d, entering kvs_init", getpid(), (int)pthread_self());
 	debug3("mpi/pmi2: in kvs_init");
 
 	hash_size = ((job_info.ntasks + TASKS_PER_BUCKET - 1) / TASKS_PER_BUCKET);
@@ -265,7 +267,7 @@ kvs_init(void)
 	if (getenv(PMI2_KVS_NO_DUP_KEYS_ENV))
 		no_dup_keys = 1;
 
-	debug("******** MNP pid=%d, exiting kvs_init", getpid());
+	debug("******** MNP pid=%d tid=%d, exiting kvs_init", getpid(), (int)pthread_self());
 	return SLURM_SUCCESS;
 }
 
@@ -279,7 +281,7 @@ kvs_get(char *key)
 	char *val = NULL;
 	int i;
 
-	debug("******** MNP pid=%d, entering kvs_get", getpid());
+	debug("******** MNP pid=%d tid=%d, entering kvs_get", getpid(), (int)pthread_self());
 	debug3("mpi/pmi2: in kvs_get, key=%s", key);
 
 	bucket = &kvs_hash[HASH(key)];
@@ -294,7 +296,7 @@ kvs_get(char *key)
 
 	debug3("mpi/pmi2: out kvs_get, val=%s", val);
 
-	debug("******** MNP pid=%d, exiting kvs_get", getpid());
+	debug("******** MNP pid=%d tid=%d, exiting kvs_get", getpid(), (int)pthread_self());
 	return val;
 }
 
@@ -304,7 +306,7 @@ kvs_put(char *key, char *val)
 	kvs_bucket_t *bucket;
 	int i;
 
-	debug("******** MNP pid=%d, entering kvs_put", getpid());
+	debug("******** MNP pid=%d tid=%d, entering kvs_put", getpid(), (int)pthread_self());
 	debug3("mpi/pmi2: in kvs_put");
 
 	bucket = &kvs_hash[HASH(key)];
@@ -331,7 +333,7 @@ kvs_put(char *key, char *val)
 	bucket->count ++;
 
 	debug3("mpi/pmi2: put kvs %s=%s", key, val);
-	debug("******** MNP pid=%d, exiting kvs_put", getpid());
+	debug("******** MNP pid=%d tid=%d, exiting kvs_put", getpid(), (int)pthread_self());
 	return SLURM_SUCCESS;
 }
 
@@ -341,7 +343,7 @@ kvs_clear(void)
 	kvs_bucket_t *bucket;
 	int i, j;
 
-	debug("******** MNP pid=%d, entering kvs_clear", getpid());
+	debug("******** MNP pid=%d tid=%d, entering kvs_clear", getpid(), (int)pthread_self());
 	for (i = 0; i < hash_size; i ++){
 		bucket = &kvs_hash[i];
 		for (j = 0; j < bucket->count; j ++) {
@@ -351,6 +353,6 @@ kvs_clear(void)
 	}
 	xfree(kvs_hash);
 
-	debug("******** MNP pid=%d, exiting kvs_clear", getpid());
+	debug("******** MNP pid=%d tid=%d, exiting kvs_clear", getpid(), (int)pthread_self());
 	return SLURM_SUCCESS;
 }

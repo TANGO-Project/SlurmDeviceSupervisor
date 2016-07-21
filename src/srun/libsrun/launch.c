@@ -203,6 +203,10 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 	if (!opt.ntasks_set && (opt.ntasks_per_node != NO_VAL))
 		job->ntasks = opt.ntasks = job->nhosts * opt.ntasks_per_node;
 	opt.mpi_stepftaskid = mpi_curtaskid; // MNP PMI
+	if (!opt.mpi_combine) {
+		debug("******** MNP pid=%d, in launch_common_create_job_step, setting opt.stepftaskid=0", getpid());
+		opt.mpi_stepftaskid = 0; // MNP --mpi-combine
+	}
 	mpi_curtaskid += opt.ntasks; // MNP PMI
 	mpi_curnodecnt += job->nhosts; // MNP PMI
 	job->ctx_params.task_count = opt.ntasks;

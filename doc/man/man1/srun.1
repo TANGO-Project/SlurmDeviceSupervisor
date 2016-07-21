@@ -1342,6 +1342,14 @@ This option applies to step allocations.
 .RE
 
 .TP
+\fB\-\-mpi\-combine\fR=<\fIyes|no\fR>
+Specifies whether to combine all steps into a common MPI_COMM_WORLD or
+launch each step as a separate MPI_COMM_WORLD. Applies only to multi-step
+srun commands used to launch MPI applications. Valid only in the first
+step description. If the option is specified in any other step description
+it is ignored. Default value is yes.
+
+.TP
 \fB\-\-multi\-prog\fR
 Run a job with different programs and different arguments for
 each task. In this case, the executable program specified is

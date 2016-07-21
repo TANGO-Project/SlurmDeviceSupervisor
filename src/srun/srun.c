@@ -1066,19 +1066,26 @@ static void _create_srun_steps_jobpack(void)
 {
 	int i, j, job_index;
 	uint32_t mpi_jobid; // MNP PMI
+	bool mpi_combine; // MNP --mpi-combine
 	opt_t *opt_ptr = NULL;
 	resource_allocation_response_msg_t *resp = NULL;
 
 	debug("******** MNP in _create_srun_steps_jobpack, pack_desc_count=%d", pack_desc_count);
-	/* For each step to be launched, set MPI jobid to jobid of first step */ // MNP PMI
+	/* For each step to be launched, propagate opt.mpi_combine from first step.
+	 * If opt.mpi_combine=true, set MPI jobid to jobid of first step.
+	 */ // MNP PMI
 	opt_ptr = _get_opt(0, 0);  // MNP PMI
 	mpi_jobid = opt_ptr->jobid; // MNP PMI
+	mpi_combine = opt_ptr->mpi_combine; // MNP --mpi-combine
 	for (i = 0; i < pack_desc_count; i++) { // MNP PMI
 		job_index = desc[i].pack_group_count; // MNP PMI
 		if (job_index == 0) job_index++; // MNP PMI
 		for (j = 0; j <job_index; j++) { // MNP PMI
 			opt_ptr = _get_opt(i, j); // MNP PMI
 			opt_ptr->mpi_jobid = mpi_jobid; // MNP PMI
+			opt_ptr->mpi_combine = mpi_combine; // MNP mpi-combine
+			if (!mpi_combine)
+				opt_ptr->mpi_jobid = opt.jobid; // MNP --mpi-combine
 			debug("******** MNP in _create_srun_steps_jobpack, i=%d, j=%d, opt_ptr->mpi_jobid=%d", i, j, opt_ptr->mpi_jobid);
 		} // MNP PMI
 	} // MNP PMI
@@ -1109,15 +1116,29 @@ static void _create_srun_steps_jobpack(void)
 	}
 
 	/* For each step to be launched, set MPI task count and MPI node count */ // MNP PMI
+	debug("******** MNP in _create_srun_steps_jobpack, mpi_curtaskid=%d", mpi_curtaskid);
+	debug("******** MNP in _create_srun_steps_jobpack, mpi_curnodecnt=%d", mpi_curnodecnt);
 	for (i = 0; i < pack_desc_count; i++) { // MNP PMI
 		job_index = desc[i].pack_group_count; // MNP PMI
 		if (job_index == 0) job_index++; // MNP PMI
 		for (j = 0; j <job_index; j++) { // MNP PMI
 			opt_ptr = _get_opt(i, j); // MNP PMI
+			if (opt_ptr->mpi_combine)
+				debug("******** MNP in _create_srun_steps_jobpack, opt_ptr->mpi_combine=true");
+			else
+				debug("******** MNP in _create_srun_steps_jobpack, opt_ptr->mpi_combine=false");
+			if (srun_mpi_combine)
+				debug("******** MNP in _create_srun_steps_jobpack, srun_mpi_combine=true");
+			else
+				debug("******** MNP in _create_srun_steps_jobpack, srun_mpi_combine=false");
 			opt_ptr->mpi_jobid = mpi_jobid; // MNP PMI
 			opt_ptr->mpi_ntasks = mpi_curtaskid; // MNP PMI
+			if (!opt_ptr->mpi_combine)
+				opt_ptr->mpi_ntasks = opt_ptr->ntasks; // MNP --mpi-combine
 			debug("******** MNP in _create_srun_steps_jobpack, i=%d, j=%d, opt_ptr->mpi_ntasks=%d", i, j, opt_ptr->mpi_ntasks);
 			opt_ptr->mpi_nnodes = mpi_curnodecnt; // MNP PMI
+			if (!opt_ptr->mpi_combine)
+				opt_ptr->mpi_nnodes = 0; // MNP --mpi-combine
 			debug("******** MNP in _create_srun_steps_jobpack, i=%d, j=%d, opt_ptr->mpi_nnodes=%d", i, j, opt_ptr->mpi_nnodes);
 		} // MNP PMI
 	} // MNP PMI

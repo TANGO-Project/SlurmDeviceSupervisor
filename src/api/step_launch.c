@@ -187,7 +187,7 @@ int slurm_step_launch (slurm_step_ctx_t *ctx,
 	char **env = NULL;
 	char **mpi_env = NULL;
 	int rc = SLURM_SUCCESS;
-	debug("******** MNP pid=%d, entering slurm_step_launch", getpid());
+	debug("******** MNP pid=%d tid=%d entering slurm_step_launch", getpid(), (int)pthread_self());
 	debug("Entering slurm_step_launch");
 	memset(&launch, 0, sizeof(launch));
 
@@ -389,7 +389,7 @@ fail1:
 	xfree(launch.cwd);
 	env_array_free(env);
 	job_options_destroy(launch.options);
-	debug("******** MNP pid=%d, exiting slurm_step_launch", getpid());
+	debug("******** MNP pid=%d tid=%d exiting slurm_step_launch", getpid(), (int)(int)pthread_self());
 	return rc;
 }
 
@@ -632,11 +632,14 @@ void slurm_step_launch_wait_finish(slurm_step_ctx_t *ctx)
 	sls = ctx->launch_state;
 
 	debug("******** MNP pid=%d, entering slurm_step_launch_wait_finish", getpid());
+//	debug("******** MNP pid=%d tid=%d entering slurm_step_launch_wait_finish", getpid(), (int)pthread_self());
+
 	/* Wait for all tasks to complete */
 	slurm_mutex_lock(&sls->lock);
 	while (bit_set_count(sls->tasks_exited) < sls->tasks_requested) {
 		if (!sls->abort) {
 			slurm_cond_wait(&sls->cond, &sls->lock);
+
 		} else {
 			if (!sls->abort_action_taken) {
 				slurm_kill_job_step(ctx->job_id,
@@ -912,7 +915,7 @@ struct step_launch_state *step_launch_state_create(slurm_step_ctx_t *ctx)
 	sls->abort_action_taken = false;
 //	sls->mpi_info->jobid = ctx->step_req->job_id; // MNP PMI old code
 	sls->mpi_info->jobid = ctx->mpi_jobid; // MNP PMI new code
-	debug("!!!!!!!! MNP pid=%d, in step_launch_state_create, sls->mpi_info->jobid = ctx->mpi_jobid=%d", getpid(), ctx->mpi_jobid);
+	debug("!!!!!!!! MNP pid=%d tid=%d in step_launch_state_create, sls->mpi_info->jobid = ctx->mpi_jobid=%d", getpid(), (int)pthread_self(), ctx->mpi_jobid);
 	sls->mpi_info->stepid = ctx->step_resp->job_step_id;
 	sls->mpi_info->step_layout = layout;
 	sls->mpi_state = NULL;
@@ -1167,7 +1170,7 @@ _launch_handler(struct step_launch_state *sls, slurm_msg_t *resp)
 		}
 	} else {
 		for (i = 0; i < msg->count_of_pids; i++) {
-			debug("******** MNP pid=%d, in step_launch.c:_launch_handler, i=%d, msg->task_ids[i]=%d", getpid(), i, msg->task_ids[i]); // MNP PMI
+			debug("******** MNP pid=%d tid=%d in step_launch.c:_launch_handler, i=%d, msg->task_ids[i]=%d", getpid(), (int)pthread_self(), i, msg->task_ids[i]); // MNP PMI
 			bit_set(sls->tasks_started, msg->task_ids[i]);
 		}
 	}
@@ -1186,7 +1189,7 @@ _exit_handler(struct step_launch_state *sls, slurm_msg_t *exit_msg)
 	void (*task_finish)(task_exit_msg_t *);
 	int i;
 
-	debug("******** MNP pid=%d, in _exit_handler, sls->mpi_info->jobid=%d", getpid(), sls->mpi_info->jobid); // MNP PMI
+	debug("******** MNP pid=%d tid=%d in _exit_handler, sls->mpi_info->jobid=%d", getpid(), (int)pthread_self(), sls->mpi_info->jobid); // MNP PMI
 	// MNP PMI start disable this test to try and fix hang in slurm_step_launch_wait_finish
 //	if ((msg->job_id != sls->mpi_info->jobid) ||
 //	    (msg->step_id != sls->mpi_info->stepid)) {
