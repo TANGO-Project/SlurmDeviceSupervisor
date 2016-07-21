@@ -651,7 +651,6 @@ proc wait_for_job { job_id desired_state } {
 		switch $state {
 			"NOT_FOUND" -
 			"CANCELLED" -
-			"DEADLINE" -
 			"FAILED" -
 			"TIMEOUT" -
 			"NODE_FAIL" -
@@ -914,35 +913,6 @@ proc test_limits_enforced { } {
 	expect {
 		-re "AccountingStorageEnforce *= (\[a-z]+),limits" {
 			set enforced 1
-			exp_continue
-		}
-		eof {
-			wait
-		}
-	}
-
-	log_user 1
-	return $enforced
-}
-
-################################################################
-#
-# Proc: test_enforce_part_limits
-#
-# Purpose: Return value of EnforcePartLimits
-#
-# Returns EnforcePartLimits value (ALL, ANY, or NO)
-#
-################################################################
-proc test_enforce_part_limits { } {
-	global alpha scontrol
-
-	log_user 0
-	set enforced "UNKNOWN"
-	spawn $scontrol show config
-	expect {
-		-re "EnforcePartLimits *= ($alpha)" {
-			set enforced $expect_out(1,string)
 			exp_continue
 		}
 		eof {
@@ -1946,37 +1916,6 @@ proc test_emulated { } {
 	log_user 1
 
 	return $emulated
-}
-
-################################################################
-#
-# Proc: test_killonbadexit
-#
-# Purpose: Determine if KillOnBadExit is configured to be 1.
-#
-#
-# Returns 1 if KillOnBadExit is 1.
-#
-################################################################
-
-proc test_killonbadexit { } {
-	global scontrol bin_bash bin_grep
-
-	log_user 0
-	set killonbadexit 0
-	spawn -noecho $bin_bash -c "exec $scontrol show config | $bin_grep KillOnBadExit"
-	expect {
-		-re "KillOnBadExit *= *1" {
-			set killonbadexit 1
-			exp_continue
-		}
-		eof {
-			wait
-		}
-	}
-	log_user 1
-
-	return $killonbadexit
 }
 
 ################################################################
