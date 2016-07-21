@@ -4486,7 +4486,7 @@ static int _kill_job_pack(uint32_t pack_id, struct job_record *job_ptr,
 			error("JPCK: job_ptr for member=%d in job_pack "
 			      "leader=%d is NULL", dep_ptr->job_id,
 			      job_ptr->job_id);
-			continue;
+			break;
 		}
 		if (!IS_JOB_COMPLETING(mbr_ptr)
 		    && !IS_JOB_FINISHED(mbr_ptr)) {
@@ -4608,6 +4608,22 @@ extern int job_str_signal(char *job_id_str, uint16_t signal, uint16_t flags,
 		if (job_ptr && (job_ptr->array_task_id == NO_VAL) &&
 		    (job_ptr->array_recs == NULL)) {
 			/* This is a regular job, not a job array */
+			if (job_ptr->pack_leader!=0
+			    && job_ptr->pack_leader!=job_id) {
+				/* job is a pack member */
+				if (!(flags & KILL_FULL_JOB)) {
+					/* Not scancel --pack-member */
+					error("JPCK: use scancel --pack-member "
+					      "to cancel %d", job_id);
+					return ESLURM_JOB_PACK_CANCEL_MEMBER;
+				}
+				job_ptr->pack_leader = 0; /* remove from pack */
+				if (slurm_get_debug_flags()
+				    & DEBUG_FLAG_JOB_PACK) {
+					info("JPCK: scancel --pack-member %d",
+						job_id);
+				}
+			}
 			return job_signal(job_id, signal, flags, uid, preempt);
 		}
 
@@ -4706,7 +4722,20 @@ extern int job_str_signal(char *job_id_str, uint16_t signal, uint16_t flags,
 		rc = ESLURM_INVALID_JOB_ID;
 		goto endit;
 	}
-
+	if (job_ptr->pack_leader!=0 && job_ptr->pack_leader!=job_id) {
+		/* job is a pack member */
+		if (!(flags & KILL_FULL_JOB)) {
+			/* Not scancel --pack-member */
+			error("JPCK: use scancel --pack-member to cancel %d",
+				job_id);
+			rc = ESLURM_JOB_PACK_CANCEL_MEMBER;
+			goto endit;
+		}
+		job_ptr->pack_leader = 0; /* remove from the pack */
+		if (slurm_get_debug_flags() & DEBUG_FLAG_JOB_PACK) {
+			info("JPCK: scancel --pack-member %d", job_id);
+		}
+	}
 	if ((job_ptr->user_id != uid) && !validate_operator(uid) &&
 	    !assoc_mgr_is_user_acct_coord(acct_db_conn, uid,
 					  job_ptr->account)) {

@@ -210,6 +210,7 @@ static int _verify_job_ids(void)
 {
 	job_info_t *job_ptr;
 	int i, j, rc = 0;
+	char* dpnd_opt = NULL;
 
 	if (opt.job_cnt == 0)
 		return rc;
@@ -228,6 +229,39 @@ static int _verify_job_ids(void)
 			continue;
 
 		for (j = 0; j < opt.job_cnt; j++) {
+			/* Handle --pack-member */
+			if (opt.job_id[j] == job_ptr->job_id) {
+				if (job_ptr->dependency != NULL) {
+					dpnd_opt = xstrdup(job_ptr->dependency);
+					dpnd_opt = xstrtolower(dpnd_opt);
+					if (strstr(dpnd_opt, "pack ")
+						             && !opt.pack_mbr) {
+						error("Can't cancel pack_member"
+					              "=%d without "
+						      "--pack-member option",
+						      job_ptr->job_id);
+						xfree(dpnd_opt);
+						exit (1);
+					}
+					if ((strstr(dpnd_opt, "pack ") == NULL)
+					                      && opt.pack_mbr) {
+						error ("Job %d is not a "
+							"pack_member",
+							job_ptr->job_id);
+						xfree(dpnd_opt);
+						exit (1);
+					}
+					xfree(dpnd_opt);
+				} else {
+					if (opt.pack_mbr) {
+						error ("Job %d is not a "
+							"pack_member",
+							job_ptr->job_id);
+						exit (1);
+					}
+				}
+			}
+
 			if (opt.array_id[j] == NO_VAL) {
 				if ((opt.job_id[j] == job_ptr->job_id) ||
 				    ((opt.job_id[j] == job_ptr->array_job_id) &&
@@ -717,6 +751,10 @@ _cancel_job_id (void *ci)
 	if (opt.full) {
 		flags |= KILL_FULL_JOB;
 		job_type = "full ";
+	}
+	if (opt.pack_mbr) {
+		flags |= KILL_FULL_JOB;
+		job_type = "pack_member ";
 	}
 	if (cancel_info->array_flag)
 		flags |= KILL_JOB_ARRAY;

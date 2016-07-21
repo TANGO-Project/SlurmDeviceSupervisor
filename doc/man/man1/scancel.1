@@ -60,6 +60,15 @@ Print a help message describing all \fBscancel\fR options.
 Interactive mode. Confirm each job_id.step_id before performing the cancel operation.
 
 .TP
+\fB\-m\fR, \fB\-\-pack\-member\fR
+Signal all steps associated with the job pack member including any batch step
+(the shell script plus all of its child processes).
+By default, signals other than SIGKILL are not sent to the batch step.
+Invalid if the job is not a pack member. Also invalid for the pack leader
+as the pack leader cannot be seperately killed. \fBscancel job_id\fR where
+job_id is a pack leader will kill all members of the job pack.
+
+.TP
 \fB\-M\fR, \fB\-\-clusters\fR=<\fIstring\fR>
 Clusters to issue commands to.
 Note that the SlurmDBD must be up for this option to work properly.

@@ -4188,6 +4188,11 @@ static void _deallocate_packmbrs(struct job_record *job_ptr)
 	depend_iter = list_iterator_create(job_ptr->details->depend_list);
 	while ((dep_ptr = (struct depend_spec *) list_next(depend_iter))) {
 		dep_job_ptr = dep_ptr->job_ptr;
+		if (dep_job_ptr == NULL) {
+			error("JPCK: no job pointer for member %d of leader %d",
+					dep_ptr->job_id, job_ptr->job_id);
+			break;
+		}
 		if (debug_flags &  DEBUG_FLAG_JOB_PACK) {
 			info("JPCK: _deallocate_packmbrs -- packjob=%d",
 				dep_job_ptr->job_id);

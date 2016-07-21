@@ -272,7 +272,8 @@ enum {
 
 	/* job_pack errors */
 	ESLURM_JOB_PACK_NEVER_RUN = 9000,
-	ESLURM_JOB_PACK_BAD_MEMBER = 9001
+	ESLURM_JOB_PACK_BAD_MEMBER,
+	ESLURM_JOB_PACK_CANCEL_MEMBER
 };
 
 /* look up an errno value */
