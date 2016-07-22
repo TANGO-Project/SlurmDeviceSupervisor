@@ -2042,7 +2042,6 @@ _wait_for_any_task(stepd_step_rec_t *job, bool waitflag)
 			 * place or concurrent searches of the environment can
 			 * generate invalid memory references. */
 			job->envtp->env = env_array_copy((const char **) job->env);
-	//nlk		env_t *env = job->envtp;
 			setup_env(job->envtp, false);
 			tmp_env = job->env;
 			job->env = job->envtp->env;
