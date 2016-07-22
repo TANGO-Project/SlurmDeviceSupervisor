@@ -98,5 +98,4 @@ if (protocol_version >= SLURM_15_08_PROTOCOL_VERSION) {
 </pre>
 
 <p style="text-align:center;">Last modified 05 May 2016</p>
-
 <!--#include virtual="footer.txt"-->
