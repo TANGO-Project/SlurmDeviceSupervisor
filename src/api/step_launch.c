@@ -644,7 +644,7 @@ void slurm_step_launch_wait_finish(slurm_step_ctx_t *ctx)
 		if (!sls->abort) {
 			slurm_cond_wait(&sls->cond, &sls->lock);
 
-=		} else {
+		} else {
 			if (!sls->abort_action_taken) {
 				slurm_kill_job_step(ctx->job_id,
 						    ctx->step_resp->
