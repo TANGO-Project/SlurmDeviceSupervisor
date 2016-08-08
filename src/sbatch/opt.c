@@ -2050,7 +2050,6 @@ static void _set_options(int argc, char **argv)
 
 	spank_option_table_destroy (optz);
 }
-}
 
 static void _proc_get_user_env(char *optarg)
 {

@@ -334,8 +334,8 @@ int main(int argc, char **argv)
 			req_cpufreq_max = step_info->cpu_freq_max;
 			req_cpufreq_gov = step_info->cpu_freq_gov;
 			use_protocol_ver = step_info->start_protocol_ver;
-			packjobid = step_info->job_steps[0].packstepid[0]; //nlk
-			packstepid = step_info->job_steps[0].packstepid[1]; //nlk
+			packjobid = step_ptr->job_steps[0].packjobid;
+			packstepid = step_ptr->job_steps[0].packstepid;
 
 		}
 
