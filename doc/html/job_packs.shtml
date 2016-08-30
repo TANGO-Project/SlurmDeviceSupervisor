@@ -379,34 +379,104 @@ the preemption of pack members to other jobs.
 <h4>Never Run Test</h4>
 <p>
 The fact that each resource requirement is specified as a separate job means
-that it is hard to determine if a job can ever run. Tests have been implemented
-to prevent the cluster from stalling, but they are weak in that a job that could
-run on an idle cluster may be diagnosed as never being able to run.
+that it is hard to determine if a job can ever run. Checks have been implemented
+to exit succesfully a job pack that can never be run and prevent the cluster 
+from stalling.
 </p>
 
 <h5>Pack members require too many nodes</h5>
 <p>
-In a cluster of 6 nodes, <b>srun -N5 --exclusive : -N2 --exclusive : -N2
---exclusive</b> gets the following results.
+In a cluster of 12 nodes, the following job pack:
+<b>salloc -N7 --exclusive : -N4 --exclusive : -N4 --exclusive</b> 
+should be discarded because it does not fit the cluster. Here is how this
+takes place through an example.
 </p>
 <pre>
-       JOBID PARTITION    NAME      USER   ST   TIME  NODES NODELIST(REASON)
-         403    all     group.sh   slurm   PD   0:00    2   (Dependency)
-         404    all     group.sh   slurm   PD   0:00    2   (Dependency)
-         405    all     grpldr.sh  slurm   PD   0:00    5   (Resources)
+[test@cuzco0 ~]# sinfo
+PARTITION  AVAIL  TIMELIMIT  NODES  STATE NODELIST
+all*    up   infinite     12   idle cuzco[7-11,13-14,16,18-21]
+[test@cuzco0 ~]# salloc -N7 --exclusive : -N4 --exclusive : -N4 --exclusive
+salloc: Pending job allocation 287
+salloc: Pending job allocation 288
+salloc: fatal: JPCK: failed to allocate packleader
+[test@cuzco0 ~]# squeue
+             JOBID PARTITION     NAME     USER ST       TIME  NODES NODELIST(REASON)
+               287 exclusive     bash     root PD       0:00      4 (Dependency)
+               288 exclusive     bash     root PD       0:00      4 (Dependency)
+[test@cuzco0 ~]# sacct
+       JobID    JobName  Partition    Account  AllocCPUS      State ExitCode 
+------------ ---------- ---------- ---------- ---------- ---------- -------- 
+287                bash        all       test         48  CANCELLED      0:0 
+288                bash        all       test         48  CANCELLED      0:0 
+289                bash        all       test          7     FAILED      1:0 
 </pre>
 <p>
-When cons-res does the 'can 405 ever run test', it believes 403 and 404 will
-eventually terminate and let 405 run.
+When cons-res does the 'can 289 ever run test', it believes 287 and 288 will
+eventually terminate and let 289 run so it would wait indefinitely. That is why 
+particular precautions have been added to avoid that scenario, the pack leader 
+job is canceled, a fatal message is printed out on the shell and the pack members 
+without a pack leader are cancelled on the next schedule.
+In the case of a similar type of simple srun an error is displayed on the shell 
+to notify user.
 </p>
+<pre>
+[test@cuzco0 ~]# srun -N7 --exclusive /bin/hostname : -N4 --exclusive /bin/hostname : -N4 --exclusive /bin/hostname 
+srun: error: Unable to allocate resources: Requested node configuration is not available
+srun: fatal: JPCK: failed to allocate packleader
+</pre>
+<p>
+In the case of sbatch the error is viewed only as a failure with sacct:
+</p>
+<pre>
+[root@cuzco22 georgioy]# sbatch -N4 --exclusive ./sbatch_test2.sh : -N5 --exclusive : -N5 --exclusive; squeue
+Submitted batch job 314
+Submitted batch job 315
+Submitted batch job 316
+             JOBID PARTITION     NAME     USER ST       TIME  NODES NODELIST(REASON)
+               314 exclusive   sbatch     root PD       0:00      5 (Dependency)
+               315 exclusive   sbatch     root PD       0:00      5 (Dependency)
+               316 exclusive sbatch_t     root PD       0:00      4 (None)
+[root@cuzco22 georgioy]# squeue
+             JOBID PARTITION     NAME     USER ST       TIME  NODES NODELIST(REASON)
+               314 exclusive   sbatch     root PD       0:00      5 (Dependency)
+               315 exclusive   sbatch     root PD       0:00      5 (Dependency)
+[root@cuzco22 georgioy]# sacct
+       JobID    JobName  Partition    Account  AllocCPUS      State ExitCode
+------------ ---------- ---------- ---------- ---------- ---------- --------
+314              sbatch  exclusive       root         60  CANCELLED      0:0 
+315              sbatch  exclusive       root         60  CANCELLED      0:0 
+316          sbatch_te+  exclusive       root          4     FAILED      1:0 
+</pre>
 
 <h5>Pack Member Never Runs</h5>
 <p>
-On a system with 8 nodes, the following Job Pack will not run.
+On a system with 12 nodes, the following Job Pack:
 </p>
 <p>
-<b>srun -N2 --exclusive : -N5 --exclusive : -N5 --exclusive</b>
+<b>salloc -N4 --exclusive : -N7 --exclusive : -N7 --exclusive</b>
+should be discarded because it does not fit the cluster. Here is how this takes place through an example:
 </p>
+<pre>
+[root@cuzco22 ~]# salloc -N4 --exclusive : -N7 --exclusive : -N7 --exclusive
+salloc: Pending job allocation 344
+salloc: Pending job allocation 345
+salloc: Required node not available (down, drained or reserved)
+salloc: Pending job allocation 346
+salloc: job 346 queued and waiting for resources
+salloc: JPCK: Leader=346 Requested node config unavailable
+salloc: Job has been cancelled
+salloc: Job allocation 346 has been revoked.
+salloc: fatal: JPCK: failed to allocate packleader
+[1]+  Done                    srun -N4 sleep 40
+[root@cuzco22 ~]# squeue
+             JOBID PARTITION     NAME     USER ST       TIME  NODES NODELIST(REASON)
+               344 exclusive     bash     root PD       0:00      7 (Dependency)
+               345 exclusive     bash     root PD       0:00      7 (Dependency)
+[root@cuzco22 ~]# squeue
+             JOBID PARTITION     NAME     USER ST       TIME  NODES NODELIST(REASON)
+[root@cuzco22 ~]#
+</pre>
+
 <p>
 This condition is not detected by the will-never-run test for the pack leader
 as it is only executed when the pack leader is scheduled. And a pack leader will
@@ -415,27 +485,12 @@ never be scheduled until all of its members have been allocated.
 <p>
 In this case, the pack leader eventually becomes the highest priority job in
 the system, but it can't be scheduled because the members can't be allocated.
-The system is hung, with all nodes idle and the pack leader queued with a
-pending reason of none.
 </p>
 <p>
-The existing pack leader will-never-run test can't be used because is imbedded
-in pick_best_nodes with selects candidate nodes base on the allocation request.
-</p>
-<p>
-A new test for members has been constructed in which when a member can't be
-allocated the cluster is tested to see if all nodes are idle. If all nodes are
-idle, then the leader and the pack jobs are killed. This too is a weak test
-that might kill some Job Packs that theoretically could run, but at least it
-doesn't allow the cluster to hang.
-</p>
-
-<h5>Never run side effect</h5>
-<p>
-Both never run tests may not report anything to the sbatch client. This is
-because the sbatch program itself has terminated; and the script is never
-launched so the output file is never created. Entries are put in the log,
-but they won't be reported directly to the user.
+To avoid jobs waiting for ever a new test for members has been constructed 
+in which when a member can't be allocated then the leader is killed
+and eventually the pack members get killed since they are orphans. More optimizations
+will be done in the future to cover all possible cases. 
 </p>
 
 <h4>Failed Pack Leader Anomalies</h4>
