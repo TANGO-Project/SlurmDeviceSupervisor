@@ -1,0 +1,298 @@
+#!/usr/bin/env expect
+############################################################################
+# Purpose: test Jobpack environment variables exported to a job's prolog and
+#          epilog environments
+#	   salloc test
+#
+# Output:  "TEST: #.#" followed by "SUCCESS" if test was successful, OR
+#          "FAILURE: ..." otherwise with an explanation of the failure, OR
+#          anything else indicates a failure mode that must be investigated.
+############################################################################
+# Written by CORTES Sebastien <sebastien.cortes@atos.net>
+#
+############################################################################
+source ./globals
+
+set test_id		"82.1"
+set exit_code		0
+set numpack		0
+set conf		0
+set pwd			[exec $bin_pwd]
+#set pwd			/app/slurm/syc/repo/dev/testsuite/expect/pelog_debug
+
+print_header $test_id
+
+#
+# Delete old files
+#
+exec $bin_rm -f $pwd/salloc_in 
+exec $bin_rm -f $pwd/salloc_slurm.epilog.out $pwd/salloc_slurm.prolog.out 
+exec $bin_rm -f $pwd/prolog_test_file $pwd/epilog_test_file
+
+#
+# Create the script to insert into the slurm.conf file
+#
+set file [open $pwd/prolog_test_file w]
+puts $file "#!/bin/bash"	
+puts $file "{"
+puts $file "date;id;env | grep SLURM_"
+puts $file "} > $pwd/salloc_slurm.prolog.out 2>&1"
+puts $file "exit 0"
+close $file
+exec $bin_chmod 755 $pwd/prolog_test_file
+
+set file [open $pwd/epilog_test_file w]
+puts $file "#!/bin/bash"
+puts $file "{"
+puts $file "date;id;env | grep SLURM_"
+puts $file "} > $pwd/salloc_slurm.epilog.out 2>&1"
+puts $file "exit 0"
+close $file
+exec $bin_chmod 755 $pwd/epilog_test_file
+
+#
+# Edit temporary version of the slurm.conf file
+#
+spawn $scontrol show config
+expect {
+	-re "SLURM_CONF.+/slurm.conf" {
+		set conf $expect_out(0,string)
+		exp_continue
+	}
+	eof {
+		wait
+	}
+}
+set conf [split $conf "="]
+set conf [lindex $conf 1]
+set conf [split $conf " "]
+set conf [lindex $conf 1]
+append conf_orig $conf ".ORIG"
+
+exec $bin_rm -f $conf_orig
+exec $bin_cp $conf $conf_orig
+if {{file exists $conf_orig} == 0} {
+	send_user "\nFAILURE: unable to copy slurm.conf\n"
+	set exit_code 1
+}
+
+exec $bin_sed -i /^Prolog=/d $conf
+exec $bin_sed -i /^Epilog=/d $conf
+exec $bin_sed -i /^MpiDefault=/d $conf
+exec $bin_sed -i /^MpiParams=/d $conf		
+
+exec $bin_echo "Prolog=$pwd/prolog_test_file" >> $conf
+exec $bin_echo "Epilog=$pwd/epilog_test_file" >> $conf
+exec $bin_echo "MpiDefault=openmpi" >> $conf
+exec $bin_echo "MpiParams=ports=15000-17000" >> $conf
+
+exec $scontrol reconfig
+
+#
+# Create the script salloc_in
+#
+set file [open $pwd/salloc_in w]
+puts $file "#!/bin/sh"
+puts $file "srun --pack-group=2 env | grep PACK"
+close $file
+
+#
+# Execute salloc command
+#
+set timeout $max_job_delay
+set salloc_pid [spawn $salloc -N1 --exclusive --resv-port bash $pwd/salloc_in : -N1 --exclusive bash $pwd/salloc_in : -N1 --exclusive --resv-port bash $pwd/salloc_in]
+expect {
+	-re "SLURM_RESV_PORTS_PACK_GROUP_\[0-9]=($number)" {
+		append resv "$expect_out(1,string)" ","
+		exp_continue
+	}
+	-re "SLURM_NUMPACK=($number)" {
+		set numpack $expect_out(1,string)
+                exp_continue
+	}
+	-re "SLURM_NODELIST_PACK_GROUP_\[0-9]=(\[a-z]+\[0-9])" {
+		append pack_group "$expect_out(1,string)" ","
+		exp_continue
+	}
+	timeout {
+                send_user "\nFAILURE: salloc not responding\n"
+                slow_kill $srun_pid
+                set exit_code 1
+        }
+        eof {
+                wait
+        }
+}
+
+#
+# Split variables resv and pack_group
+#
+set len [string length $pack_group]
+incr len -2
+set pack_group [string range $pack_group 0 $len]
+set nodes [split $pack_group ","]
+set pack0 [lindex $nodes 0]
+set pack1 [lindex $nodes 1]
+set pack2 [lindex $nodes 2]
+
+set len [string length $resv]
+incr len -2
+set resv [string range $resv 0 $len]
+set ports [split $resv ","]
+set port0 [lindex $ports 0]
+set port1 [lindex $ports 1]
+
+exec $bin_sleep 2
+
+#
+# Check epilog
+#
+set status 0
+set ssh_host [spawn ssh $pack2 cat $pwd/salloc_slurm.epilog.out]
+expect {
+	-re "SLURM_RESV_PORTS_PACK_GROUP_2=($number)" {
+		if { [string compare $expect_out(1,string) $port0] != 0 } {
+			send_user "\nFAILURE: SLURM_RESV_PORTS_PACK_GROUP_2 is missing on $pack2\n"
+			set exit_code 1
+		}
+		incr status
+		exp_continue
+        }
+	-re "SLURM_RESV_PORTS_PACK_GROUP_0=($number)" {
+		if { [string compare $expect_out(1,string) $port1] != 0 } {
+			send_user "\nFAILURE: SLURM_RESV_PORTS_PACK_GROUP_0 is missing on $pack2\n"
+			set exit_code 1
+		}
+		incr status
+		exp_continue
+        }
+	-re "SLURM_NUMPACK=($number)" {
+		if { [string compare $expect_out(1,string) $numpack] != 0 } {
+			send_user "\nFAILURE: SLURM_NUMPACK is missing on $pack2\n"
+			set exit_code 1
+		}
+		incr status
+		exp_continue
+        }
+	-re "SLURM_NODELIST_PACK_GROUP_1=(\[a-z]+\[0-9])" {
+		if { [string compare $expect_out(1,string) $pack0] != 0 } {
+			send_user "\nFAILURE: SLURM_NODELIST_PACK_GROUP_1 is missing on $pack2\n"
+			set exit_code 1
+		}
+		incr status
+		exp_continue
+        }
+	-re "SLURM_NODELIST_PACK_GROUP_0=(\[a-z]+\[0-9])" {
+		if { [string compare $expect_out(1,string) $pack1] != 0 } {
+			send_user "\nFAILURE: SLURM_NODELIST_PACK_GROUP_0 is missing on $pack2\n"
+			set exit_code 1
+		}
+		incr status
+		exp_continue
+	}
+	-re "SLURM_NODELIST_PACK_GROUP_2=(\[a-z]+\[0-9])" {
+		if { [string compare $expect_out(1,string) $pack2] != 0 } {
+			send_user "\nFAILURE: SLURM_NODELIST_PACK_GROUP_2 is missing on $pack2\n"
+			set exit_code 1
+		}
+		incr status
+		exp_continue
+        }
+	timeout {
+                send_user "\nFAILURE: ssh on $pack2 not responding\n"
+                slow_kill $ssh_host
+                set exit_code 1
+        }
+        eof {
+                wait
+        }
+}
+if {$status != 6} {
+	send_user "\nFAILURE: parameter missing in $pwd/salloc_slurm.epilog.out\n"
+	set exit_code 1
+}
+
+#exec $bin_sleep 2
+
+#
+# Check prolog
+#
+set status 0
+set ssh_host [spawn ssh $pack2 cat $pwd/salloc_slurm.prolog.out]
+expect {
+	-re "SLURM_RESV_PORTS_PACK_GROUP_2=($number)" {
+		if { [string compare $expect_out(1,string) $port0] != 0 } {
+			send_user "\nFAILURE: SLURM_RESV_PORTS_PACK_GROUP_2 is missing on $pack2\n"
+			set exit_code 1
+		}
+		incr status
+		exp_continue
+        }
+	-re "SLURM_RESV_PORTS_PACK_GROUP_0=($number)" {
+		if { [string compare $expect_out(1,string) $port1] != 0 } {
+			send_user "\nFAILURE: SLURM_RESV_PORTS_PACK_GROUP_0 is missing on $pack2\n"
+			set exit_code 1
+		}
+		incr status
+		exp_continue
+        }
+	-re "SLURM_NUMPACK=($number)" {
+		if { [string compare $expect_out(1,string) $numpack] != 0 } {
+			send_user "\nFAILURE: SLURM_NUMPACK is missing on $pack2\n"
+			set exit_code 1
+		}
+		incr status
+		exp_continue
+        }
+	-re "SLURM_NODELIST_PACK_GROUP_1=(\[a-z]+\[0-9])" {
+		if { [string compare $expect_out(1,string) $pack0] != 0 } {
+			send_user "\nFAILURE: SLURM_NODELIST_PACK_GROUP_1 is missing on $pack2\n"
+			set exit_code 1
+		}
+		incr status
+		exp_continue
+        }
+	-re "SLURM_NODELIST_PACK_GROUP_0=(\[a-z]+\[0-9])" {
+		if { [string compare $expect_out(1,string) $pack1] != 0 } {
+			send_user "\nFAILURE: SLURM_NODELIST_PACK_GROUP_0 is missing on $pack2\n"
+			set exit_code 1
+		}
+		incr status
+		exp_continue
+	}
+	-re "SLURM_NODELIST_PACK_GROUP_2=(\[a-z]+\[0-9])" {
+		if { [string compare $expect_out(1,string) $pack2] != 0 } {
+			send_user "\nFAILURE: SLURM_NODELIST_PACK_GROUP_2 is missing on $pack2\n"
+			set exit_code 1
+		}
+		incr status
+		exp_continue
+        }
+	timeout {
+                send_user "\nFAILURE: ssh on $pack2 not responding\n"
+                slow_kill $ssh_host
+                set exit_code 1
+        }
+        eof {
+                wait
+        }
+}
+if {$status != 6} {
+	send_user "\nFAILURE: parameter missing in $pwd/salloc_slurm.prolog.out\n"
+	set exit_code 1
+}
+
+#
+# Copy original slurm.conf back
+#
+exec $bin_cp $conf_orig $conf
+exec $scontrol reconfig
+
+#
+# Exit code status
+#
+if {$exit_code == 0} {
+        send_user "\nSUCCESS\n"
+}
+exit $exit_code
+

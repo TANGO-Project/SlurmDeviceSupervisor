@@ -1,0 +1,161 @@
+#!/usr/bin/env expect
+############################################################################
+# Purpose: Test of SLURM functionality
+#          Basic test of MPI functionality via srun
+#
+# Output:  "TEST: #.#" followed by "SUCCESS" if test was successful, OR
+#          "WARNING: ..." with an explanation of why the test can't be made, OR
+#          "FAILURE: ..." otherwise with an explanation of the failure, OR
+#          anything else indicates a failure mode that must be investigated.
+############################################################################
+# Written by CORTES Sebastien <sebastien.cortes@atos.net>
+# 
+# This script use mpiicc to run mpi on two node.
+# repository for mpi dependencies:
+# -	/app/slurm/<anything>/install/jobpacks/lib/libpmi.so
+# -	/opt/intel/impi/4.1.1.036/bin64/mpivars.sh
+# mpihello test file
+# -	/app/slurm/testware/mpihello/mpihello
+############################################################################
+source ./globals
+
+set test_id            "83.1"
+set exit_code          0
+set test_prog          "/app/slurm/testware/mpihello/mpihello"
+set job_id             0
+
+print_header $test_id
+
+#
+# Test for existence of mpi compiler
+#
+if {[info exists mpiicc] == 0} {
+	send_user "\nWARNING: mpiicc not defined, can't perform mpi testing\n"
+	exit 0
+}
+if {[file executable $mpiicc] == 0} {
+	send_user "\nWARNING: $mpicc does not exists\n"
+	exit 0
+}
+if {[test_front_end]} {
+        send_user "\nWARNING: This test is incompatible with front-end systems\n"
+        exit 0
+} elseif {[test_aix]} {
+	send_user "WARNING: Test is incompatible with AIX\n"
+	exit 0
+} elseif {[test_serial]} {
+	send_user "WARNING: Test is incompatible with serial system\n"
+	exit 0
+}
+
+#
+# Export environment variables
+#
+set user_rep [exec $bin_pwd]
+set user_rep [lindex [split $user_rep "/"] 3]
+global ::env 
+set ::env(I_MPI_FABRICS) tcp
+set ::env(I_MPI_PMI_LIBRARY) /app/slurm/$user_rep/install/jobpacks/lib/libpmi.so
+
+# Verify env varibale setting
+send_user "$env(I_MPI_FABRICS)\n"
+send_user "$env(I_MPI_PMI_LIBRARY)\n"
+
+#
+# Delete left-over program and rebuild it
+#
+exec /opt/intel/impi/4.1.1.036/bin64/mpivars.sh
+exec $bin_rm -f $test_prog ${test_prog}.o
+exec $mpiicc -g -O0 -o $test_prog ${test_prog}.c
+
+#
+# Create file for testing
+#
+set file [open sbatchexpecttest w]
+puts $file "#!/bin/sh"
+puts $file "srun --pack-group=\[0-1] -n3 $test_prog"
+close $file
+
+#
+# Spawn an sbatch job that uses stdout/err and confirm their contents
+#
+set timeout $max_job_delay
+set no_start 	0
+set sbatch_pid [spawn $sbatch -o sbatch_mpi.out -w trek2 --exclusive sbatchexpecttest : -w trek3 --exclusive]
+expect {
+	-re "Submitted batch job ($number)" {
+		set job_id $expect_out(1,string)
+		exp_continue
+	}
+	-re "Batch job submission failed" {
+		set no_start 1
+		exp_continue
+	}
+	-re "Unable to contact" {
+		send_user "\nFAILURE: slurm appears to be down\n"
+		exit 1
+	}
+	timeout {
+		send_user "\nFAILURE: sbatch not responding\n"
+		slow_kill $sbatch_pid
+		set exit_code 1
+	}
+	eof {
+		wait
+	}
+}
+
+if {$no_start != 0} {
+	send_user "\nWARNING: partition too small for test\n"
+	if {$job_id != 0} {
+		cancel_job $job_id
+	}
+	exit 0
+}
+if {$job_id == 0} {
+	send_user "\nFAILURE: batch submit failure\n"
+	exit 1
+}
+
+#
+# Wait for job to complete
+#
+#if {[wait_for_job $job_id "DONE"] != 0} {
+#	send_user "\nFAILURE: waiting for job to complete\n"
+#	set exit_code 1
+#}
+
+#
+# Check for desired output in batch_mpi.out
+#
+set nb_hello 	0
+set nb_job	0
+set batch_out [spawn $bin_cat sbatch_mpi.out]
+expect {
+	-re "Hello world, I am ($number) of 6" {
+		incr nb_hello
+		set nb_job [expr $nb_job + $expect_out(1,string)]
+		exp_continue
+	}
+	timeout {
+		send_user "\nFAILURE: mpi jobs are no responding\n"
+		slow_kill $batch_out
+		set exit_code 1
+	}
+	eof {
+		wait
+	}
+}
+
+if {$nb_hello != 6 | $nb_job != 15} {
+	send_user "\nFAILURE: number of job is not correct\n"
+	set exit_code 1
+}
+
+#
+# Exit code status
+#
+if {$exit_code == 0} {
+	send_user "\nSUCCESS\n"
+} 
+exit $exit_code

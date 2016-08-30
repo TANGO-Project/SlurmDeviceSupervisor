@@ -1,0 +1,96 @@
+#!/usr/bin/env expect
+############################################################################
+# Purpose: various resource unavailable conditions
+#          illegal request of partition 
+#
+# Output:  "TEST: #.#" followed by "SUCCESS" if test was successful, OR
+#          "FAILURE: ..." otherwise with an explanation of the failure, OR
+#          anything else indicates a failure mode that must be investigated.
+############################################################################
+# Written by CORTES Sebastien <sebastien.cortes@atos.net>
+#
+# CAUTION: not generic script, may used with trek[2-9] nodes
+############################################################################
+source ./globals
+
+set test_id              "84.5"
+set exit_code            0
+set error_alloc          0
+
+print_header $test_id
+
+#
+# Try to allocate resources for -JLDR and -JMBR1
+#
+set timeout $max_job_delay
+set srun_pid [spawn $srun -JLDR -N1 -ptrek3-only --exclusive sleep 10 : -JMBR1 -wtrek3 --exclusive sleep 5]
+expect {
+	-re "Unable to allocate resources" {
+		incr error_alloc 
+		exp_continue
+	}
+	timeout {
+                send_user "\nFAILURE: srun not responding\n"
+                slow_kill $srun_pid
+                set exit_code 1
+        }
+        eof {
+                wait
+        }
+}
+#
+# Delete current running job and partitions
+#
+set squeue_pid [spawn $squeue]
+expect {
+	-re "t81big" {
+		exec $scancel -n LDR
+		exp_continue
+	}
+	-re "t81gpu" {
+		exec $scancel -n MBR1 --pack-member
+		exp_continue
+	}
+	timeout {
+		send_user "\nFAILURE: squeue not responding\n"
+		slow_kill $squeue_pid
+		set exit_code 1
+	}
+	eof {
+		wait
+	}
+}
+set sinfo_pid [spawn $sinfo -o "%R"]
+expect {
+	-re "t81big" {
+		exec $scontrol delete Partition=t81big
+		exp_continue
+	}
+	-re "t81gpu" {
+		exec $scontrol delete Node=trek7
+		exp_continue
+	}
+	timeout {
+		send_user "\nFAILURE: sinfo not responding\n"
+		slow_kill $sinfo_pid
+		set exit_code 1
+	}
+	eof {
+		wait
+	}
+} 
+
+#
+# Verify if the error appears
+#
+
+if {$error_alloc != 1} {
+        send_user "\FAILURE: no output error\n"
+        set exit_code 1
+}
+
+if {$exit_code == 0} {
+        send_user "\nSUCCESS\n"
+}
+exit $exit_code
+

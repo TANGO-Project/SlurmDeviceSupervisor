@@ -1,0 +1,61 @@
+#!/usr/bin/env expect
+############################################################################
+# Purpose: various resource unavailable conditions
+#          same test than test81.1, just -JLDR=n & -JMBR1=1 
+#
+# Output:  "TEST: #.#" followed by "SUCCESS" if test was successful, OR
+#          "FAILURE: ..." otherwise with an explanation of the failure, OR
+#          anything else indicates a failure mode that must be investigated.
+############################################################################
+# Written by CORTES Sebastien <sebastien.cortes@atos.net>
+#
+############################################################################
+source ./globals
+
+set test_id              "84.2"
+set exit_code            0
+set error_alloc          0
+
+print_header $test_id
+
+#
+# Get number of nodes and add one job
+#
+set sinfo [exec $sinfo -o "%D"]
+set a [lindex $sinfo 1]
+set b "[expr 1+$a]"
+
+#
+# Try to allocate resources for -JLDR and -JMBR1
+#
+set timeout $max_job_delay
+set srun_pid [spawn $srun -JLDR -N$b --exclusive sleep 10 : -JMBR1 -N1 --exclusive sleep 5]
+expect {
+	-re "srun: error: Unable to allocate resources" {
+		incr error_alloc 
+		exp_continue
+	}
+	timeout {
+                send_user "\nFAILURE: srun not responding\n"
+                slow_kill $srun_pid
+                set exit_code 1
+        }
+        eof {
+                wait
+        }
+}
+
+#
+# Verify if the error appears 
+#
+
+if {$error_alloc != 1} {
+        send_user "\FAILURE: too many error or no output error\n"
+        set exit_code 1
+}
+
+if {$exit_code == 0} {
+        send_user "\nSUCCESS\n"
+}
+exit $exit_code
+

@@ -1,0 +1,92 @@
+#!/usr/bin/env expect
+############################################################################
+# Purpose: check Jobpacks environnement variables
+#	   sbatch test
+#
+# Output:  "TEST: #.#" followed by "SUCCESS" if test was successful, OR
+#          "FAILURE: ..." otherwise with an explanation of the failure, OR
+#          anything else indicates a failure mode that must be investigated.
+############################################################################
+# Written by CORTES Sebastien <sebastien.cortes@atos.net>
+#
+# CAUTION: node name must to be in lowercase
+############################################################################
+source ./globals
+
+set test_id              "81.3"
+set exit_code            0
+set node_list		 0
+set n_nodes		 0
+set n_tasks		 0
+set num_pack		 0
+
+print_header $test_id
+
+#
+# Create bash files for the test
+#
+set file [open sbatch_in w]
+puts $file "#!/bin/sh"
+puts $file "srun --pack-group=2 env"
+close $file
+
+#
+# Execute sbatch command
+#
+set timeout $max_job_delay
+set sbatch_pid [exec $sbatch -o sbatch.out -N1 --exclusive sbatch_in : -N1 --exclusive : -N1 --exclusive]
+exec $bin_sleep 2
+set out [spawn $bin_cat sbatch.out]
+expect {
+	-re "(SLURM_NUMPACK=)(\[0-9]*)" {
+		set num_pack $expect_out(2,string)
+                exp_continue
+	}
+	-re "(SLURM_NODELIST_PACK_GROUP_\[0-9]=)(\[a-z]*\[0-9])" {
+		append pack_group "$expect_out(2,string)" ","
+		exp_continue
+	}
+	-re "(SLURM_NODELIST_MPI=)(\[a-z]*\[0-9]*)" {
+		set node_list $expect_out(2,string)
+		exp_continue
+	}
+	-re "(SLURM_NNODES_MPI=)(\[0-9]*)" {
+		set n_nodes $expect_out(2,string)
+                exp_continue
+	}
+	-re "(SLURM_NTASKS_MPI=)(\[0-9]*)" {
+		set n_tasks $expect_out(2,string)
+                exp_continue
+	}
+	timeout {
+                send_user "\nFAILURE: sbatch not responding\n"
+                slow_kill $sbatch_pid
+                set exit_code 1
+        }
+        eof {
+                wait
+        }
+}
+exec $squeue -h
+
+#
+# Confirm number of nodes
+#
+set len [string length $pack_group]
+incr len -2
+set pack_group [string range $pack_group 0 $len]
+set nodes [split $pack_group ","]
+set num_nodes [llength $nodes]
+if {$num_nodes != $num_pack} {
+        send_user "\nFAILURE: number of nodes differe between variables\n"
+        set exit_code 1
+}
+
+#
+# Exit code status
+#
+if {$exit_code == 0} {
+        send_user "\nSUCCESS\n"
+}
+exit $exit_code
+

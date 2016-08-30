@@ -1,0 +1,86 @@
+#!/usr/bin/env expect
+############################################################################
+# Purpose: various resource unavailable conditions
+#          illegal request of partition 
+#
+# Output:  "TEST: #.#" followed by "SUCCESS" if test was successful, OR
+#          "FAILURE: ..." otherwise with an explanation of the failure, OR
+#          anything else indicates a failure mode that must be investigated.
+############################################################################
+# Written by CORTES Sebastien <sebastien.cortes@atos.net>
+#
+############################################################################
+source ./globals
+
+set test_id              "84.3"
+set exit_code            0
+set error_alloc          0
+
+print_header $test_id
+
+#
+# Created partitions. 
+#
+exec $scontrol create PartitionName=t81big Nodes=trek\[7\] Shared=yes 
+exec $scontrol create PartitionName=t81gpu Nodes=trek\[3-6\] Shared=yes
+
+exec $bin_sleep 2
+#
+# Try to allocate resources for -JLDR and -JMBR1
+#
+set timeout $max_job_delay
+set srun_pid [spawn $srun -JLDR -N1 -pt81big sleep 10 : -JMBR1 -N5 -pt81gpu sleep 5]
+expect {
+	-re "Unable to allocate resources" {
+		incr error_alloc 
+		exp_continue
+	}
+	timeout {
+                send_user "\nFAILURE: srun not responding\n"
+                slow_kill $srun_pid
+                set exit_code 1
+        }
+        eof {
+                wait
+        }
+}
+#
+# Delete partitions
+#
+set squeue [spawn $squeue]
+expect {
+	-re "t81big" {
+		exec $scancel -n LDR
+		exp_continue
+	}
+	-re "t81gpu" {
+		exec $scancel -n MBR1 --pack-member
+		exp_continue
+	}
+}
+set sinfo [spawn $sinfo -o "%R"]
+expect {
+	-re "t81big" {
+		exec $scontrol delete Partition=t81big
+		exp_continue
+	}
+	-re "t81gpu" {
+		exec $scontrol delete Partition=t81gpu
+		exp_continue
+	}
+} 
+
+#
+# Verify if the error appears
+#
+
+if {$error_alloc != 1} {
+        send_user "\FAILURE: no output error\n"
+        set exit_code 1
+}
+
+if {$exit_code == 0} {
+        send_user "\nSUCCESS\n"
+}
+exit $exit_code
+
