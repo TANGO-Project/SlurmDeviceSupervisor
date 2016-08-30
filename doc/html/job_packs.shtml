@@ -347,7 +347,9 @@ priority normal job.
 
 <h3>Job Preemption</h3>
 <p>
-Members of a Job Pack cannot be preempted.
+Job Packs (pack leader and pack members) cannot be preempted by other higher 
+priority jobs. This is an exception for now and it will be treated in an 
+upcoming version. 
 </p>
 <p>
 The pack leader can preempt legacy jobs, but only the resource requirements of
@@ -361,11 +363,14 @@ be allocated, the previous members are deallocated. If such a deallocated job
 had preempt a normal job, that normal job should still be running.
 </p>
 <p>
-For example a Job Pack has three members with jobid=501,502,503. We evaluate
-the requirements of 501 and it can be satisfied by preempting job 255. When
-502 is evaluated, and its requirements can't be met, 501 is deallocated.
-However, 255 was preempted 501 was allocated, so it is either cancelled,
-or re-queued.
+For example a Job Pack has three members with jobid=501,502,503. We evaluate 
+the requirements of 501 and it can be satisfied by preempting job 255. When 
+502 is evaluated, and its requirements can't be met, 501 is deallocated. 
+However, 255 was preempted 501 was allocated, so in reality is either cancelled, 
+or re-queued. But since we have backed-off from the allocation we should deliver 
+the exact same state of the cluster and queue as previously but this would not 
+possible if preemption is allowed for pack-members. That is why we have blocked 
+the preemption of pack members to other jobs. 
 </p>
 
 
