@@ -1186,6 +1186,12 @@ static int _dump_job_state(void *x, void *arg)
 	pack16(dump_job_ptr->alloc_resp_port, buffer);
 	pack16(dump_job_ptr->other_port, buffer);
 	pack32(dump_job_ptr->pack_leader, buffer);
+
+
+	pack32(dump_job_ptr->group_number, buffer);
+	pack32(dump_job_ptr->numpack, buffer);
+	pack16(dump_job_ptr->resv_port_cnt, buffer);
+
 	pack8(dump_job_ptr->power_flags, buffer);
 	pack16(dump_job_ptr->start_protocol_ver, buffer);
 	packdouble(dump_job_ptr->billable_tres, buffer);
@@ -1217,6 +1223,7 @@ static int _dump_job_state(void *x, void *arg)
 	packstr(dump_job_ptr->batch_host, buffer);
 	packstr(dump_job_ptr->burst_buffer, buffer);
 	packstr(dump_job_ptr->burst_buffer_state, buffer);
+	packstr(dump_job_ptr->resv_ports, buffer);
 
 	select_g_select_jobinfo_pack(dump_job_ptr->select_jobinfo,
 				     buffer, SLURM_PROTOCOL_VERSION);
@@ -1273,7 +1280,7 @@ static int _load_job_state(Buf buffer, uint16_t protocol_version)
 	uint32_t pack_leader;
 	uint32_t next_step_id, total_cpus, total_nodes = 0, cpu_cnt;
 	uint32_t resv_id, spank_job_env_size = 0, qos_id, derived_ec = 0;
-	uint32_t pelog_env_size = 0;
+	uint32_t pelog_env_size = 0, jobpack_envc = 0;
 	uint32_t array_job_id = 0, req_switch = 0, wait4switch = 0;
 	uint32_t profile = ACCT_GATHER_PROFILE_NOT_SET;
 	uint32_t job_state, local_job_id = 0, delay_boot = 0;
@@ -1285,13 +1292,17 @@ static int _load_job_state(Buf buffer, uint16_t protocol_version)
 	uint32_t array_task_id = NO_VAL;
 	uint32_t array_flags = 0, max_run_tasks = 0, tot_run_tasks = 0;
 	uint32_t min_exit_code = 0, max_exit_code = 0, tot_comp_tasks = 0;
+	uint32_t group_number, numpack = 0;
 	uint16_t details, batch_flag, step_flag;
 	uint16_t kill_on_node_fail, direct_set_prio;
 	uint16_t alloc_resp_port, other_port, mail_type, state_reason;
 	uint16_t restart_cnt, ckpt_interval;
 	uint16_t wait_all_nodes, warn_flags = 0, warn_signal, warn_time;
+	uint16_t resv_port_cnt = 0;
 	acct_policy_limit_set_t limit_set;
 	uint16_t start_protocol_ver = SLURM_MIN_PROTOCOL_VERSION;
+	uint16_t uint16_tmp;
+	char *resv_ports = NULL;
 	char *nodes = NULL, *partition = NULL, *name = NULL, *resp_host = NULL;
 	char *account = NULL, *network = NULL, *mail_user = NULL;
 	char *comment = NULL, *nodes_completing = NULL, *alloc_node = NULL;
@@ -1304,6 +1315,7 @@ static int _load_job_state(Buf buffer, uint16_t protocol_version)
 	uint32_t task_id_size = NO_VAL;
 	char **spank_job_env = (char **) NULL;
 	char **pelog_env = (char **) NULL;
+	char **jobpack_env = (char **) NULL;
 	List gres_list = NULL, part_ptr_list = NULL;
 	struct job_record *job_ptr = NULL;
 	struct part_record *part_ptr;
@@ -1625,6 +1637,9 @@ static int _load_job_state(Buf buffer, uint16_t protocol_version)
 		safe_unpack16(&other_port, buffer);
 		safe_unpack32(&pack_leader, buffer);
 		safe_unpack8(&power_flags, buffer);
+		safe_unpack32(&group_number, buffer);
+		safe_unpack32(&numpack, buffer);
+		safe_unpack16(&resv_port_cnt, buffer);
 		safe_unpack16(&start_protocol_ver, buffer);
 		safe_unpackdouble(&billable_tres, buffer);
 
@@ -1670,6 +1685,7 @@ static int _load_job_state(Buf buffer, uint16_t protocol_version)
 		safe_unpackstr_xmalloc(&resv_name, &name_len, buffer);
 		safe_unpackstr_xmalloc(&batch_host, &name_len, buffer);
 		safe_unpackstr_xmalloc(&burst_buffer, &name_len, buffer);
+		safe_unpackstr_xmalloc(&resv_ports, &name_len, buffer);
 
 		if (select_g_select_jobinfo_unpack(&select_jobinfo, buffer,
 						   protocol_version))
@@ -1687,6 +1703,9 @@ static int _load_job_state(Buf buffer, uint16_t protocol_version)
 		safe_unpackstr_array(&spank_job_env, &spank_job_env_size,
 				     buffer);
 		safe_unpackstr_array(&pelog_env, &pelog_env_size,
+				     buffer);
+
+		safe_unpackstr_array(&jobpack_env, &jobpack_envc,
 				     buffer);
 
 		if (gres_plugin_job_state_unpack(&gres_list, buffer, job_id,
@@ -1883,8 +1902,6 @@ static int _load_job_state(Buf buffer, uint16_t protocol_version)
 
 		safe_unpackstr_array(&spank_job_env, &spank_job_env_size,
 				     buffer);
-		safe_unpackstr_array(&pelog_env, &pelog_env_size,
-				     buffer);
 
 		if (gres_plugin_job_state_unpack(&gres_list, buffer, job_id,
 						 protocol_version) !=
@@ -2033,10 +2050,6 @@ static int _load_job_state(Buf buffer, uint16_t protocol_version)
 	job_ptr->wckey        = wckey;
 	xstrtolower(job_ptr->wckey);
 	wckey                 = NULL;	/* reused, nothing left to free */
-	resv_port_jobpack_free(job_ptr);
-	xfree(job_ptr->resv_port_array);
-	xfree(job_ptr->resv_ports);
-	job_ptr->resv_ports   = NULL;
 	xfree(job_ptr->network);
 	job_ptr->network      = network;
 	network               = NULL;  /* reused, nothing left to free */
@@ -7573,6 +7586,12 @@ _copy_job_desc_to_job_record(job_desc_msg_t * job_desc,
 	job_ptr->spank_job_env_size = job_desc->spank_job_env_size;
 	job_desc->spank_job_env = (char **) NULL; /* nothing left to free */
 	job_desc->spank_job_env_size = 0;         /* nothing left to free */
+
+	job_ptr->pelog_env = job_desc->pelog_env;
+	job_ptr->pelog_env_size = job_desc->pelog_env_size;
+	job_desc->pelog_env = (char **) NULL; /* nothing left to free */
+	job_desc->pelog_env_size = 0;         /* nothing left to free */
+
 	job_ptr->mcs_label = xstrdup(job_desc->mcs_label);
 
 	if (job_desc->wait_all_nodes == (uint16_t) NO_VAL)

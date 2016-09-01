@@ -2291,7 +2291,6 @@ extern batch_job_launch_msg_t *build_launch_job_msg(struct job_record *job_ptr,
 	launch_msg_ptr->spank_job_env_size = job_ptr->spank_job_env_size;
 	launch_msg_ptr->spank_job_env = xduparray(job_ptr->spank_job_env_size,
 						  job_ptr->spank_job_env);
-
 	/* Populate envs now for legacy job, later for jobpack */
 	if (job_ptr->pack_leader == 0) {
 		launch_msg_ptr->pelog_env_size = job_ptr->pelog_env_size;
@@ -2307,6 +2306,16 @@ extern batch_job_launch_msg_t *build_launch_job_msg(struct job_record *job_ptr,
 			     false, true, 0);
 		return NULL;
 
+
+		launch_msg_ptr->environment = get_job_env(job_ptr,
+							&launch_msg_ptr->envc);
+		if (launch_msg_ptr->environment == NULL) {
+			error("%s: environment missing or corrupted aborting "
+			      "job %u", __func__, job_ptr->job_id);
+			slurm_free_job_launch_msg(launch_msg_ptr);
+			job_complete(job_ptr->job_id, getuid(), false, true, 0);
+			return NULL;
+		}
 	}
 	launch_msg_ptr->job_mem = job_ptr->details->pn_min_memory;
 	launch_msg_ptr->num_cpu_groups = job_ptr->job_resrcs->cpu_array_cnt;
@@ -2532,9 +2541,6 @@ static void _add_jobpack_envs(char **member_env, int numpack, uint32_t ntasks,
 		job_ptr->pelog_env_size++;
 	}
 		strcpy(tmp, "SLURM_NODELIST_PACK_GROUP_0");
-=======
->>>>>>> 6b87477... fix to export jobpack envs to prolog
-
 	xfree(tmp);
 
 	/* add SLURM_LISTJOBIDS to member_env */
