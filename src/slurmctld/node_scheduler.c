@@ -4271,7 +4271,7 @@ static int _allocate_packmbrs(struct job_record *job_ptr,
 	bitstr_t *alloc_node_bitmap = NULL;
 	struct depend_spec *dep_ptr;
 	struct job_record *dep_job_ptr;
-	int rc, ipj;
+	int rc = SLURM_SUCCESS, ipj;
 	uint64_t debug_flags;
 	char* err_msg = NULL;
 	char* jpck_nodes;

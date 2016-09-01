@@ -5455,8 +5455,9 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 		if (isleader) {
 			if (job_ptr->job_state == JOB_COMPLETE
 			    || job_ptr->job_state == JOB_COMPLETING) {
-				if (slurm_get_debug_flags() &
-						DEBUG_FLAG_JOB_PACK) {
+				if ((slurm_get_debug_flags() &
+						DEBUG_FLAG_JOB_PACK)
+				    && ldr_dep_ptr) {
 
 					info("JPCK: skipping job pack leader "
 					     "%d, (already complete)",
@@ -5464,9 +5465,10 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 				}
 				return SLURM_SUCCESS;
 			}
-			if (slurm_get_debug_flags() & DEBUG_FLAG_JOB_PACK) {
+			if ((slurm_get_debug_flags() & DEBUG_FLAG_JOB_PACK)
+			    && ldr_dep_ptr) {
 				info("JPCK: Completing job pack leader=%d",
-				     job_id);
+				     ldr_dep_ptr->job_id);
 			}
 		}
 	}
