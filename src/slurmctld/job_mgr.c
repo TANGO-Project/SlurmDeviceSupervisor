@@ -1431,6 +1431,10 @@ static int _load_job_state(Buf buffer, uint16_t protocol_version)
 		safe_unpack16(&alloc_resp_port, buffer);
 		safe_unpack16(&other_port, buffer);
 		safe_unpack8(&power_flags, buffer);
+		safe_unpack32(&pack_leader, buffer);
+		safe_unpack32(&group_number, buffer);
+		safe_unpack32(&numpack, buffer);
+		safe_unpack16(&resv_port_cnt, buffer);
 		safe_unpack16(&start_protocol_ver, buffer);
 		safe_unpackdouble(&billable_tres, buffer);
 
@@ -1478,6 +1482,7 @@ static int _load_job_state(Buf buffer, uint16_t protocol_version)
 		safe_unpackstr_xmalloc(&batch_host, &name_len, buffer);
 		safe_unpackstr_xmalloc(&burst_buffer, &name_len, buffer);
 		safe_unpackstr_xmalloc(&burst_buffer_state, &name_len, buffer);
+		safe_unpackstr_xmalloc(&resv_ports, &name_len, buffer);
 
 		if (select_g_select_jobinfo_unpack(&select_jobinfo, buffer,
 						   protocol_version))
@@ -1493,6 +1498,11 @@ static int _load_job_state(Buf buffer, uint16_t protocol_version)
 			goto unpack_error;
 
 		safe_unpackstr_array(&spank_job_env, &spank_job_env_size,
+				     buffer);
+		safe_unpackstr_array(&pelog_env, &pelog_env_size,
+				     buffer);
+
+		safe_unpackstr_array(&jobpack_env, &jobpack_envc,
 				     buffer);
 
 		if (gres_plugin_job_state_unpack(&gres_list, buffer, job_id,
