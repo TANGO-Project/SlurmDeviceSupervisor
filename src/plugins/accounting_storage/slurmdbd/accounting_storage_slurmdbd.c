@@ -197,7 +197,6 @@ static int _setup_job_start_msg(dbd_job_start_msg_t *req,
 	req->job_state     = job_ptr->job_state;
 	req->name          = xstrdup(job_ptr->name);
 	req->nodes         = xstrdup(job_ptr->nodes);
-	req->pack_leader   = job_ptr->pack_leader;
 
 	if (job_ptr->node_bitmap) {
 		char temp_bit[BUF_SIZE];
@@ -2800,8 +2799,6 @@ extern int jobacct_storage_p_step_complete(void *db_conn,
 #endif
 
 	req.job_id      = step_ptr->job_ptr->job_id;
-	req.packjobid   = step_ptr->packjobid;
-	req.packstepid  = step_ptr->packstepid;
 	req.req_uid     = step_ptr->requid;
 	if (step_ptr->start_time > step_ptr->job_ptr->resize_time)
 		req.start_time = step_ptr->start_time;
