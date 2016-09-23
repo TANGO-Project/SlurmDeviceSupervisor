@@ -5457,8 +5457,20 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 				info("JPCK: Leader %d completing pack member "
 				     "jobid=%d", job_id, ldr_dep_ptr->job_id);
 			}
-			rc = _job_complete(ldr_dep_ptr->job_id, uid,
+			/* only kill the packmember jobs if this is not
+			   a stand-alone srun, otherwise let the them
+			   complete in their own time (instead of killing
+			   them now) This is done to prevent timing issues
+			   when the packleader completes before the packmembers
+			   for stand-alone sruns. There may be a better way to
+			   handle this situation. */
+			if (job_ptr->batch_flag > 0) {
+				rc = _job_complete(ldr_dep_ptr->job_id, uid,
 					   false, false, job_return_code);
+			}
+			else
+				rc = SLURM_SUCCESS;
+
 			if ((debug_flags & DEBUG_FLAG_JOB_PACK)
 			    && (rc != SLURM_SUCCESS)) {
 				if (rc == ESLURM_ALREADY_DONE) {
