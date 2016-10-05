@@ -236,6 +236,7 @@ _task_read(eio_obj_t *obj, List objs)
 	int rc, lrank;
 
 	lrank = (int)(long)(obj->arg);
+debug("******** MNP, pid=%d, in _task_read, lrank=%d", getpid(), lrank);
 	rc = _handle_task_request(obj->fd, lrank);
 
 	return rc;

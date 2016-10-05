@@ -63,6 +63,7 @@ extern pid_t getsid(pid_t pid);		/* missing from <unistd.h> */
 #include "src/common/parse_time.h"
 #include "src/common/slurm_auth.h"
 #include "src/common/slurm_protocol_defs.h"
+#include "src/srun/libsrun/opt.h" // MNP PMI
 
 #define BUFFER_SIZE 1024
 #define MAX_ALLOC_WAIT 60	/* seconds */
@@ -241,7 +242,6 @@ slurm_allocate_pack_resources (const job_desc_msg_t *user_req,
 		}
 		break;
 	case RESPONSE_RESOURCE_ALLOCATION:
-		//info("RBS srun_allocate_resources_blocking (recieve RESPONSE_RESOURCE_ALLOCATION");
 		/* Yay, the controller has acknowledged our request!  But did
 		   we really get an allocation yet? */
 		resp = (resource_allocation_response_msg_t *) resp_msg.data;
@@ -393,9 +393,8 @@ slurm_allocate_resources_blocking (const job_desc_msg_t *user_req,
 			slurm_free_resource_allocation_response_msg(resp);
 			if (pending_callback != NULL)
 				pending_callback(job_id);
- 			resp = _wait_for_allocation_response(job_id, listen,
+			resp = _wait_for_allocation_response(job_id, listen,
 							     timeout);
-			info("JGRP: return from _wait_for_allocation_response is %p for job=%d", resp, job_id);
 			/* If NULL, we didn't get the allocation in
 			   the time desired, so just free the job id */
 			if ((resp == NULL) && (errno != ESLURM_ALREADY_DONE)) {

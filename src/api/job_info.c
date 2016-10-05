@@ -957,19 +957,8 @@ slurm_sprint_job_info ( job_info_t * job_ptr, int one_liner )
 		xstrcat(out, line_end);
 		xstrcat(out, tmp1);
 	}
-//info("JGRP: PACK-GROUP job_info pack_group=%p",job_ptr->pack_group);  nlk
-	/****** Line 37 (optional) ******/
-	if (job_ptr->pack_group) {
-		if (one_liner)
-			xstrcat(out, " ");
-		else
-			xstrcat(out, "\n   ");
-		snprintf(tmp_line, sizeof(tmp_line), "pack-group=%s",
-			 job_ptr->pack_group);
-		xstrcat(out, tmp_line);
-	}
 
-	/****** Line 38 (optional) ******/
+	/****** Line 37 ******/
 	if (one_liner)
 		xstrcat(out, " ");
 	else
@@ -979,7 +968,7 @@ slurm_sprint_job_info ( job_info_t * job_ptr, int one_liner )
 		 power_flags_str(job_ptr->power_flags));
 	xstrcat(out, tmp_line);
 
-	/****** Line 39 (optional) ******/
+	/****** Line 38 (optional) ******/
 	if (job_ptr->bitflags) {
 		xstrcat(out, line_end);
 		if (job_ptr->bitflags & GRES_ENFORCE_BIND)
@@ -990,6 +979,17 @@ slurm_sprint_job_info ( job_info_t * job_ptr, int one_liner )
 			xstrcat(out, "KillOInInvalidDependent=No");
 		if (job_ptr->bitflags & SPREAD_JOB)
 			xstrcat(out, "SpreadJob=Yes");
+			
+	}
+	/****** Line 39 (optional) ******/
+	if (job_ptr->pack_group) {
+		if (one_liner)
+			xstrcat(out, " ");
+		else
+			xstrcat(out, "\n   ");
+		snprintf(tmp_line, sizeof(tmp_line), "pack-group=%s",
+			 job_ptr->pack_group);
+		xstrcat(out, tmp_line);
 	}
 
 	/****** Last line ******/

@@ -167,7 +167,7 @@ slurm_step_ctx_create (const slurm_step_ctx_params_t *step_params)
 	uint16_t port = 0;
 	int errnum = 0;
 
-//	info("******** MNP entering slurm_step_ctx_create"); // MNP debug
+	debug("******** MNP entering slurm_step_ctx_create"); // MNP debug
 	/* First copy the user's step_params into a step request struct */
 	step_req = _create_step_request(step_params);
 
@@ -200,12 +200,13 @@ slurm_step_ctx_create (const slurm_step_ctx_params_t *step_params)
 	ctx->step_req   = step_req;
 	ctx->step_resp	= step_resp;
 	ctx->verbose_level = step_params->verbose_level;
+	ctx->mpi_jobid = step_params->mpi_jobid; // MNP PMI
 
 	ctx->launch_state = step_launch_state_create(ctx);
 	ctx->launch_state->slurmctld_socket_fd = sock;
 fail:
 	errno = errnum;
-//	info("******** MNP exiting slurm_step_ctx_create"); // MNP debug
+	debug("******** MNP exiting slurm_step_ctx_create"); // MNP debug
 	return (slurm_step_ctx_t *)ctx;
 }
 
@@ -232,6 +233,10 @@ slurm_step_ctx_create_timeout (const slurm_step_ctx_params_t *step_params,
 	struct pollfd fds;
 	long elapsed_time;
 	DEF_TIMERS;
+
+	debug("******** MNP entering slurm_step_ctx_create_timeout"); // MNP debug
+	/* First copy the user's step_params into a step request struct */
+	step_req = _create_step_request(step_params);
 
 	/* We will handle the messages in the step_launch.c mesage handler,
 	 * but we need to open the socket right now so we can tell the
@@ -302,7 +307,22 @@ slurm_step_ctx_create_timeout (const slurm_step_ctx_params_t *step_params,
 		ctx->launch_state->slurmctld_socket_fd = sock;
 	}
 
-	return (slurm_step_ctx_t *) ctx;
+	ctx = xmalloc(sizeof(struct slurm_step_ctx_struct));
+	ctx->launch_state = NULL;
+	ctx->magic	= STEP_CTX_MAGIC;
+	ctx->job_id	= step_req->job_id;
+	ctx->user_id	= step_req->user_id;
+	ctx->step_req   = step_req;
+	ctx->step_resp	= step_resp;
+	ctx->verbose_level = step_params->verbose_level;
+	ctx->mpi_jobid = step_params->mpi_jobid; // MNP PMI
+
+	ctx->launch_state = step_launch_state_create(ctx);
+	ctx->launch_state->slurmctld_socket_fd = sock;
+fail:
+	debug("******** MNP exiting slurm_step_ctx_create_timeout"); // MNP debug
+	errno = errnum;
+	return (slurm_step_ctx_t *)ctx;
 }
 
 /*
@@ -371,6 +391,7 @@ slurm_step_ctx_create_no_alloc (const slurm_step_ctx_params_t *step_params,
 	ctx->step_req   = step_req;
 	ctx->step_resp	= step_resp;
 	ctx->verbose_level = step_params->verbose_level;
+	ctx->mpi_jobid = step_params->mpi_jobid; // MNP PMI
 
 	ctx->launch_state = step_launch_state_create(ctx);
 	ctx->launch_state->slurmctld_socket_fd = sock;
@@ -564,10 +585,12 @@ slurm_step_ctx_daemon_per_node_hack(
 
 		layout->tasks = xmalloc(sizeof(uint16_t) * node_cnt);
 		layout->tids = xmalloc(sizeof(uint32_t *) * node_cnt);
+		layout->mpi_tids = xmalloc(sizeof(uint32_t *) * node_cnt); // MNP PMI
 	} else {
 		layout = ctx->step_resp->step_layout;
 		xrealloc(layout->tasks, sizeof(uint16_t) * node_cnt);
 		xrealloc(layout->tids, sizeof(uint32_t *) * node_cnt);
+		xrealloc(layout->mpi_tids, sizeof(uint32_t *) * node_cnt); // MNP PMI
 	}
 
 	ctx->step_req->num_tasks = layout->task_cnt = layout->node_cnt
@@ -578,7 +601,9 @@ slurm_step_ctx_daemon_per_node_hack(
 	for (i = orig_task_num; i < layout->node_cnt; i++) {
 		layout->tasks[i] = 1;
 		layout->tids[i] = (uint32_t *)xmalloc(sizeof(uint32_t));
+		layout->mpi_tids[i] = (uint32_t *)xmalloc(sizeof(uint32_t)); // MNP PMI
 		layout->tids[i][0] = (*curr_task_num)++;
+		layout->mpi_tids[i][0] = layout->tids[i][0]; // MNP PMI
 	}
 
 	/* Alter the launch state structure now that the settings

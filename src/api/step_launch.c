@@ -187,7 +187,7 @@ int slurm_step_launch (slurm_step_ctx_t *ctx,
 	char **env = NULL;
 	char **mpi_env = NULL;
 	int rc = SLURM_SUCCESS;
-
+	debug("!!!!!!!! MNP pid=%d, entering slurm_step_launch", getpid());
 	debug("Entering slurm_step_launch");
 	memset(&launch, 0, sizeof(launch));
 
@@ -268,6 +268,12 @@ int slurm_step_launch (slurm_step_ctx_t *ctx,
 	launch.alias_list	= params->alias_list;
 	launch.nnodes		= ctx->step_resp->step_layout->node_cnt;
 	launch.ntasks		= ctx->step_resp->step_layout->task_cnt;
+	debug("!!!!!!!! MNP pid=%d, in slurm_step_launch, launch.ntasks=%d", getpid(), launch.ntasks);
+	debug("!!!!!!!! MNP pid=%d, in slurm_step_launch, params->mpi_stepftaskid=%d", getpid(), params->mpi_stepftaskid);
+	launch.mpi_jobid	= params->mpi_jobid; // MNP PMI
+	debug("!!!!!!!! MNP pid=%d, in slurm_step_launch, launch.mpi_jobid=%d", getpid(), launch.mpi_jobid);
+	launch.mpi_ntasks	= params->mpi_ntasks; // MNP PMI
+	launch.mpi_stepftaskid	= params->mpi_stepftaskid; // MNP PMI
 	launch.slurmd_debug	= params->slurmd_debug;
 	launch.switch_job	= ctx->step_resp->switch_job;
 	launch.profile		= params->profile;
@@ -305,6 +311,7 @@ int slurm_step_launch (slurm_step_ctx_t *ctx,
 		launch.flags |= LAUNCH_PARALLEL_DEBUG;
 
 	launch.tasks_to_launch = ctx->step_resp->step_layout->tasks;
+
 	launch.global_task_ids = ctx->step_resp->step_layout->tids;
 
 	launch.select_jobinfo  = ctx->step_resp->select_jobinfo;
@@ -379,6 +386,7 @@ fail1:
 	xfree(launch.cwd);
 	env_array_free(env);
 	job_options_destroy(launch.options);
+	debug("!!!!!!!! MNP pid=%d, exiting slurm_step_launch", getpid());
 	return rc;
 }
 
@@ -620,6 +628,7 @@ void slurm_step_launch_wait_finish(slurm_step_ctx_t *ctx)
 
 	sls = ctx->launch_state;
 
+	debug("******** MNP pid=%d, entering slurm_step_launch_wait_finish", getpid());
 	/* Wait for all tasks to complete */
 	slurm_mutex_lock(&sls->lock);
 	while (bit_set_count(sls->tasks_exited) < sls->tasks_requested) {
@@ -733,7 +742,9 @@ void slurm_step_launch_wait_finish(slurm_step_ctx_t *ctx)
 	}
 
 	mpi_hook_client_fini(sls->mpi_state);
+
 	slurm_mutex_unlock(&sls->lock);
+	debug("******** MNP pid=%d, exiting slurm_step_launch_wait_finish", getpid());
 }
 
 /*
@@ -894,7 +905,9 @@ struct step_launch_state *step_launch_state_create(slurm_step_ctx_t *ctx)
 	sls->resp_port = NULL;
 	sls->abort = false;
 	sls->abort_action_taken = false;
-	sls->mpi_info->jobid = ctx->step_req->job_id;
+//	sls->mpi_info->jobid = ctx->step_req->job_id; // MNP PMI old code
+	sls->mpi_info->jobid = ctx->mpi_jobid; // MNP PMI new code
+	debug("!!!!!!!! MNP pid=%d, in step_launch_state_create, sls->mpi_info->jobid = ctx->mpi_jobid=%d", getpid(), ctx->mpi_jobid);
 	sls->mpi_info->stepid = ctx->step_resp->job_step_id;
 	sls->mpi_info->step_layout = layout;
 	sls->mpi_state = NULL;
@@ -1166,12 +1179,15 @@ _exit_handler(struct step_launch_state *sls, slurm_msg_t *exit_msg)
 	void (*task_finish)(task_exit_msg_t *);
 	int i;
 
-	if ((msg->job_id != sls->mpi_info->jobid) ||
-	    (msg->step_id != sls->mpi_info->stepid)) {
-		debug("Received MESSAGE_TASK_EXIT from wrong job: %u.%u",
-		      msg->job_id, msg->step_id);
-		return;
-	}
+	debug("******** MNP pid=%d, in _exit_handler, sls->mpi_info->jobid=%d", getpid(), sls->mpi_info->jobid); // MNP PMI
+	// MNP PMI start disable this test to try and fix hang in slurm_step_launch_wait_finish
+//	if ((msg->job_id != sls->mpi_info->jobid) ||
+//	    (msg->step_id != sls->mpi_info->stepid)) {
+//		debug("Received MESSAGE_TASK_EXIT from wrong job: %u.%u",
+//		      msg->job_id, msg->step_id);
+//		return;
+//	}
+	// MNP PMI end disable this test to try and fix hang in slurm_step_launch_wait_finish
 
 	/* Record SIGTERM and SIGKILL termination codes to
 	 * recognize abnormal termination */
@@ -1527,6 +1543,7 @@ _handle_msg(void *arg, slurm_msg_t *msg)
 
 	switch (msg->msg_type) {
 	case RESPONSE_LAUNCH_TASKS:
+		//debug("******** MNP pid=%d received RESPONSE_LAUNCH_TASKS msg", getpid());
 		debug2("received task launch");
 		_launch_handler(sls, msg);
 		break;
@@ -1542,7 +1559,7 @@ _handle_msg(void *arg, slurm_msg_t *msg)
 		_exec_prog(msg);
 		break;
 	case SRUN_JOB_COMPLETE:
-		//info("******** MNP %d: step_launch.c:_handle_msg, received SRUN_JOB_COMPLETE", getpid());
+		debug("******** MNP %d: step_launch.c:_handle_msg, received SRUN_JOB_COMPLETE", getpid());
 		debug2("received job step complete message");
 		_job_complete_handler(sls, msg);
 		break;
