@@ -89,10 +89,6 @@
 #include "src/api/step_ctx.h"
 #include "src/api/step_launch.h"
 
-/********************
- * Global Variables *
- ********************/
-
 #if defined (HAVE_DECL_STRSIGNAL) && !HAVE_DECL_STRSIGNAL
 #  ifndef strsignal
  extern char *strsignal(int);
@@ -546,13 +542,13 @@ int srun(int ac, char **av)
 	slurm_step_io_fds_t cio_fds = SLURM_STEP_IO_FDS_INITIALIZER;
 	slurm_step_launch_callbacks_t step_callbacks;
 
-		env->stepid = -1;
-		env->procid = -1;
-		env->localid = -1;
-		env->nodeid = -1;
-		env->cli = NULL;
-		env->env = NULL;
-		env->ckpt_dir = NULL;
+	env->stepid = -1;
+	env->procid = -1;
+	env->localid = -1;
+	env->nodeid = -1;
+	env->cli = NULL;
+	env->env = NULL;
+	env->ckpt_dir = NULL;
 
 	slurm_conf_init(NULL);
 	debug_level = _slurm_debug_env_val();
@@ -670,7 +666,7 @@ int srun(int ac, char **av)
 	if (opt.pty && (set_winsize(job) < 0)) {
 		error("Not using a pseudo-terminal, disregarding --pty option");
 		opt.pty = false;
-		}
+	}
 	if (opt.pty) {
 		struct termios term;
 		int fd = STDIN_FILENO;
@@ -699,6 +695,8 @@ int srun(int ac, char **av)
 
 	memset(&step_callbacks, 0, sizeof(step_callbacks));
 	step_callbacks.step_signal   = launch_g_fwd_signal;
+
+	/* re_launch: */
 relaunch:
 	pre_launch_srun_job(job, 0, 1);
 

@@ -574,7 +574,6 @@ static void _opt_default(void)
 	opt.hostfile	    = NULL;
 	opt.nodelist	    = NULL;
 	opt.exc_nodes	    = NULL;
-	opt.max_launch_time = 120;/* 120 seconds to launch job             */
 	opt.max_exit_timeout= 60; /* Warn user 60 seconds after task exit */
 	/* Default launch msg timeout           */
 	opt.msg_timeout     = slurm_get_msg_timeout();
@@ -608,7 +607,6 @@ static void _opt_default(void)
 	 * Reset some default values if running under a parallel debugger
 	 */
 	if ((opt.parallel_debug = _under_parallel_debugger())) {
-		opt.max_launch_time = 120;
 		opt.max_threads     = 1;
 		pmi_server_max_threads(opt.max_threads);
 		opt.msg_timeout     = 15;
@@ -767,7 +765,7 @@ static void _opt_env(void)
 	}
 }
 
-static void _opt_env_pack(uint32_t group_number)  //dhp
+static void _opt_env_pack(uint32_t group_number)
 {
 	char       *val = NULL;
 	env_vars_t *e   = env_vars;
@@ -802,11 +800,10 @@ _process_env_var(env_vars_t *e, const char *val)
 
 	switch (e->type) {
 	case OPT_STRING:
-	info("DHP _process_env_var: val = %s", val);
 		*((char **) e->arg) = xstrdup(val);
 		break;
 	case OPT_INT:
-		if (val != NULL) {
+		if (val[0] != '\0') {
 			*((int *) e->arg) = (int) strtol(val, &end, 10);
 			if (!(end && *end == '\0')) {
 				error("%s=%s invalid. ignoring...",
@@ -884,7 +881,6 @@ _process_env_var(env_vars_t *e, const char *val)
 			opt.shared = JOB_SHARED_USER;
 		} else if (!xstrcasecmp(val, "mcs")) {
 			opt.shared = JOB_SHARED_MCS;
-*/
 		} else {
 			error("\"%s=%s\" -- invalid value, ignoring...",
 			      e->var, val);
@@ -1164,7 +1160,7 @@ static void _set_options(const int argc, char **argv)
 		{"debugger-test",    no_argument,       0, LONG_OPT_DEBUG_TS},
 		{"delay-boot",       required_argument, 0, LONG_OPT_DELAY_BOOT},
 		{"epilog",           required_argument, 0, LONG_OPT_EPILOG},
-		{"exclusive",        no_argument,       0, LONG_OPT_EXCLUSIVE},
+		{"exclusive",        optional_argument, 0, LONG_OPT_EXCLUSIVE},
 		{"export",           required_argument, 0, LONG_OPT_EXPORT},
 		{"get-user-env",     optional_argument, 0, LONG_OPT_GET_USER_ENV},
 		{"gid",              required_argument, 0, LONG_OPT_GID},
@@ -1176,12 +1172,11 @@ static void _set_options(const int argc, char **argv)
 		{"jobid",            required_argument, 0, LONG_OPT_JOBID},
 		{"linux-image",      required_argument, 0, LONG_OPT_LINUX_IMAGE},
 		{"launch-cmd",       no_argument,       0, LONG_OPT_LAUNCH_CMD},
-		{"launcher-opts",      required_argument, 0, LONG_OPT_LAUNCHER_OPTS},
+		{"launcher-opts",    required_argument, 0, LONG_OPT_LAUNCHER_OPTS},
 		{"mail-type",        required_argument, 0, LONG_OPT_MAIL_TYPE},
 		{"mail-user",        required_argument, 0, LONG_OPT_MAIL_USER},
 		{"max-exit-timeout", required_argument, 0, LONG_OPT_XTO},
 		{"mcs-label",        required_argument, 0, LONG_OPT_MCS_LABEL},
-		{"max-launch-time",  required_argument, 0, LONG_OPT_LAUNCH},   //nlk
 		{"mem",              required_argument, 0, LONG_OPT_MEM},
 		{"mem-per-cpu",      required_argument, 0, LONG_OPT_MEM_PER_CPU},
 		{"mem_bind",         required_argument, 0, LONG_OPT_MEM_BIND},
@@ -1514,8 +1509,6 @@ static void _set_options(const int argc, char **argv)
 				error("invalid exclusive option %s", optarg);
 				exit(error_exit);
 			}
-			opt.exclusive = true;  //nlk
-                        opt.shared = 0;  //nlk
                         break;
 		case LONG_OPT_EXPORT:
 			xfree(opt.export_env);
@@ -1630,10 +1623,6 @@ static void _set_options(const int argc, char **argv)
 			opt.msg_timeout =
 				_get_int(optarg, "msg-timeout", true);
 			break;
-		case LONG_OPT_LAUNCH:
-			opt.max_launch_time =
-				_get_int(optarg, "max-launch-time", true);
-			break;
 		case LONG_OPT_XTO:
 			opt.max_exit_timeout =
 				_get_int(optarg, "max-exit-timeout", true);
@@ -1670,7 +1659,6 @@ static void _set_options(const int argc, char **argv)
 			/* make other parameters look like debugger
 			 * is really attached */
 			opt.parallel_debug   = true;
-			opt.max_launch_time = 120;
 			opt.max_threads     = 1;
 			pmi_server_max_threads(opt.max_threads);
 			opt.msg_timeout     = 15;
@@ -2056,6 +2044,8 @@ static void _opt_args(int argc, char **argv)
 {
 	int i, command_pos = 0, command_args = 0;
 	char **rest = NULL;
+	char *fullpath, *launch_params;
+	bool test_exec = false;
 
 	_set_options(argc, argv);
 
@@ -2164,7 +2154,7 @@ static void _opt_args(int argc, char **argv)
 	    (opt.argc > command_pos)) {
 		if ((fullpath = search_path(opt.cwd,
 					    opt.argv[command_pos],
-					    false, X_OK))) {
+					    false, X_OK, test_exec))) {
 			xfree(opt.argv[command_pos]);
 			opt.argv[command_pos] = fullpath;
 		}
@@ -3108,7 +3098,7 @@ static void _help(void)
 "  -Z, --no-allocate           don't allocate nodes (must supply -w)\n"
 "\n"
 "Consumable resources related options:\n"
-"      --exclusive             allocate nodes in exclusive mode when\n"
+"      --exclusive[=user]      allocate nodes in exclusive mode when\n"
 "                              cpu consumable resource is enabled\n"
 "                              or don't share CPUs for job steps\n"
 "      --exclusive[=mcs]       allocate nodes in exclusive mode when\n"

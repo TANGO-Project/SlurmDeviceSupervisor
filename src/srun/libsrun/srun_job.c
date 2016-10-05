@@ -120,7 +120,7 @@ static void       _set_ntasks(allocation_info_t *info);
 static srun_job_t *_job_create_structure(allocation_info_t *info);
 static char *     _normalize_hostlist(const char *hostlist);
 static int _become_user(void);
-//static void _call_spank_fini(void);				/* wjb */
+static void _call_spank_fini(void);				/* wjb */
 static int  _call_spank_local_user(srun_job_t *job);
 static void _default_sigaction(int sig);
 static long _diff_tv_str(struct timeval *tv1, struct timeval *tv2);
@@ -140,6 +140,7 @@ static int _shepherd_spawn(srun_job_t *job, bool got_alloc);
 static void *_srun_signal_mgr(void *no_data);
 static void _step_opt_exclusive(void);
 static int _validate_relative(resource_allocation_response_msg_t *resp);
+
 
 /*
  * Create an srun job structure w/out an allocation response msg.
@@ -476,12 +477,10 @@ for (index1 = 0; index1 < ac; index1++) {
 	/* set default options, process commandline arguments, and
 	 * verify some basic values
 	 */
-
-		if (initialize_and_process_args(ac, av) < 0) {
-			error ("srun initialization failed");
-			exit (1);
-		}
-
+	if (initialize_and_process_args(ac, av) < 0) {
+		error ("srun initialization failed");
+		exit (1);
+	}
 	record_ppid();
 
 	if (spank_init_post_opt() < 0) {
@@ -611,7 +610,6 @@ extern void create_srun_job(srun_job_t **p_job, bool *got_alloc,
 	/* now global "opt" should be filled in and available,
 	 * create a job from opt
 	 */
-
 	if (opt.test_only) {
 		int rc = allocate_test();
 		if (rc) {
@@ -712,7 +710,6 @@ extern void create_srun_job(srun_job_t **p_job, bool *got_alloc,
 
 		if ( !(resp = allocate_nodes(handle_signals)) )
 			exit(error_exit);
-
 		global_resp = resp;
 		*got_alloc = true;
 		_print_job_information(resp);
