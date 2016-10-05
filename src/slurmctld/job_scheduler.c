@@ -1959,7 +1959,7 @@ next_task:
 			if (assoc_limit_stop)
 				fail_by_part = true;
 		} else if (error_code ==
-			    ESLURM_REQUESTED_NODE_CONFIG_UNAVAILABLE)
+			    (ESLURM_REQUESTED_NODE_CONFIG_UNAVAILABLE)
 			   || (error_code == ESLURM_JOB_PACK_BAD_MEMBER)
 			   || (error_code == ESLURM_JOB_PACK_NEVER_RUN)) {
 			if (job_ptr->part_ptr_list) {

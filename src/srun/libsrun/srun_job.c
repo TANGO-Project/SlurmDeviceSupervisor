@@ -536,6 +536,9 @@ extern void init_srun_jobpack(int ac, char **av,
 	 * verify some basic values
 	 */
 
+	/* set special prolog/epilog env vars */
+	pelog_set_env(1);
+
 	group_number = desc[group_index].pack_job_env[job_index].group_number;
 	if (initialize_and_process_args_jobpack(ac, av, group_number) < 0) {
 		error ("srun initialization failed");

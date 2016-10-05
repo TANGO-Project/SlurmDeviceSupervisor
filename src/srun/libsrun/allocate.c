@@ -1066,6 +1066,10 @@ job_desc_msg_create_from_opts (void)
 		j->spank_job_env      = opt.spank_job_env;
 		j->spank_job_env_size = opt.spank_job_env_size;
 	}
+	if (opt.pelog_env_size) {
+		j->pelog_env      = opt.pelog_env;
+		j->pelog_env_size = opt.pelog_env_size;
+	}
 
 	if (opt.power_flags)
 		j->power_flags = opt.power_flags;

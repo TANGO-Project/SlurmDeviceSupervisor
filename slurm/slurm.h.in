@@ -1508,6 +1508,7 @@ typedef struct job_descriptor {	/* For submit, allocate, and update requests */
 				  * default=0 */
         uint8_t resv_port;       /* jobpack resv-port for nodes flag */
         uint32_t group_number;   /* jobpack group number index */
+        uint32_t numpack;        /* number of jobpack jobs */
 /*
  * The following parameters are only meaningful on a Blue Gene
  * system at present. Some will be of value on other system. Don't remove these
@@ -1910,6 +1911,9 @@ typedef struct {
 	char **spank_job_env;	/* environment variables for job prolog/epilog
 				 * scripts as set by SPANK plugins */
 	uint32_t spank_job_env_size;	/* element count in spank_env */
+	char **pelog_env;	/* other environment variables for job
+				   prolog/epilog */
+	uint32_t pelog_env_size; /* element count in pelog_env */
 } slurm_step_launch_params_t;
 
 typedef struct {
