@@ -126,6 +126,7 @@
 #define OPT_USE_MIN_NODES 0x26
 #define OPT_MPI_COMBINE 0x27
 
+
 /* generic getopt_long flags, integers and *not* valid characters */
 #define LONG_OPT_HELP        0x100
 #define LONG_OPT_USAGE       0x101
@@ -2807,43 +2808,48 @@ extern int   spank_unset_job_env(const char *name)
 
 extern int pelog_set_env(int overwrite)
 {
-	int i, len;
-	char *name = NULL, *eq, *value;
+	int i, j;
+	char *name, *value, *eq;
 	char *tmp_str = NULL;
 
 	for (i = 0; environ[i]; i++) {
-		if (strncmp(environ[i], "SLURM_NODELIST_PACK_GROUP_", 26))
+		if (strncmp(environ[i], "SLURM_JOB_NODELIST_PACK_GROUP_", 30) &&
+		    strncmp(environ[i], "SLURM_NUMPACK", 13) &&
+		    strncmp(environ[i], "SLURM_RESV_PORTS_PACK_GROUP_", 28))
 			continue;
-		name = xstrdup(environ[i] + 26);
+
+		name = xstrdup(environ[i]);
 		eq = strchr(name, (int)'=');
 		if (eq == NULL) {
 			xfree(name);
 			break;
 		}
-		eq[0] = '\0';
-		value = eq + 1;
-
-		xstrcat(tmp_str, name);
-		xstrcat(tmp_str, "=");
-		len = strlen(tmp_str);
-		xstrcat(tmp_str, value);
-
-		for (i = 0; i < opt.pelog_env_size; i++) {
-			if (strncmp(opt.pelog_env[i], tmp_str, len))
-				continue;
-			if (overwrite) {
-				xfree(opt.pelog_env[i]);
-				opt.pelog_env[i] = tmp_str;
-			} else
-				xfree(tmp_str);
-			xfree(name);
-			return 0;
+		*eq = '\0';
+		value = xstrdup(eq+1);
+		if (!strncmp(name, "SLURM_JOB_NODELIST_PACK_GROUP_", 30)) {
+			xstrcat(tmp_str, "SLURM_NODELIST_PACK_GROUP_");
+			xstrcat(tmp_str, &name[30]);
 		}
-		/* Need to add an entry */
-		opt.pelog_env_size++;
-		xrealloc(opt.pelog_env, sizeof(char *) * opt.pelog_env_size);
-		opt.pelog_env[i] = tmp_str;
+		else
+			xstrcat(tmp_str, name);
+
+		bool found = false;
+		for (j = 0; j<opt.pelog_env_size && !found; j++) {
+			if (xstrncmp(opt.pelog_env[j], tmp_str,
+				     strlen(tmp_str))) continue;
+			env_array_overwrite_fmt(&opt.pelog_env, tmp_str, "%s",
+						value);
+			found = true;
+		}
+
+		if (!found) {
+			env_array_append_fmt(&opt.pelog_env, tmp_str, "%s",
+					     value);
+			opt.pelog_env_size++;
+		}
+		xfree(tmp_str);
 		xfree(name);
+		xfree(value);
 	}
 
 	if ((name == NULL) || (name[0] == '\0') ||

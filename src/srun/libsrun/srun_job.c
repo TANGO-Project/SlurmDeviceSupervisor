@@ -871,7 +871,7 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 		else if (!opt.job_name_set_env && opt.argc)
 			setenvfs("SLURM_JOB_NAME=%s", opt.argv[0]);
 
-		if ( !(resp = allocate_nodes_jobpack(handle_signals)) )
+		if ( !(resp = allocate_nodes(handle_signals)) )
 			exit(error_exit);
 
 		if (packjob == true) {

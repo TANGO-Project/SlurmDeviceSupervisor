@@ -447,6 +447,60 @@ static int _wait_nodes_ready(resource_allocation_response_msg_t *alloc)
 }
 #endif	/* HAVE_BG */
 
+static bool _check_allocation_common(resource_allocation_response_msg_t *resp)
+{
+	/*
+	 * Allocation granted!
+	 */
+	pending_job_id = resp->job_id;
+
+	/*
+	 * These values could be changed while the job was
+	 * pending so overwrite the request with what was
+	 * allocated so we don't have issues when we use them
+	 * in the step creation.
+	 */
+	if (opt.pn_min_memory != NO_VAL)
+		opt.pn_min_memory = (resp->pn_min_memory &
+				     (~MEM_PER_CPU));
+	else if (opt.mem_per_cpu != NO_VAL)
+		opt.mem_per_cpu = (resp->pn_min_memory &
+				   (~MEM_PER_CPU));
+	/*
+	 * FIXME: timelimit should probably also be updated
+	 * here since it could also change.
+	 */
+
+#ifdef HAVE_BG
+	uint32_t node_cnt = 0;
+	select_g_select_jobinfo_get(resp->select_jobinfo,
+				    SELECT_JOBDATA_NODE_CNT,
+				    &node_cnt);
+	if ((node_cnt == 0) || (node_cnt == NO_VAL)) {
+		opt.min_nodes = node_cnt;
+		opt.max_nodes = node_cnt;
+	} /* else we just use the original request */
+
+	if (!_wait_bluegene_block_ready(resp)) {
+		if (!destroy_job)
+			error("Something is wrong with the "
+			      "boot of the block.");
+		return false;
+	}
+#else
+	opt.min_nodes = resp->node_cnt;
+	opt.max_nodes = resp->node_cnt;
+	
+	if (!_wait_nodes_ready(resp)) {
+		if (!destroy_job)
+			error("Something is wrong with the "
+			      "boot of the nodes.");
+		return false;
+	}
+#endif
+	return true;
+}
+
 int
 allocate_test(void)
 {
@@ -466,7 +520,7 @@ allocate_nodes(bool handle_signals)
 	resource_allocation_response_msg_t *resp = NULL;
 	job_desc_msg_t *j = job_desc_msg_create_from_opts();
 	slurm_allocation_callbacks_t callbacks;
-	int i;
+	int i, desc_index;
 
 	if (!j)
 		return NULL;
@@ -607,7 +661,9 @@ allocate_nodes_jobpack(bool handle_signals)
 	}
 	callbacks.ping = _ping_handler;
 	callbacks.timeout = _timeout_handler;
-	callbacks.job_complete = NULL;
+	callbacks.job_complete = _job_complete_handler;
+	if (pack_desc_count)
+		callbacks.job_complete = NULL;
 	callbacks.job_suspend = NULL;
 	callbacks.user_msg = _user_msg_handler;
 	callbacks.node_fail = _node_fail_handler;
@@ -639,7 +695,7 @@ allocate_nodes_jobpack(bool handle_signals)
 			fatal( "no response to pack job allocation request" );
 		}
 		copy_resp_struct(desc[group_index].pack_job_env[
-				 job_index].resp, resp);
+			         job_index].resp, resp);
 		return resp;
 	}
 
@@ -653,91 +709,68 @@ allocate_nodes_jobpack(bool handle_signals)
 			break;
 		}
 	}
-	if (!resp) {
-		fatal("JPCK: failed to allocate packleader");
-		return NULL; /* Fix Clang false positive */
-	}
-	desc[0].pack_job_env[0].job_id = resp->job_id;
-	copy_resp_struct(desc[group_index].pack_job_env[job_index].resp, resp);
-	for (desc_index = 0; desc_index < pack_desc_count; desc_index++) {
-		copy_opt_struct(&opt, desc[desc_index].pack_job_env[0].opt);
-		copy_resp_struct(resp, desc[desc_index].pack_job_env[0].resp);
-			opt.jobid = desc[desc_index].pack_job_env[0].job_id;
-		resp = existing_allocation();
 
+	if (pack_desc_count) {
 		if (!resp) {
-			fatal("JPCK: failed pack member allocation. "
-			      "desc_index=%d desc[0]_job=%d opt_job=%d",
-			      desc_index, desc[0].pack_job_env[0].job_id,
-			      opt.jobid);
+			fatal("JPCK: failed to allocate packleader");
+			return NULL; /* Fix Clang false positive */
 		}
+		desc[0].pack_job_env[0].job_id = resp->job_id;
+		copy_resp_struct(desc[group_index].pack_job_env[job_index].
+			         resp, resp);
 
-		/* save response message for pack-member */
-		copy_resp_struct(desc[desc_index].pack_job_env[0].resp, resp);
+		for (desc_index = 0; desc_index < pack_desc_count;
+		     desc_index++) {
+			copy_opt_struct(&opt,
+				        desc[desc_index].pack_job_env[0].opt);
+			copy_resp_struct(resp, desc[desc_index].
+				         pack_job_env[0].resp);
+			opt.jobid = desc[desc_index].pack_job_env[0].job_id;
+			resp = existing_allocation();
 
+			if (!resp) {
+				fatal("JPCK: failed pack member allocation. "
+				      "desc_index=%d desc[0]_job=%d opt_job=%d",
+				      desc_index, desc[0].pack_job_env[0].
+				      job_id, opt.jobid);
+			}
+
+			/* save response message for pack-member */
+			copy_resp_struct(desc[desc_index].pack_job_env[0].resp,
+				         resp);
+			
+			if (resp && !destroy_job) {
+				if (!_check_allocation_common(resp))
+					goto relinquish;
+				/* save updated opt for pack-member */
+				copy_opt_struct(desc[desc_index].
+					        pack_job_env[0].opt, &opt);
+			}
+
+			else if (destroy_job) {
+				goto relinquish;
+			}
+
+			if (handle_signals)
+				xsignal_block(sig_array);
+
+		}
+		job_desc_msg_destroy(j);
+	}
+
+	else {
 		if (resp && !destroy_job) {
-			/*
-			* Allocation granted!
-			*/
-			pending_job_id = resp->job_id;
-
-			/*
-			* These values could be changed while the job was
-			* pending so overwrite the request with what was
-			* allocated so we don't have issues when we use them
-			* in the step creation.
-			*/
-			if (opt.pn_min_memory != NO_VAL)
-				opt.pn_min_memory = (resp->pn_min_memory &
-						     (~MEM_PER_CPU));
-			else if (opt.mem_per_cpu != NO_VAL)
-				opt.mem_per_cpu = (resp->pn_min_memory &
-						   (~MEM_PER_CPU));
-			/*
-			* FIXME: timelimit should probably also be updated
-			* here since it could also change.
-			*/
-
-#ifdef HAVE_BG
-			uint32_t node_cnt = 0;
-			select_g_select_jobinfo_get(resp->select_jobinfo,
-						    SELECT_JOBDATA_NODE_CNT,
-						    &node_cnt);
-			if ((node_cnt == 0) || (node_cnt == NO_VAL)) {
-				opt.min_nodes = node_cnt;
-				opt.max_nodes = node_cnt;
-			} /* else we just use the original request */
-
-			if (!_wait_bluegene_block_ready(resp)) {
-				if (!destroy_job)
-					error("Something is wrong with the "
-					       "boot of the block.");
+			if (!_check_allocation_common(resp))
 				goto relinquish;
-			}
-#else
-			opt.min_nodes = resp->node_cnt;
-			opt.max_nodes = resp->node_cnt;
-
-			if (!_wait_nodes_ready(resp)) {
-				if (!destroy_job)
-					error("Something is wrong with the "
-					      "boot of the nodes.");
-				goto relinquish;
-			}
-			/* save updated opt for pack-member */
-			copy_opt_struct(desc[desc_index].pack_job_env[0].opt,
-					&opt);
-#endif
 		} else if (destroy_job) {
-				goto relinquish;
+			goto relinquish;
 		}
 
 		if (handle_signals)
 			xsignal_block(sig_array);
 
+		job_desc_msg_destroy(j);
 	}
-	job_desc_msg_destroy(j);
-
 
 	return resp;
 
