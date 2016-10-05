@@ -80,6 +80,7 @@ typedef struct fname {
 typedef struct srun_job {
 	int fir_nodeid;
 	uint32_t jobid;		/* assigned job id 	                  */
+	uint32_t mpi_jobid;	/* assigned MPI job id 	                  */
 	uint32_t stepid;	/* assigned step id 	                  */
 	bool pack_member;	/* is a member of a job pack */
 

@@ -122,6 +122,7 @@ static job_step_create_request_msg_t *_create_step_request(
 	job_step_create_request_msg_t *step_req =
 		xmalloc(sizeof(job_step_create_request_msg_t));
 	step_req->job_id = step_params->job_id;
+	step_req->mpi_jobid = step_params->mpi_jobid;
 	step_req->user_id = (uint32_t)step_params->uid;
 	step_req->min_nodes = step_params->min_nodes;
 	step_req->max_nodes = step_params->max_nodes;
@@ -202,6 +203,7 @@ slurm_step_ctx_create (const slurm_step_ctx_params_t *step_params)
 	ctx->launch_state = NULL;
 	ctx->magic	= STEP_CTX_MAGIC;
 	ctx->job_id	= step_req->job_id;
+	ctx->mpi_jobid	= step_req->mpi_jobid;
 	ctx->user_id	= step_req->user_id;
 	ctx->step_req   = step_req;
 	ctx->step_resp	= step_resp;
@@ -320,6 +322,7 @@ slurm_step_ctx_create_timeout (const slurm_step_ctx_params_t *step_params,
 	ctx->launch_state = NULL;
 	ctx->magic	= STEP_CTX_MAGIC;
 	ctx->job_id	= step_req->job_id;
+	ctx->mpi_jobid	= step_req->mpi_jobid;
 	ctx->user_id	= step_req->user_id;
 	ctx->step_req   = step_req;
 	ctx->step_resp	= step_resp;

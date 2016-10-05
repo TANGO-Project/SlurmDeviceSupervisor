@@ -772,6 +772,7 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 			exit(error_exit);
 		}
 	} else if ((resp = existing_allocation())) {
+		opt.mpi_jobid = opt.jobid;
 		select_g_alter_node_cnt(SELECT_APPLY_NODE_MAX_OFFSET,
 					&resp->node_cnt);
 		if (opt.nodes_set_env && !opt.nodes_set_opt &&
@@ -842,6 +843,7 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 		}
 	} else {
 		/* Combined job allocation and job step launch */
+		opt.mpi_jobid = opt.jobid;
 		if (desc[group_index].groupjob == true)
 			fatal("pack-group option used for a job that is not a "
 			      "job_pack");
@@ -1181,6 +1183,7 @@ _job_create_structure(allocation_info_t *ainfo)
 #endif
 	job->select_jobinfo = ainfo->select_jobinfo;
 	job->jobid   = ainfo->jobid;
+	job->mpi_jobid = ainfo->jobid;
 
 	job->ntasks  = opt.ntasks;
 	job->ntasks_per_board = ainfo->ntasks_per_board;

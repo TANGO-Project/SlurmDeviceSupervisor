@@ -37,6 +37,7 @@
 
 #ifndef _TREE_H
 #define _TREE_H
+#define NODELIST_MAX_SIZE 1024
 
 enum {
 	TREE_CMD_KVS_FENCE,
@@ -55,6 +56,7 @@ enum {
 extern int handle_tree_cmd(int fd);
 extern int tree_msg_to_srun(uint32_t len, char *msg);
 extern int tree_msg_to_srun_with_resp(uint32_t len, char *msg, Buf *resp_ptr);
+extern int tree_msg_to_stepds(hostlist_t hl, uint32_t len, char *data);
 extern int tree_msg_to_spawned_sruns(uint32_t len, char *msg);
 
 

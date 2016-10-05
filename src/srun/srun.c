@@ -1048,25 +1048,32 @@ static void _create_srun_steps_jobpack(bool got_alloc)
 	uint32_t mpi_jobid;
 	bool mpi_combine;
 	opt_t *opt_ptr = NULL;
+	srun_job_t *srun_job_ptr = NULL;
 
 	/* For each step to be launched, propagate opt.mpi_combine from first
 	 * step. If opt.mpi_combine=true, set MPI jobid to jobid of step#0.
 	 */
 	opt_ptr = _get_opt(0, 0);
-	mpi_jobid = opt_ptr->jobid;
+	srun_job_ptr = _get_srun_job(0,0);
+	mpi_jobid = srun_job_ptr->mpi_jobid;
 	mpi_combine = opt_ptr->mpi_combine;
 	for (i = 0; i < pack_desc_count; i++) {
 		job_index = desc[i].pack_group_count;
 		if (job_index == 0) job_index++;
 		for (j = 0; j <job_index; j++) {
 			opt_ptr = _get_opt(i, j);
+			srun_job_ptr = _get_srun_job(i, j);
+			opt_ptr->jobid = srun_job_ptr->jobid;
 			opt_ptr->mpi_jobid = mpi_jobid;
+			srun_job_ptr->mpi_jobid = mpi_jobid;
 			opt_ptr->mpi_combine = mpi_combine;
 			if (!mpi_combine) {
-				opt_ptr->mpi_jobid = opt_ptr->jobid;
+				opt_ptr->mpi_jobid = srun_job_ptr->jobid;
+				srun_job_ptr->mpi_jobid = srun_job_ptr->jobid;
 			}
 		}
 	}
+
 	/* For each step to be launched, create a job step */
 	srun_step_idx = 0;
 	for (i = 0; i < pack_desc_count; i++) {
@@ -1100,12 +1107,10 @@ static void _create_srun_steps_jobpack(bool got_alloc)
 				continue;
 			}
 			opt_ptr = _get_opt(i, j);
-			opt_ptr->mpi_jobid = mpi_jobid;
 			opt_ptr->mpi_stepid = packstepid;
 			opt_ptr->mpi_ntasks = mpi_curtaskid;
 			if (!opt_ptr->mpi_combine) {
 				opt_ptr->mpi_ntasks = opt_ptr->ntasks;
-				opt_ptr->mpi_jobid = opt_ptr->jobid;
 			}
 			opt_ptr->mpi_nnodes = mpi_curnodecnt;
 			if (!opt_ptr->mpi_combine)

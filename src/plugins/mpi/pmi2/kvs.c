@@ -190,12 +190,6 @@ temp_kvs_send(void)
 {
 	int rc = SLURM_ERROR, retry = 0;
 	unsigned int delay = 1;
-	char *nodelist = NULL;
-
-	if (!in_stepd())	/* srun */
-		nodelist = xstrdup(job_info.step_nodelist);
-	else if (tree_info.parent_node)
-		nodelist = xstrdup(tree_info.parent_node);
 	hostlist_t hl = NULL;
 	char free_hl = 0;
 
@@ -206,35 +200,38 @@ temp_kvs_send(void)
 		hl = hostlist_create(tree_info.parent_node);
 		free_hl = 1;
 	}
+
 	/* cmd included in temp_kvs_buf */
-	kvs_seq++; /* expecting new kvs after now */
+	kvs_seq ++; /* expecting new kvs after now */
 
 	while (1) {
-		if (retry == 1)
+		if (retry == 1) {
 			verbose("failed to send temp kvs, rc=%d, retrying", rc);
+		}
 
-		if (nodelist)
-			/* srun or non-first-level stepds */
-			rc = slurm_forward_data(&nodelist,
-						tree_sock_addr,
+		if (! in_stepd()) {	/* srun */
+			rc = tree_msg_to_stepds(hl,
 						temp_kvs_cnt,
 						temp_kvs_buf);
-		else		/* first level stepds */
+		} else if (tree_info.parent_node != NULL) {
+			/* non-first-level stepds */
+			rc = tree_msg_to_stepds(hl,
+						temp_kvs_cnt,
+						temp_kvs_buf);
+		} else {		/* first level stepds */
 			rc = tree_msg_to_srun(temp_kvs_cnt, temp_kvs_buf);
-
+		}
 		if (rc == SLURM_SUCCESS)
 			break;
 
-		if (++retry >= MAX_RETRIES)
+		retry ++;
+		if (retry >= MAX_RETRIES)
 			break;
 		/* wait, in case parent stepd / srun not ready */
 		sleep(delay);
 		delay *= 2;
 	}
 	temp_kvs_init();	/* clear old temp kvs */
-
-	xfree(nodelist);
-
 	if( free_hl ){
 		hostlist_destroy(hl);
 	}

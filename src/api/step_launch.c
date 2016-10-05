@@ -235,6 +235,7 @@ int slurm_step_launch (slurm_step_ctx_t *ctx,
 
 	/* Start tasks on compute nodes */
 	launch.job_id = ctx->step_req->job_id;
+	launch.mpi_jobid = ctx->step_req->mpi_jobid;
 	launch.uid = ctx->step_req->user_id;
 	launch.gid = params->gid;
 	if (!slurm_valid_uid_gid((uid_t)launch.uid, &launch.gid,
@@ -271,7 +272,6 @@ int slurm_step_launch (slurm_step_ctx_t *ctx,
 	launch.alias_list	= params->alias_list;
 	launch.nnodes		= ctx->step_resp->step_layout->node_cnt;
 	launch.ntasks		= ctx->step_resp->step_layout->task_cnt;
-	launch.mpi_jobid	= params->mpi_jobid;
 	launch.mpi_stepid	= params->mpi_stepid;
 	launch.mpi_ntasks	= params->mpi_ntasks;
 	launch.mpi_nnodes	= params->mpi_nnodes;
@@ -439,6 +439,7 @@ int slurm_step_launch_add (slurm_step_ctx_t *ctx,
 
 	/* Start tasks on compute nodes */
 	launch.job_id = ctx->step_req->job_id;
+	launch.mpi_jobid = params->mpi_jobid;
 	launch.uid = ctx->step_req->user_id;
 	launch.gid = params->gid;
 	if (!slurm_valid_uid_gid((uid_t)launch.uid, &launch.gid,

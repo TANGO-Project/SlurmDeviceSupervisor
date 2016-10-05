@@ -11,6 +11,9 @@
  *  Portions copyright (C) 2015 Mellanox Technologies Inc.
  *  Written by Artem Y. Polyakov <artemp@mellanox.com>.
  *  All rights reserved.
+ *  Portions copyright (C) 2016 Atos Inc.
+ *  Written by Martin Perry <martin.perry@atos.net>.
+ *  All rights reserved.
  *
  *  This file is part of SLURM, a resource management program.
  *  For details, see <https://slurm.schedmd.com/>.
@@ -59,6 +62,7 @@
 #include "pmi.h"
 #include "nameserv.h"
 #include "ring.h"
+#include "tree.h"
 
 static int _handle_kvs_fence(int fd, Buf buf);
 static int _handle_kvs_fence_resp(int fd, Buf buf);
@@ -682,6 +686,125 @@ rwfail:
 	close (fd);
 	xfree(data);
 	return SLURM_ERROR;
+}
+
+extern int
+tree_msg_to_stepds(hostlist_t hl, uint32_t len, char *data)
+{
+	List ret_list = NULL;
+	int temp_rc = 0, rc = 0;
+	int i, j, cpylen;
+	ret_data_info_t *ret_data_info = NULL;
+	slurm_msg_t *msg = xmalloc(sizeof(slurm_msg_t));
+	forward_data_msg_t req;
+	int slen, lastnode;
+	char *nodelist;
+	char *srun_nodelist;
+	char tree_sock_addr1[128];
+	char idx[10];
+	char *p;
+
+	slurm_msg_t_init(msg);
+	req.len = len;
+	req.data = data;
+
+	msg->msg_type = REQUEST_FORWARD_DATA;
+	msg->data = &req;
+
+	/* set req.address to tree_sock_addr truncated after jobid */
+	slen = strlen(tree_sock_addr);
+	p = tree_sock_addr + slen-1;
+	for (i=0; i > slen; i++) {
+		if (*p == '.')
+			break;
+		p--;
+	}
+	cpylen = p-tree_sock_addr;
+	strncpy(tree_sock_addr1, tree_sock_addr, cpylen);
+	tree_sock_addr1[cpylen] = '\0';
+	slen = strlen(tree_sock_addr1);
+	req.address = tree_sock_addr1;
+
+	if (!in_stepd()) {
+		srun_nodelist = xmalloc(NODELIST_MAX_SIZE);
+		if (srun_num_steps == 0)
+			srun_num_steps = 1; /* legacy srun compatibility */
+		/* send a separate tree msg for each step launched by srun */
+		lastnode=0;
+		for (i=0; i < srun_num_steps; i++) {
+			/* set srun_nodelist to sublist of nodes for this srun
+			 * step index */
+//			nnodes = job_info.nnodes_array[i];
+			srun_nodelist[0] ='\0';
+			for (j=0; j<job_info.nnodes_array[i]; j++) {
+				if (j>0)
+					xstrcat(srun_nodelist, ",");
+				xstrcat(srun_nodelist, hostlist_nth(hl,
+				       j+lastnode));
+			}
+			lastnode+=job_info.nnodes_array[i];
+			/* set final part of req.address to srun step index */
+			sprintf(idx, "%d", i);
+			req.address[slen] = '\0';
+			strcat(req.address, idx);
+			/* send tree msg for this srun step index */
+			if ((ret_list = slurm_send_recv_msgs(srun_nodelist, msg,
+					0, false))) {
+				while ((ret_data_info = list_pop(ret_list))) {
+					temp_rc = slurm_get_return_code(
+							ret_data_info->type,
+							ret_data_info->data);
+					if (temp_rc){
+						rc = temp_rc;
+						debug("tree_msg_to_stepds: "
+						      "host=%s, rc = %d",
+							ret_data_info->node_name,
+							rc);
+					}
+				}
+			} else {
+				error("tree_msg_to_stepds: no list was returned");
+				rc = SLURM_ERROR;
+			}
+		}
+		xfree(srun_nodelist);
+	} else {
+		/* set final part of req.address to step index of parent node*/
+		i = job_info.srun_step_index_arr[tree_info.parent_id];
+		sprintf(idx, "%d", i);
+		req.address[slen] = '\0';
+		strcat(req.address, idx);
+
+		nodelist = hostlist_ranged_string_xmalloc(hl);
+
+		debug("tree_msg_to_stepds: send to %s", nodelist);
+		if ((ret_list = slurm_send_recv_msgs(nodelist, msg, 0, false))) {
+			while ((ret_data_info = list_pop(ret_list))) {
+				temp_rc =
+					slurm_get_return_code(ret_data_info->type,
+							ret_data_info->data);
+				if (temp_rc){
+					rc = temp_rc;
+					debug("tree_msg_to_stepds: host=%s, "
+					      "rc = %d",
+					      ret_data_info->node_name, rc);
+				} else {
+					hostlist_delete_host(hl,
+						ret_data_info->node_name);
+				}
+			}
+		} else {
+			error("tree_msg_to_stepds: no list was returned");
+			rc = SLURM_ERROR;
+		}
+	}
+
+	/* slurm_free_msg will try to free data which is on our stack,
+	 * so we need to NULL it out before it gets sent out.
+	 */
+	msg->data = NULL;
+	slurm_free_msg(msg);
+	return rc;
 }
 
 extern int

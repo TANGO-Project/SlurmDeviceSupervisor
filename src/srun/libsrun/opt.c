@@ -714,6 +714,7 @@ env_vars_t env_vars[] = {
 {"SLURM_MEM_PER_NODE",	OPT_INT64,	&opt.pn_min_memory, NULL             },
 {"SLURM_MLOADER_IMAGE", OPT_STRING,     &opt.mloaderimage,  NULL             },
 {"SLURM_MPI_TYPE",      OPT_MPI,        NULL,               NULL             },
+{"SLURM_MPI_COMBINE",   OPT_MPI_COMBINE, NULL,              NULL             },
 {"SLURM_NCORES_PER_SOCKET",OPT_NCORES,  NULL,               NULL             },
 {"SLURM_NETWORK",       OPT_STRING,     &opt.network,    &opt.network_set_env},
 {"SLURM_NNODES",        OPT_NODES,      NULL,               NULL             },
@@ -981,6 +982,19 @@ _process_env_var(env_vars_t *e, const char *val)
 		mpi_initialized = true;
 		break;
 
+	case OPT_MPI_COMBINE:
+		if (strcmp(val, "yes") == 0)
+			opt.mpi_combine = true;
+		else if (strcmp(val, "no") == 0)
+			opt.mpi_combine = false;
+		else {
+			error("\"%s=%s\" -- invalid MPI_COMBINE, "
+			      " must be yes or no.",
+			      e->var, val);
+			exit(error_exit);
+		}
+		break;
+
 	case OPT_SIGNAL:
 		if (get_signal_opts((char *)val, &opt.warn_signal,
 				    &opt.warn_time, &opt.warn_flags)) {
@@ -1211,6 +1225,7 @@ static void _set_options(const int argc, char **argv)
 		{"minthreads",       required_argument, 0, LONG_OPT_MINTHREADS},
 		{"mloader-image",    required_argument, 0, LONG_OPT_MLOADER_IMAGE},
 		{"mpi",              required_argument, 0, LONG_OPT_MPI},
+		{"mpi-combine",      required_argument, 0, LONG_OPT_MPI_COMBINE},
 		{"msg-timeout",      required_argument, 0, LONG_OPT_TIMEO},
 		{"multi-prog",       no_argument,       0, LONG_OPT_MULTI},
 		{"network",          required_argument, 0, LONG_OPT_NETWORK},
@@ -1642,6 +1657,17 @@ static void _set_options(const int argc, char **argv)
 			if (opt.mem_per_cpu < 0) {
 				error("invalid memory constraint %s",
 				      optarg);
+				exit(error_exit);
+			}
+			break;
+		case LONG_OPT_MPI_COMBINE:
+			if (strcmp(optarg, "yes") == 0)
+				opt.mpi_combine = true;
+			else if (strcmp(optarg, "no") == 0)
+				opt.mpi_combine = false;
+			else {
+				error("\"--mpi-combine=%s\" -- invalid MPI_COMBINE, "
+				      " must be yes or no.", optarg);
 				exit(error_exit);
 			}
 			break;
@@ -3179,6 +3205,7 @@ static void _help(void)
 "                              changes\n"
 "      --mcs-label=mcs         mcs label if mcs plugin mcs/group is used\n"
 "      --mpi=type              type of MPI being used\n"
+"      --mpi-combine=yes|no    combine members of job_pack in one MPI_COMM_WORLD\n"
 "      --multi-prog            if set the program name specified is the\n"
 "                              configuration specification for multiple programs\n"
 "  -n, --ntasks=ntasks         number of tasks to run\n"
