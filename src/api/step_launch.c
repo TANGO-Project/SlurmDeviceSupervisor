@@ -1200,6 +1200,7 @@ _exit_handler(struct step_launch_state *sls, slurm_msg_t *exit_msg)
 static void
 _job_complete_handler(struct step_launch_state *sls, slurm_msg_t *complete_msg)
 {
+	//info("******** MNP pid=%d: entering api/step_launch _job_complete_handler", getpid());
 	srun_job_complete_msg_t *step_msg =
 		(srun_job_complete_msg_t *) complete_msg->data;
 
@@ -1541,6 +1542,7 @@ _handle_msg(void *arg, slurm_msg_t *msg)
 		_exec_prog(msg);
 		break;
 	case SRUN_JOB_COMPLETE:
+		//info("******** MNP %d: step_launch.c:_handle_msg, received SRUN_JOB_COMPLETE", getpid());
 		debug2("received job step complete message");
 		_job_complete_handler(sls, msg);
 		break;

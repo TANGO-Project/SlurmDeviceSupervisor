@@ -251,6 +251,7 @@ static void _signal_while_allocating(int signo)
 /* This typically signifies the job was cancelled by scancel */
 static void _job_complete_handler(srun_job_complete_msg_t *msg)
 {
+	//info("******** MNP pid=%d: entering _job_complete_handler", getpid());
 	if (pending_job_id && (pending_job_id != msg->job_id)) {
 		error("Ignoring bogus job_complete call: job %u is not "
 		      "job %u", pending_job_id, msg->job_id);
@@ -261,6 +262,7 @@ static void _job_complete_handler(srun_job_complete_msg_t *msg)
 		info("Force Terminated job %u", msg->job_id);
 	else
 		info("Force Terminated job %u.%u", msg->job_id, msg->step_id);
+	//info("******** MNP pid=%d: exiting _job_complete_handler", getpid());
 }
 
 /*
@@ -706,7 +708,9 @@ ignore_signal(int signo)
 int
 cleanup_allocation(void)
 {
+	//info("******** MNP pid=%d: entering cleanunp_allocation", getpid());
 	slurm_allocation_msg_thr_destroy(msg_thr);
+	//info("******** MNP pid=%d: exiting cleanunp_allocation", getpid());
 	return SLURM_SUCCESS;
 }
 
@@ -1039,6 +1043,7 @@ job_desc_msg_destroy(job_desc_msg_t *j)
 extern int
 create_job_step(srun_job_t *job, bool use_all_cpus)
 {
+//	info("******** MNP entering create_job_step"); // MNP debug
 	return launch_g_create_job_step(job, use_all_cpus,
 					_signal_while_allocating,
 					&destroy_job);

@@ -161,6 +161,11 @@ static void  _setup_env_working_cluster();
 static int   _slurm_debug_env_val (void);
 static char *_uint16_array_to_str(int count, const uint16_t *array);
 
+static resource_allocation_response_msg_t  *_get_resp(int job_idx);
+static opt_t *_get_opt(int job_idx);
+static srun_job_t *_get_srun_job(int job_idx);
+static env_t *_get_env(int job_idx);
+
 /*
  * from libvirt-0.6.2 GPL2
  *
@@ -206,7 +211,7 @@ int _build_env_structs(int ac, char **av)
 	}
 */
 
-pack_job_env = xmalloc(sizeof(pack_job_env_t) * pack_desc_count);
+	pack_job_env = xmalloc(sizeof(pack_job_env_t) * pack_desc_count);
 	for (i = 0; i < pack_desc_count; i++) {
 		pack_job_env[i].opt = xmalloc(sizeof(opt_t));
 		memset(pack_job_env[i].opt, 0, sizeof(opt_t));
@@ -357,7 +362,27 @@ void srun_info_new_t_init (srun_info_new_t *ptr)
 	ptr->packleader = false;
 	ptr->pack_count = 0;
 }
-/*
+static resource_allocation_response_msg_t  *_get_resp(int job_idx)
+{
+	return pack_job_env[job_idx].resp;
+}
+
+static opt_t *_get_opt(int job_idx)
+{
+	return pack_job_env[job_idx].opt;
+}
+
+static srun_job_t *_get_srun_job(int job_idx)
+{
+	return pack_job_env[job_idx].job;
+}
+
+static env_t *_get_env(int job_idx)
+{
+	return pack_job_env[job_idx].env;
+}
+
+*
 void
 srun_info_new_destroy(srun_info_new_t *srun_info)
 {
@@ -512,8 +537,10 @@ srun_info_new_t *pack_l_srun_info;
 //int _start_srun(int ac, char **av, srun_job_t *job)
 int _start_srun(int ac, char **av)
 {
-	int debug_level;
+	int debug_level, i, pid;
 	env_t *env = xmalloc(sizeof(env_t));
+	opt_t * opt_ptr;
+	resource_allocation_response_msg_t *resp;
 	log_options_t logopt = LOG_OPTS_STDERR_ONLY;
 	bool got_alloc = false;
 	slurm_step_io_fds_t cio_fds = SLURM_STEP_IO_FDS_INITIALIZER;
@@ -562,29 +589,33 @@ int _start_srun(int ac, char **av)
 	setenv("SLURM_LISTJOBIDS", tmp, 0);     //dhp
 	setenv("SLURM_NUMPACK", "0", 0);        //dhp
 
-	if (pack_desc_count) {
-		packjob = true;
-		for (group_number = 1; group_number < pack_desc_count; group_number++) {
-			_copy_opt_struct( &opt, pack_job_env[group_number].opt);
-			log_init(xbasename(pack_job_env[group_number].av[0]), logopt, 0, NULL);
-			init_srun(pack_job_env[group_number].ac, pack_job_env[group_number].av, &logopt, debug_level, 1);
-			create_srun_job(&pack_job_env[group_number].job, &got_alloc, 0, 1);
-			_copy_opt_struct(pack_job_env[group_number].opt, &opt );
+
+		/* For each job description, create a job step */
+		for (i = 0; i < pack_desc_count; i++) {
+			info("******** MNP creating step for pack desc# %d", i); // MNP debug
+			opt_ptr = _get_opt(i);
+			memcpy(&opt, opt_ptr, sizeof(opt_t));
+			job = _get_srun_job(i);
+			resp = _get_resp(i);
+//			info("******** MNP calling create_job_step for pack desc# %d", i); // MNP debug
+			if (!job || create_job_step(job, true) < 0) {
+				info("******** MNP error from create_job_step for pack desc# %d", i); // MNP debug
+				slurm_complete_job(resp->job_id, 1);
+				exit(error_exit);
+			}
+//			info("******** MNP returned from create_job_step for pack desc# %d", i); // MNP debug
+			slurm_free_resource_allocation_response_msg(resp);
+			/* What about code at lines 625-638 in srun_job.c? */
+			memcpy(opt_ptr, &opt, sizeof(opt_t));
 		}
-		packjob = false;
-		packleader = true;
-		/* set up for packleader*/
-		group_number = 0;
-		xstrcat(pack_job_env[0].av[packl_dependency_position],
-		        pack_job_id);
-		_copy_opt_struct( &opt, pack_job_env[group_number].opt);
-		init_srun(pack_job_env[group_number].ac, pack_job_env[group_number].av, &logopt, debug_level, 1);
-		create_srun_job(&pack_job_env[group_number].job, &got_alloc, 0, 1);
-		job = pack_job_env[group_number].job;
-	} else {
-		init_srun(ac, av, &logopt, debug_level, 1);
-		create_srun_job(&job, &got_alloc, 0, 1);
-	}
+		//info("******** MNP all job steps now created"); // MNP debug
+		/* For each job description, enhance environment for job */
+		for (i = 0; i < pack_desc_count; i++) {
+			//info("******** MNP enhancing environment for pack desc# %d", i); // MNP debug
+			opt_ptr = _get_opt(i);
+			memcpy(&opt, opt_ptr, sizeof(opt_t));
+			job = _get_srun_job(i);
+			env = _get_env(i);
 
 	/*
 	 *  Enhance environment for job

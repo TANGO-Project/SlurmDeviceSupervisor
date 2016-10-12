@@ -241,7 +241,7 @@ slurm_allocate_pack_resources (const job_desc_msg_t *user_req,
 		}
 		break;
 	case RESPONSE_RESOURCE_ALLOCATION:
-		info("RBS srun_allocate_resources_blocking (recieve RESPONSE_RESOURCE_ALLOCATION");
+		//info("RBS srun_allocate_resources_blocking (recieve RESPONSE_RESOURCE_ALLOCATION");
 		/* Yay, the controller has acknowledged our request!  But did
 		   we really get an allocation yet? */
 		resp = (resource_allocation_response_msg_t *) resp_msg.data;
@@ -529,6 +529,7 @@ slurm_job_step_create (job_step_create_request_msg_t *req,
 {
 	slurm_msg_t req_msg, resp_msg;
 
+//	info("******** MNP entering slurm_job_step_create"); // MNP debug
 	slurm_msg_t_init(&req_msg);
 	slurm_msg_t_init(&resp_msg);
 	req_msg.msg_type = REQUEST_JOB_STEP_CREATE;
@@ -551,6 +552,7 @@ slurm_job_step_create (job_step_create_request_msg_t *req,
 		break;
 	}
 
+//	info("******** MNP exiting slurm_job_step_create"); // MNP debug
 	return SLURM_PROTOCOL_SUCCESS ;
 }
 
@@ -906,6 +908,7 @@ _handle_msg(slurm_msg_t *msg, resource_allocation_response_msg_t **resp)
 			rc = 1;
 			break;
 		case SRUN_JOB_COMPLETE:
+			//info("******** MNP %d: allocate.c:_handle_msg, received SRUN_JOB_COMPLETE", getpid());
 			info("Job has been cancelled");
 			break;
 		default:

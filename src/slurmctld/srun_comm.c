@@ -153,6 +153,7 @@ extern void srun_allocate (uint32_t job_id)
  */
 extern void srun_allocate_abort(struct job_record *job_ptr)
 {
+//	info("******** MNP entering srun_allocate_abort, job_ptr->job_id=%d", job_ptr->job_id);
 	if (job_ptr && job_ptr->alloc_resp_port && job_ptr->alloc_node
 		&&  job_ptr->resp_host) {
 		slurm_addr_t * addr;
@@ -407,15 +408,19 @@ extern void srun_job_complete (struct job_record *job_ptr)
 	srun_job_complete_msg_t *msg_arg;
 	ListIterator step_iterator;
 	struct step_record *step_ptr;
+	//info("******** MNP entering srun_job_complete, job_ptr->job_id=%d", job_ptr->job_id);
 
 	xassert(job_ptr);
-
+	//info("******** MNP in srun_job_complete, job_ptr->other_port=%d", job_ptr->other_port);
+	//info("******** MNP in srun_job_complete, job_ptr->alloc_node=%s", job_ptr->alloc_node);
+	//info("******** MNP in srun_job_complete, job_ptr->resp_host=%s", job_ptr->resp_host);
 	if (job_ptr->other_port && job_ptr->alloc_node && job_ptr->resp_host) {
 		addr = xmalloc(sizeof(struct sockaddr_in));
 		slurm_set_addr(addr, job_ptr->other_port, job_ptr->resp_host);
 		msg_arg = xmalloc(sizeof(srun_job_complete_msg_t));
 		msg_arg->job_id   = job_ptr->job_id;
 		msg_arg->step_id  = NO_VAL;
+		//info("******** MNP in srun_job_complete, sending SRUN_JOB_COMPLETE msg");
 		_srun_agent_launch(addr, job_ptr->alloc_node,
 				   SRUN_JOB_COMPLETE, msg_arg,
 				   job_ptr->start_protocol_ver);
@@ -467,6 +472,7 @@ extern void srun_step_complete (struct step_record *step_ptr)
 	slurm_addr_t * addr;
 	srun_job_complete_msg_t *msg_arg;
 
+	//info("******** MNP entering srun_step_complete, step_ptr->job_ptr->job_id=%d", step_ptr->job_ptr->job_id);
 	xassert(step_ptr);
 	if (step_ptr->port && step_ptr->host && step_ptr->host[0]) {
 		addr = xmalloc(sizeof(struct sockaddr_in));

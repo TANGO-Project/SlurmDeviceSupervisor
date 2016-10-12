@@ -167,6 +167,7 @@ slurm_step_ctx_create (const slurm_step_ctx_params_t *step_params)
 	uint16_t port = 0;
 	int errnum = 0;
 
+//	info("******** MNP entering slurm_step_ctx_create"); // MNP debug
 	/* First copy the user's step_params into a step request struct */
 	step_req = _create_step_request(step_params);
 
@@ -204,6 +205,7 @@ slurm_step_ctx_create (const slurm_step_ctx_params_t *step_params)
 	ctx->launch_state->slurmctld_socket_fd = sock;
 fail:
 	errno = errnum;
+//	info("******** MNP exiting slurm_step_ctx_create"); // MNP debug
 	return (slurm_step_ctx_t *)ctx;
 }
 
