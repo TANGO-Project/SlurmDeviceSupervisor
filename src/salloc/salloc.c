@@ -181,6 +181,10 @@ int main(int argc, char **argv)
 	log_init(xbasename(argv[0]), logopt, 0, NULL);
 	_set_exit_code();
 
+	/* DHP DEV */
+	int pack_desc_count = 1; // TEMPORARY!!!
+	opt.group_number = 1;    // TEMPORARY!!!
+
 	if (spank_init_allocator() < 0) {
 		error("Failed to initialize plugin stack");
 		exit(error_exit);
@@ -190,7 +194,6 @@ int main(int argc, char **argv)
 	 */
 	if (atexit((void (*) (void)) spank_fini) < 0)
 		error("Failed to register atexit handler for plugins: %m");
-
 
 	if (initialize_and_process_args(argc, argv) < 0) {
 		error("salloc parameter parsing");
@@ -421,7 +424,7 @@ int main(int argc, char **argv)
 	/*
 	 * Run the user's command.
 	 */
-	if (env_array_for_job(&env, alloc, &desc) != SLURM_SUCCESS)
+        if (env_array_for_job(&env, alloc, &desc) != SLURM_SUCCESS)
 		goto relinquish;
 
 	/* Add default task count for srun, if not already set */
@@ -465,7 +468,11 @@ int main(int argc, char **argv)
 		}
 	}
 
-	env_array_set_environment(env);
+        info("DHP salloc.c: calling env_array_set_environment.."); //dhp
+        if (setenvf(NULL, "SLURM_NUMPACK", "%d", pack_desc_count) < 0)
+		error("unable to set SLURM_NUMPACK in environment");
+
+        env_array_set_environment(env, opt.group_number);
 	env_array_free(env);
 	slurm_mutex_lock(&allocation_state_lock);
 	if (allocation_state == REVOKED) {

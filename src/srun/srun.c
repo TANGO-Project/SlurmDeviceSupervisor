@@ -170,6 +170,10 @@ int srun(int ac, char **av)
 	init_srun(ac, av, &logopt, debug_level, 1);
 	create_srun_job(&job, &got_alloc, 0, 1);
 
+	xstrfmtcat(tmp, "%d", job->jobid);      //dhp
+	setenv("SLURM_LISTJOBIDS", tmp, 0);     //dhp
+	setenv("SLURM_NUMPACK", "0", 0);        //dhp
+
 	/*
 	 *  Enhance environment for job
 	 */
@@ -388,6 +392,13 @@ static void _set_exit_code(void)
 		else
 			immediate_exit = i;
 	}
+	if(listjobids != NULL) {                                    //dhp
+	        lastcomma = strrchr(listjobids, ',');
+		*lastcomma = '\0';
+	}
+	setenv("SLURM_LISTJOBIDS", listjobids, 0);                  //dhp
+	snprintf(numpack, sizeof(numpack), "%d", pack_desc_count);  //dhp
+	setenv("SLURM_NUMPACK", numpack, 0);                        //dhp
 }
 
 static void _set_node_alias(void)

@@ -237,6 +237,9 @@ static void _opt_default(void);
 /* set options based upon env vars  */
 static void _opt_env(void);
 
+/* set options based upon pack_group env vars  */
+static void _opt_env_pack(void);
+
 static void _opt_args(int argc, char **argv);
 
 /* list known options and their settings  */
@@ -263,6 +266,17 @@ int initialize_and_process_args(int argc, char **argv)
 
 	/* initialize options with argv */
 	_opt_args(argc, argv);
+
+	if (opt.pack_group) {
+		/* re-initialize options with pack_group env vars;
+		NOTE: not doing this in _opt_env above because opt.pack_group
+		is not known until _opt_args is called and opt.pack_group is
+		required for processing pack_group ENV vars.  If _opt_env can
+		be moved to follow _opt_args then we can put the pack_group
+		env code in _opt_env - but not yet sure if that is possible */
+		_opt_env_pack();
+	}
+
 
 	if (!_opt_verify())
 		exit(error_exit);
@@ -702,6 +716,24 @@ static void _opt_env(void)
 	}
 }
 
+static void _opt_env_pack()  //dhp
+{
+  info("DHP _opt_env_pack: groupidx = %u", *opt.groupidx);
+	char       *val = NULL;
+	env_vars_t *e   = env_vars;
+	char *name;
+
+	while (e->var) {
+	        name = xmalloc(strlen(e->var) + 16);
+	        sprintf(name, "%s_PACK_GROUP_%d", e->var, *opt.groupidx);
+		if ((val = getenv(name)) != NULL) {
+		        info("DHP libsrun/_opt_env_pack: name = %s, value = %s", name, val);
+		        _process_env_var(e, val);
+		}
+		xfree(name);
+		e++;
+	}
+}
 
 static void
 _process_env_var(env_vars_t *e, const char *val)
@@ -718,6 +750,7 @@ _process_env_var(env_vars_t *e, const char *val)
 
 	switch (e->type) {
 	case OPT_STRING:
+	info("DHP _process_env_var: val = %s", val);
 		*((char **) e->arg) = xstrdup(val);
 		break;
 	case OPT_INT:
@@ -2499,6 +2532,7 @@ static bool _opt_verify(void)
 		mpi_type = slurm_get_mpi_default();
 		(void) mpi_hook_client_init(NULL);
 	}
+	info("DHP _opt_options: ntasks = %d", opt.ntasks);
 	xfree(mpi_type);
 
 	return verified;

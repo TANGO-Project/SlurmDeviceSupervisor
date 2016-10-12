@@ -2648,7 +2648,7 @@ static void _parse_pbs_resource_list(char *rl)
  */
 static bool _opt_verify(void)
 {
-	bool verified = true;
+bool verified = true;
 	char *dist = NULL, *lllp_dist = NULL;
 	uint32_t cluster_flags = slurmdb_setup_cluster_flags();
 	hostlist_t hl = NULL;

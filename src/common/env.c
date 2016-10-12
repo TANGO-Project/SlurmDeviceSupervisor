@@ -242,6 +242,8 @@ setenvfs(const char *fmt, ...)
 	vsnprintf(buf, ENV_BUFSIZE, fmt, ap);
 	va_end(ap);
 
+	info("DHP setenvf: buf = %s", buf);
+
 	size = strlen(buf);
 	bufcpy = xstrdup(buf);
 	xfree(buf);
@@ -275,6 +277,8 @@ int setenvf(char ***envp, const char *name, const char *fmt, ...)
 		error("environment variable %s is too long", name);
 		return ENOMEM;
 	}
+
+	info("DHP setenvf: name = %s, value = %s", name, value);
 
 	if (envp && *envp) {
 		if (env_array_overwrite(envp, name, value) == 1)
@@ -325,6 +329,7 @@ char *getenvp(char **env, const char *name)
 	if ((env == NULL) || (env[0] == '\0'))
 		return (NULL);
 
+	info("DHP getenvp: name = %s", name);
 	ep = _find_name_in_env (env, name);
 
 	if (*ep != NULL)
@@ -340,6 +345,10 @@ int setup_env(env_t *env, bool preserve_env)
 	char addrbuf[INET_ADDRSTRLEN];
 	uint32_t cluster_flags = slurmdb_setup_cluster_flags();
 	slurm_ctl_conf_t *conf;
+
+	info("DHP: at setup_env!");
+	char *listjobids = (char *)getenv("SLURM_LISTJOBIDS");
+	info("DHP: listjobids = %s", listjobids);
 
 	if (env == NULL)
 		return SLURM_ERROR;
@@ -1185,6 +1194,7 @@ env_array_for_batch_job(char ***dest, const batch_job_launch_msg_t *batch,
 	memset(&step_layout_req, 0, sizeof(slurm_step_layout_req_t));
 	step_layout_req.num_tasks = batch->ntasks;
 
+	info("DHP env_array_for_batch_job");
 	_setup_particulars(cluster_flags, dest, batch->select_jobinfo);
 
 	/* There is no explicit node count in the batch structure,
@@ -1648,7 +1658,7 @@ static int _env_array_putenv(const char *string)
 				       value, ENV_BUFSIZE)) &&
 	    (setenv(name, value, 1) != -1))
 		rc = 1;
-
+	info("DHP env.c: calling setenv with: name=%s, value=%s",name,value); //dhp
 	xfree(value);
 	return rc;
 }
@@ -1657,15 +1667,34 @@ static int _env_array_putenv(const char *string)
  * Set all of the environment variables in a supplied environment
  * variable array.
  */
-void env_array_set_environment(char **env_array)
+void env_array_set_environment(char **env_array, int group_number)
 {
 	char **ptr;
+	char *str;
+	char name[256], *value;
 
 	if (env_array == NULL)
 		return;
 
-	for (ptr = env_array; *ptr != NULL; ptr++) {
-		_env_array_putenv(*ptr);
+	/* group_number set by salloc */
+	if(group_number == -1) {  //dhp
+	        for (ptr = env_array; *ptr != NULL; ptr++)
+		        _env_array_putenv(*ptr);
+	}
+	else {  //dhp
+	        str = xmalloc(ENV_BUFSIZE);
+	        value = xmalloc(ENV_BUFSIZE);
+		for (ptr = env_array; *ptr != NULL; ptr++) {
+		        if (_env_array_entry_splitter(*ptr, name, sizeof(name),
+						      value, ENV_BUFSIZE)) {
+			  sprintf(str, "%s_PACK_GROUP_%d=%s", name,
+				  group_number, value);
+				info("DHP env_array_set_environment: str = %s", str);
+				_env_array_putenv(str);
+			}
+		}
+		xfree(value);
+		xfree(str);
 	}
 }
 
