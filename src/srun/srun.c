@@ -1208,14 +1208,14 @@ info("############# exited loop 2 ############################");			/* wjb */
 
 
 	_create_srun_steps_jobpack();
-	info("******** MNP all job steps now created");
+	debug("******** MNP all job steps now created");
 	_enhance_env_jobpack(got_alloc);
-	info("******** MNP all jobs now environment enhanced");
+	debug("******** MNP all jobs now environment enhanced");
 	_pre_launch_srun_jobpack();
-	info("******** MNP pre_launch_srun_job finished");
-	info("******** MNP parent srun pid = %d", getpid());
+	debug("******** MNP pre_launch_srun_job finished");
+	debug("******** MNP parent srun pid = %d", getpid());
 	_launch_srun_steps_jobpack(got_alloc);
-	info("******** MNP all job steps now launched");
+	debug("******** MNP all job steps now launched");
 	return (int)global_rc;
  }
 
@@ -1472,19 +1472,19 @@ static void _create_srun_steps_jobpack(void)
 		if (job_index == 0) job_index++;
 		for (j = 0; j <job_index; j++) {
 
-			info("******** MNP creating step for pack desc[%u].pack_job_env[%u]", i, j);
+			debug("******** MNP creating step for pack desc[%u].pack_job_env[%u]", i, j);
 			opt_ptr = _get_opt(i, j);
 			memcpy(&opt, opt_ptr, sizeof(opt_t));
 			job = _get_srun_job(i, j);
 			resp = _get_resp(i, j);
 
-//			info("******** MNP calling create_job_step for pack desc[%d.pack_job_env[%d]", i, j);
+//			debug("******** MNP calling create_job_step for pack desc[%d.pack_job_env[%d]", i, j);
 			if (!job || create_job_step(job, true) < 0) {
-				info("******** MNP error from create_job_step for pack desc# %d, %d", i, j);
+				debug("******** MNP error from create_job_step for pack desc# %d, %d", i, j);
 				slurm_complete_job(resp->job_id, 1);
 				exit(error_exit);
 			}
-//			info("******** MNP returned from create_job_step for pack desc[%d].pack_job_env[%d]", i, j);
+//			debug("******** MNP returned from create_job_step for pack desc[%d].pack_job_env[%d]", i, j);
 //			slurm_free_resource_allocation_response_msg(resp);
 			/* What about code at lines 625-638 in srun_job.c? */
 			memcpy(opt_ptr, &opt, sizeof(opt_t));
@@ -1505,7 +1505,7 @@ static void _enhance_env_jobpack(bool got_alloc)
 		job_index = desc[i].pack_group_count;
 		if (job_index == 0) job_index++;
 		for (j = 0; j <job_index; j++) {
-			info("******** MNP enhancing environment for pack desc[%d].pack_job_env[%d]", i, j);
+			debug("******** MNP enhancing environment for pack desc[%d].pack_job_env[%d]", i, j);
 			opt_ptr = _get_opt(i, j);
 			memcpy(&opt, opt_ptr, sizeof(opt_t));
 			job = _get_srun_job(i, j);
@@ -1690,7 +1690,7 @@ static int _launch_srun_steps_jobpack(bool got_alloc)
 	/* MNP start experimental code to pipe stdin */
 //	int stdinpipe[2];
 //	if (pipe(stdinpipe) < 0) {
-//		info("******** MNP error creating stdin pipe in parent srun");
+//		debug("******** MNP error creating stdin pipe in parent srun");
 //		exit(0);
 //	}
 	/* MNP end experimental code to pipe stdin */
@@ -1711,39 +1711,39 @@ static int _launch_srun_steps_jobpack(bool got_alloc)
 			job = _get_srun_job(i, j);
 			env = _get_env(i, j);
 			launch_common_set_stdio_fds(job, &cio_fds);
-			info("******** MNP forking child srun for pack desc[%d].pack_job_env[%d]", i, j);
+			debug("******** MNP forking child srun for pack desc[%d].pack_job_env[%d]", i, j);
 			pid = fork();
 			if (pid < 0) {
 				/* Error creating child srun process */
-				info("******** MNP fork failed for pack desc[%d].pack_job_env[%d]", i, j);
+				debug("******** MNP fork failed for pack desc[%d].pack_job_env[%d]", i, j);
 				exit(0);
 			} else if (pid == 0) {
 				/* Child srun process */
-				info("******** MNP child srun (PID %d) running", getpid());
-				info("******** MNP %d: launching step for pack desc[%d].pack_job_env[%d]", getpid(), i, j);
+				debug("******** MNP child srun (PID %d) running", getpid());
+				debug("******** MNP %d: launching step for pack desc[%d].pack_job_env[%d]", getpid(), i, j);
 				/* MNP start experimental code to pipe stdin */
 //				dup2(stdinpipe[0], STDIN_FILENO);
 //				close(stdinpipe[0]);
 				/* MNP end experimental code to pipe stdin */
 				if (!launch_g_step_launch(job, &cio_fds, &global_rc, &step_callbacks)) {
-					info("******** MNP %d: error from launch_g_step_launch, global_rc=%d", getpid(), global_rc);
+					debug("******** MNP %d: error from launch_g_step_launch, global_rc=%d", getpid(), global_rc);
 					if (launch_g_step_wait(job, got_alloc) == -1) {
-						info("******** MNP child srun PID %d: error from launch_g_step_wait", getpid());
+						debug("******** MNP child srun PID %d: error from launch_g_step_wait", getpid());
 						exit(0);
 					}
 				}
 				fini_srun(job, got_alloc, &global_rc, 0);
-				info("******** MNP pid=%d, child has finished fini_srun, global_rc=%d", getpid(),global_rc);
+				debug("******** MNP pid=%d, child has finished fini_srun, global_rc=%d", getpid(),global_rc);
 				exit(0);
 //			return (int)global_rc;
 			} else {
 				forkpids[pid_idx] = pid;
 				pid_idx++;
-				info("******** MNP in parent srun, adding child pid=%d to forkpids[%d]", pid, i);
+				debug("******** MNP in parent srun, adding child pid=%d to forkpids[%d]", pid, i);
 			}
 		}
 	}
-	info("******** MNP parent srun has forked all child sruns");
+	debug("******** MNP parent srun has forked all child sruns");
 	/* Wait for all child sruns to exit */
 	/* MNP start experimental code to pipe stdin */
 //	dup2(stdinpipe[1],STDOUT_FILENO);
@@ -1754,11 +1754,11 @@ static int _launch_srun_steps_jobpack(bool got_alloc)
 		int status;
 		while (waitpid(forkpids[i], &status, 0) == -1);
 		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-			info("******** MNP pid=%d, child srun pid=%d has failed, WEXITSTATUS(status)=%d", getpid(),forkpids[i], WEXITSTATUS(status));
-			info("******** MNP pid=%d, child srun pid=%d has failed, WIFEXITED(status)=%d", getpid(),forkpids[i], WIFEXITED(status));
+			debug("******** MNP pid=%d, child srun pid=%d has failed, WEXITSTATUS(status)=%d", getpid(),forkpids[i], WEXITSTATUS(status));
+			debug("******** MNP pid=%d, child srun pid=%d has failed, WIFEXITED(status)=%d", getpid(),forkpids[i], WIFEXITED(status));
 			exit(1);
 		}
 	}
-	info("******** MNP all child sruns have exited successfully");
+	debug("******** MNP all child sruns have exited successfully");
 	return (int)global_rc;
 }

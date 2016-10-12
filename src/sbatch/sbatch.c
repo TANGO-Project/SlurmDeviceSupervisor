@@ -158,10 +158,10 @@ int _identify_job_descriptions(int ac, char **av)
 //		info("av[%u] is %s\n", index3, av[index3]);
 //	}
 
-	newcmd = xmalloc(sizeof(char *) * (ac + 1));
+	newcmd = xmalloc(sizeof(char *) * ac);
 	while (current < ac){
 		newcmd[0] = xstrdup(av[0]);
-		for (i = 1; i < (ac + 1); i++) {
+		for (i = 1; i < ac; i++) {
 			newcmd[i] = NULL;
 		}
 		i = 1;
@@ -234,7 +234,7 @@ int _identify_job_descriptions(int ac, char **av)
 //info("job_index contains %u exiting_identify_job_descriptions\n", job_index);					/* wjb */
 
 	}
-	for (i = 0; i < (ac + 1); i++) {
+	for (i = 0; i < ac; i++) {
 		if(newcmd[i] != NULL)
 			xfree(newcmd[i]);
 	}

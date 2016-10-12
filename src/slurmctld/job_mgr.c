@@ -5071,8 +5071,11 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 					debug("JPCK: RBS: skipping pack member %d, already complete",ldr_dep_ptr->job_id);
 					continue;
 				}
-				debug("JPCK: Complete pack member jobid=%d",
-						ldr_dep_ptr->job_id);
+				if (slurm_get_debug_flags() &
+							DEBUG_FLAG_JOB_PACK) {
+					info("JPCK: Completing pack member "
+					     "jobid=%d", ldr_dep_ptr->job_id);
+				}
 				rc = _job_complete(ldr_dep_ptr->job_id, uid,
 							  false, false,
 							  job_return_code);
@@ -5101,7 +5104,10 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 				debug("JPCK: RBS: skipping job pack leader %d, already complete",ldr_dep_ptr->job_id);
 				return SLURM_SUCCESS;
 			}
-			debug("JPCK: Completing job pack leader=%d", job_id);
+			if (slurm_get_debug_flags() & DEBUG_FLAG_JOB_PACK) {
+				info("JPCK: Completing job pack leader=%d",
+				     job_id);
+			}
 		}
 	}
 	*/

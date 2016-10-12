@@ -325,15 +325,15 @@ int eio_handle_mainloop(eio_handle_t *eio)
 		slurm_mutex_unlock(&eio->shutdown_mutex);
 		if (_poll_internal(pollfds, nfds, shutdown_time) < 0)
 			goto error;
-		//info("******** MNP %d: in eio_handle_mainloop 1", getpid());
+		//debug("******** MNP %d: in eio_handle_mainloop 1", getpid());
 
 		/* See if we've been told to shut down by eio_signal_shutdown */
 		if (pollfds[nfds-1].revents & POLLIN)
 			_eio_wakeup_handler(eio);
-		//info("******** MNP %d: in eio_handle_mainloop 2", getpid());
+		//debug("******** MNP %d: in eio_handle_mainloop 2", getpid());
 
 		_poll_dispatch(pollfds, nfds - 1, map, eio->obj_list);
-		//info("******** MNP %d: in eio_handle_mainloop 3", getpid());
+		//debug("******** MNP %d: in eio_handle_mainloop 3", getpid());
 
 		slurm_mutex_lock(&eio->shutdown_mutex);
 		shutdown_time = eio->shutdown_time;

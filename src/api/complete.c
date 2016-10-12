@@ -58,7 +58,7 @@ slurm_complete_job (uint32_t job_id, uint32_t job_return_code)
 	slurm_msg_t req_msg;
 	complete_job_allocation_msg_t req;
 
-	//info("******** MNP pid=%d: entering slurm_complete_job", getpid());
+	//debug("******** MNP pid=%d: entering slurm_complete_job", getpid());
 	slurm_msg_t_init(&req_msg);
 	req.job_id      = job_id;
 	req.job_rc      = job_return_code;
@@ -72,6 +72,6 @@ slurm_complete_job (uint32_t job_id, uint32_t job_return_code)
 	if (rc)
 		slurm_seterrno_ret(rc);
 
-	//info("******** MNP pid=%d: exiting slurm_complete_job, rc = %d", getpid(), rc);
+	//debug("******** MNP pid=%d: exiting slurm_complete_job, rc = %d", getpid(), rc);
 	return SLURM_PROTOCOL_SUCCESS;
 }

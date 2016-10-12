@@ -2296,6 +2296,64 @@ extern batch_job_launch_msg_t *build_launch_job_msg(struct job_record *job_ptr,
 	return launch_msg_ptr;
 }
 
+static void _check_for_jobpack_launch(struct job_record *job_ptr)
+{
+	ListIterator depend_iter;
+	struct depend_spec *dep_ptr;
+	struct job_record *dep_job_ptr;
+	batch_job_launch_msg_t *launch_msg_ptr;
+	uint16_t protocol_version = (uint16_t) NO_VAL;
+	agent_arg_t *agent_arg_ptr;
+
+//info("**** wjb - entered _check_for_jobpack_launch");
+	if (job_ptr->details == NULL) {
+		return;
+	}
+	if (job_ptr->details->depend_list == NULL) {
+		return;
+	}
+//info("**** wjb - found a PackLeader, launching pack jobs!");
+	depend_iter = list_iterator_create(job_ptr->details->depend_list);
+	while ((dep_ptr = (struct depend_spec *) list_next(depend_iter))) {
+		if (dep_ptr->depend_type != SLURM_DEPEND_PACKLEADER) {
+			continue;
+		}
+//info("**** wjb - found a PackLeader jobid %u, launching pack jobs!\n", job_ptr->job_id);
+		dep_job_ptr = dep_ptr->job_ptr;
+//info("**** wjb - launching pack job %u\n", dep_job_ptr->job_id);
+#ifdef HAVE_FRONT_END
+		front_end_record_t *front_end_ptr;
+		front_end_ptr = find_front_end_record(dep_job_ptr->batch_host);
+		if (front_end_ptr)
+			protocol_version = front_end_ptr->protocol_version;
+#else
+		struct node_record *node_ptr;
+		node_ptr = find_node_record(dep_job_ptr->batch_host);
+		if (node_ptr)
+			protocol_version = node_ptr->protocol_version;
+#endif
+
+		launch_msg_ptr = build_launch_job_msg(dep_job_ptr, protocol_version);
+		if (launch_msg_ptr == NULL)
+			return;
+
+		agent_arg_ptr = (agent_arg_t *) xmalloc(sizeof(agent_arg_t));
+		agent_arg_ptr->protocol_version = protocol_version;
+		agent_arg_ptr->node_count = 1;
+		agent_arg_ptr->retry = 0;
+		xassert(dep_job_ptr->batch_host);
+		agent_arg_ptr->hostlist = hostlist_create(dep_job_ptr->batch_host);
+		agent_arg_ptr->msg_type = REQUEST_BATCH_JOB_LAUNCH;
+		agent_arg_ptr->msg_args = (void *) launch_msg_ptr;
+
+		/* Launch the RPC via agent */
+		agent_queue_request(agent_arg_ptr);
+	}
+	list_iterator_destroy(depend_iter);
+//info("**** wjb - exiting _check_for_jobpack_launch");
+	return;
+}
+
 /*
  * launch_job - send an RPC to a slurmd to initiate a batch job
  * IN job_ptr - pointer to job that will be initiated
@@ -2306,6 +2364,7 @@ extern void launch_job(struct job_record *job_ptr)
 	uint16_t protocol_version = (uint16_t) NO_VAL;
 	agent_arg_t *agent_arg_ptr;
 
+	_check_for_jobpack_launch(job_ptr);
 #ifdef HAVE_FRONT_END
 	front_end_record_t *front_end_ptr;
 	front_end_ptr = find_front_end_record(job_ptr->batch_host);
@@ -2623,16 +2682,17 @@ extern int test_job_dependency(struct job_record *job_ptr)
 			 */
 			if (dep_ptr->pack_leader == 0) {
 				if (debug_flags & DEBUG_FLAG_JOB_PACK) {
-					info("JPCK: Jobid=%d is a pack member. "
-					      "Leader=%d", job_ptr->job_id,
+					info("JPCK: Jobid=%d (%s) is a pack "
+					      "member. Leader=%d",
+					      job_ptr->job_id, job_ptr->name,
 					      dep_ptr->pack_leader);
 				}
 				dep_ptr->pack_leader = NO_VAL;
 			} else if (dep_ptr->pack_leader == NO_VAL) {
 				if (debug_flags & DEBUG_FLAG_JOB_PACK) {
-					info("JPCK: Pack Jobid=%d doesn't know "
-					     "its leader. Assume it's orphaned "
-					     "and cancel job", job_ptr->job_id);
+				info("JPCK: Jobid=%d (%s) is a pack leader "
+				     "for %d", job_ptr->job_id, job_ptr->name,
+				     dep_ptr->job_id);
 				}
 				failure = true;
 				break;

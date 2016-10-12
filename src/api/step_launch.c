@@ -1200,7 +1200,7 @@ _exit_handler(struct step_launch_state *sls, slurm_msg_t *exit_msg)
 static void
 _job_complete_handler(struct step_launch_state *sls, slurm_msg_t *complete_msg)
 {
-	//info("******** MNP pid=%d: entering api/step_launch _job_complete_handler", getpid());
+	//debug("******** MNP pid=%d: entering api/step_launch _job_complete_handler", getpid());
 	srun_job_complete_msg_t *step_msg =
 		(srun_job_complete_msg_t *) complete_msg->data;
 

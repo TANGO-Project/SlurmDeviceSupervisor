@@ -227,9 +227,9 @@ int _identify_job_descriptions(int ac, char **av)
 */
 
 	while (current < ac){
-		newcmd = xmalloc(sizeof(char *) * (ac + 1));
+		newcmd = xmalloc(sizeof(char *) * ac);
 		newcmd[0] = xstrdup(av[0]);
-		for (i = 1; i < (ac + 1); i++) {
+		for (i = 1; i < ac; i++) {
 			newcmd[i] = NULL;
 		}
 		i = 1;
