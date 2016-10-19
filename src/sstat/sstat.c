@@ -297,7 +297,7 @@ int main(int argc, char **argv)
 					 step_ptr->job_steps[i].packjobid,
 					 step_ptr->job_steps[i].packstepid,
 					 step_ptr->job_steps[i].
-					 start_protocol_ver);  //nlk
+					 start_protocol_ver);
 			}
 			slurm_free_job_step_info_response_msg(step_ptr);
 			continue;

@@ -1983,7 +1983,7 @@ _pick_best_nodes(struct node_set *node_set_ptr, int node_set_size,
 				avail_bitmap = bit_copy(total_bitmap);
 				bit_and(avail_bitmap, avail_node_bitmap);
 				job_ptr->details->pn_min_memory = orig_req_mem;
-//pick_code = select_g_job_test(job_ptr,  nlk
+
 				pick_code = _will_jpck_ldr_run(job_ptr, false,
 						avail_bitmap,
 						min_nodes, max_nodes, req_nodes,
