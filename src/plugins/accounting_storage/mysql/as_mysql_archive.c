@@ -262,6 +262,7 @@ static char *job_req_inx[] = {
 	"job_name",
 	"nodelist",
 	"node_inx",
+	"packid", 							/* wjb */
 	"`partition`",
 	"priority",
 	"id_qos",
@@ -277,7 +278,6 @@ static char *job_req_inx[] = {
 	"wckey",
 	"id_wckey",
 	"tres_alloc",
-	"packid", 							/* wjb */
 	"tres_req",
 };
 

@@ -80,6 +80,7 @@ char *job_req_inx[] = {
 	"t1.node_inx",
 	"t1.nodelist",
 	"t1.nodes_alloc",
+	"t1.packid",								/* wjb */
 	"t1.partition",
 	"t1.priority",
 	"t1.state",
@@ -128,6 +129,7 @@ enum {
 	JOB_REQ_NODE_INX,
 	JOB_REQ_NODELIST,
 	JOB_REQ_ALLOC_NODES,
+	JOB_REQ_PACKID,								/* wjb */
 	JOB_REQ_PARTITION,
 	JOB_REQ_PRIORITY,
 	JOB_REQ_STATE,
@@ -164,6 +166,8 @@ char *step_req_inx[] = {
 	"t1.kill_requid",
 	"t1.exit_code",
 	"t1.nodes_alloc",
+	"t1.packjobid",								/* wjb */
+	"t1.packstepid",							/* wjb */
 	"t1.task_cnt",
 	"t1.task_dist",
 	"t1.user_sec",
@@ -214,6 +218,8 @@ enum {
 	STEP_REQ_KILL_REQUID,
 	STEP_REQ_EXIT_CODE,
 	STEP_REQ_NODES,
+	STEP_REQ_PACKJOBID,							/* wjb */
+	STEP_REQ_PACKSTEPID,							/* wjb */
 	STEP_REQ_TASKS,
 	STEP_REQ_TASKDIST,
 	STEP_REQ_USER_SEC,
@@ -484,7 +490,7 @@ static int _cluster_get_jobs(mysql_conn_t *mysql_conn,
 	*/
 	xstrcat(query, " group by id_job, time_submit desc");
 
-	if (debug_flags & DEBUG_FLAG_DB_JOB)
+//	if (debug_flags & DEBUG_FLAG_DB_JOB)					/* wjb */
 		DB_DEBUG(mysql_conn->conn, "query\n%s", query);
 	if (!(result = mysql_db_query_ret(mysql_conn, query, 0))) {
 		xfree(query);
@@ -700,6 +706,12 @@ static int _cluster_get_jobs(mysql_conn_t *mysql_conn,
 		job->derived_es = xstrdup(row[JOB_REQ_DERIVED_ES]);
 		job->admin_comment = xstrdup(row[JOB_REQ_ADMIN_COMMENT]);
 
+	if ((row[JOB_REQ_PACKID]) == NULL)  info("row[JOB_REQ_PACKID]) == NULL");	/* wjb */
+		if (row[JOB_REQ_PACKID]) {					/* wjb */
+			job->packid = slurm_atoul(row[JOB_REQ_PACKID]);		/* wjb */
+//info(" in  _cluster_get_jobs set job->packid to %u", job->packid);						/* wjb */
+		}
+
 		if (row[JOB_REQ_PARTITION])
 			job->partition = xstrdup(row[JOB_REQ_PARTITION]);
 
@@ -782,7 +794,7 @@ static int _cluster_get_jobs(mysql_conn_t *mysql_conn,
 			xfree(extra);
 		}
 
-		if (debug_flags & DEBUG_FLAG_DB_STEP)
+//		if (debug_flags & DEBUG_FLAG_DB_STEP)
 			DB_DEBUG(mysql_conn->conn, "query\n%s", query);
 
 		if (!(step_result = mysql_db_query_ret(
@@ -823,6 +835,11 @@ static int _cluster_get_jobs(mysql_conn_t *mysql_conn,
 			step->nnodes = slurm_atoul(step_row[STEP_REQ_NODES]);
 
 			step->ntasks = slurm_atoul(step_row[STEP_REQ_TASKS]);
+			step->packstepid[0] =					/* wjb */
+				slurm_atoul(step_row[STEP_REQ_PACKJOBID]);	/* wjb */
+			step->packstepid[1] =					/* wjb */
+				slurm_atoul(step_row[STEP_REQ_PACKSTEPID]);	/* wjb */
+//info ("in  _cluster_get_jobs set step->packstepid[2] to %u , %u", step->packstepid[0], step->packstepid[1]);	/* wjb */
 			step->task_dist =
 				slurm_atoul(step_row[STEP_REQ_TASKDIST]);
 

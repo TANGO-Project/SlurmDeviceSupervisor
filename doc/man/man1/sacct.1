@@ -228,7 +228,8 @@ avevmsize,maxrss,maxrssnode,maxrsstask,averss,maxpages,maxpagesnode,
 maxpagestask,avepages,mincpu,mincpunode,mincputask,avecpu,ntasks,
 alloccpus,elapsed,state,exitcode,maxdiskread,maxdiskreadnode,maxdiskreadtask,
 avediskread,maxdiskwrite,maxdiskwritenode,maxdiskwritetask,avediskwrite,
-allocgres,reqgres,avecpufreq,reqcpufreqmin,reqcpufreqmax,reqcpufreqgov
+allocgres,reqgres,avecpufreq,reqcpufreqmin,reqcpufreqmax,reqcpufreqgov,
+packid,packjobid,packstepid
 .ad
 
 .TP
@@ -704,6 +705,17 @@ will be the number allocated, else the number will be the number requested.
 \f3NTasks\fP
 Total number of tasks in a job or step.
 
+.TP
+\f3Packid\fP
+Jobid of the pack leader for the jobpack.
+
+.TP
+\f3Packjobid\fP
+The jobid of srun first step of the jobpack.
+
+.TP
+\f3Packstepid\fP
+The stepid of jobpack member.
 .TP
 \f3Priority\fP
 Slurm priority.

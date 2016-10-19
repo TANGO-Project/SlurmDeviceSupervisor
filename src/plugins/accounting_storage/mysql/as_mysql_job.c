@@ -474,10 +474,10 @@ no_rollup_change:
 
 		if (wckeyid)
 			xstrcat(query, ", id_wckey");
-		if (packid)							/* wjb */
-			xstrcat(query, ", packid");				/* wjb */
 		if (job_ptr->account)
 			xstrcat(query, ", account");
+		if (packid)							/* wjb */
+			xstrcat(query, ", packid");				/* wjb */
 		if (partition)
 			xstrcat(query, ", `partition`");
 		if (block_id)
