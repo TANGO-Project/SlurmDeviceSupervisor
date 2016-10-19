@@ -197,6 +197,8 @@ static int _setup_job_start_msg(dbd_job_start_msg_t *req,
 	req->job_state     = job_ptr->job_state;
 	req->name          = xstrdup(job_ptr->name);
 	req->nodes         = xstrdup(job_ptr->nodes);
+	req->pack_leader   = job_ptr->pack_leader;				/* wjb */
+//info("in _setup_job_start_msg set req->pack_leader to %u", req->pack_leader);	/* wjb */
 
 	if (job_ptr->node_bitmap) {
 		char temp_bit[BUF_SIZE];
@@ -2716,6 +2718,9 @@ extern int jobacct_storage_p_step_start(void *db_conn,
 	req.job_id      = step_ptr->job_ptr->job_id;
 	req.name        = step_ptr->name;
 	req.nodes       = node_list;
+	req.packstepid[0] = step_ptr->packstepid[0];				/* wjb */
+	req.packstepid[1] = step_ptr->packstepid[1];				/* wjb */
+//info("in accounting_storage_slurmdbd.c function jobacct_storage_p_step_start()  packstepid is %u.%u", step_ptr->packstepid[0], step_ptr->packstepid[1]);	/* wjb */
 	if (step_ptr->step_node_bitmap) {
 		req.node_inx = bit_fmt(temp_bit, sizeof(temp_bit),
 				       step_ptr->step_node_bitmap);

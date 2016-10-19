@@ -97,6 +97,7 @@ typedef struct {
 	char *name;
 	char *nodelist;
 	char *node_inx;
+	char *packid;							/* wjb */
 	char *partition;
 	char *priority;
 	char *qos;
@@ -276,6 +277,7 @@ static char *job_req_inx[] = {
 	"wckey",
 	"id_wckey",
 	"tres_alloc",
+	"packid", 							/* wjb */
 	"tres_req",
 };
 
@@ -300,6 +302,7 @@ enum {
 	JOB_REQ_NAME,
 	JOB_REQ_NODELIST,
 	JOB_REQ_NODE_INX,
+	JOB_REQ_PACKID,							/* wjb */
 	JOB_REQ_PARTITION,
 	JOB_REQ_PRIORITY,
 	JOB_REQ_QOS,
@@ -550,6 +553,134 @@ static uint32_t _archive_table(purge_type_t type, mysql_conn_t *mysql_conn,
 
 static int high_buffer_size = (1024 * 1024);
 
+/* Free functions just incase they are ever needed. */
+/* static void _free_local_event(local_event_t *object) */
+/* { */
+/* 	xfree(object->cluster_nodes); */
+/* 	xfree(object->node_name); */
+/* 	xfree(object->period_end); */
+/* 	xfree(object->period_start); */
+/* 	xfree(object->reason); */
+/* 	xfree(object->reason_uid); */
+/* 	xfree(object->state); */
+/* 	xfree(object->tres_str); */
+/* } */
+
+/* static void _free_local_job(local_job_t *object) */
+/* { */
+/* 	xfree(object->account); */
+/* 	xfree(object->alloc_nodes); */
+/* 	xfree(object->associd); */
+/* 	xfree(object->array_jobid); */
+/* 	xfree(object->array_max_tasks); */
+/* 	xfree(object->array_taskid); */
+/* 	xfree(object->blockid); */
+/* 	xfree(object->derived_ec); */
+/* 	xfree(object->derived_es); */
+/* 	xfree(object->exit_code); */
+/* 	xfree(object->eligible); */
+/* 	xfree(object->end); */
+/* 	xfree(object->gid); */
+/* 	xfree(object->job_db_inx); */
+/* 	xfree(object->jobid); */
+/* 	xfree(object->kill_requid); */
+/* 	xfree(object->name); */
+/* 	xfree(object->nodelist); */
+/* 	xfree(object->node_inx); */
+/*	xfree(object->packid); */					/* wjb */
+/* 	xfree(object->partition); */
+/* 	xfree(object->priority); */
+/* 	xfree(object->qos); */
+/* 	xfree(object->req_cpus); */
+/* 	xfree(object->req_mem); */
+/* 	xfree(object->resvid); */
+/* 	xfree(object->start); */
+/* 	xfree(object->state); */
+/* 	xfree(object->submit); */
+/* 	xfree(object->suspended); */
+/* 	xfree(object->timelimit); */
+/* 	xfree(object->track_steps); */
+/* 	xfree(object->tres_alloc_str); */
+/* 	xfree(object->uid); */
+/* 	xfree(object->wckey); */
+/* 	xfree(object->wckey_id); */
+/* } */
+
+/* static void _free_local_resv(local_resv_t *object) */
+/* { */
+/* 	xfree(object->assocs); */
+/* 	xfree(object->flags); */
+/* 	xfree(object->id); */
+/* 	xfree(object->name); */
+/* 	xfree(object->nodes); */
+/* 	xfree(object->node_inx); */
+/* 	xfree(object->time_end); */
+/* 	xfree(object->time_start); */
+/* 	xfree(object->tres_str); */
+/* } */
+
+/* static void _free_local_step(local_step_t *object) */
+/* { */
+/* 	xfree(object->act_cpufreq); */
+/* 	xfree(object->ave_cpu); */
+/* 	xfree(object->ave_disk_read); */
+/* 	xfree(object->ave_disk_write); */
+/* 	xfree(object->ave_pages); */
+/* 	xfree(object->ave_rss); */
+/* 	xfree(object->ave_vsize); */
+/* 	xfree(object->exit_code); */
+/* 	xfree(object->consumed_energy); */
+/* 	xfree(object->job_db_inx); */
+/* 	xfree(object->kill_requid); */
+/* 	xfree(object->max_disk_read); */
+/* 	xfree(object->max_disk_read_node); */
+/* 	xfree(object->max_disk_read_task); */
+/* 	xfree(object->max_disk_write); */
+/* 	xfree(object->max_disk_write_node); */
+/* 	xfree(object->max_disk_write_task); */
+/* 	xfree(object->max_pages); */
+/* 	xfree(object->max_pages_node); */
+/* 	xfree(object->max_pages_task); */
+/* 	xfree(object->max_rss); */
+/* 	xfree(object->max_rss_node); */
+/* 	xfree(object->max_rss_task); */
+/* 	xfree(object->max_vsize); */
+/* 	xfree(object->max_vsize_node); */
+/* 	xfree(object->max_vsize_task); */
+/* 	xfree(object->min_cpu); */
+/* 	xfree(object->min_cpu_node); */
+/* 	xfree(object->min_cpu_task); */
+/* 	xfree(object->name); */
+/* 	xfree(object->nodelist); */
+/* 	xfree(object->nodes); */
+/* 	xfree(object->node_inx); */
+/*	xfree(object->packjobid); */					/* wjb */
+/*	xfree(object->packstepid); */					/* wjb */
+/* 	xfree(object->period_end); */
+/* 	xfree(object->period_start); */
+/* 	xfree(object->period_suspended); */
+/* 	xfree(object->req_cpufreq_min); */
+/* 	xfree(object->req_cpufreq_max); */
+/* 	xfree(object->req_cpufreq_gov); */
+/* 	xfree(object->state); */
+/* 	xfree(object->stepid); */
+/* 	xfree(object->sys_sec); */
+/* 	xfree(object->sys_usec); */
+/* 	xfree(object->tasks); */
+/* 	xfree(object->task_dist); */
+/* 	xfree(object->tres_alloc_str); */
+/* 	xfree(object->user_sec); */
+/* 	xfree(object->user_usec); */
+/* } */
+
+/* static void _free_local_suspend(local_suspend_t *object) */
+/* { */
+/* 	xfree(object->associd); */
+/* 	xfree(object->job_db_inx); */
+/* 	xfree(object->period_end); */
+/* 	xfree(object->period_start); */
+/* } */
+
 static void _pack_local_event(local_event_t *object,
 			      uint16_t rpc_version, Buf buffer)
 {
@@ -619,6 +750,7 @@ static void _pack_local_job(local_job_t *object,
 	packstr(object->name, buffer);
 	packstr(object->nodelist, buffer);
 	packstr(object->node_inx, buffer);
+	packstr(object->packid, buffer);				/* wjb */
 	packstr(object->partition, buffer);
 	packstr(object->priority, buffer);
 	packstr(object->qos, buffer);
@@ -686,6 +818,7 @@ static int _unpack_local_job(local_job_t *object,
 		unpackstr_ptr(&object->name, &tmp32, buffer);
 		unpackstr_ptr(&object->nodelist, &tmp32, buffer);
 		unpackstr_ptr(&object->node_inx, &tmp32, buffer);
+		unpackstr_ptr(&object->packid, &tmp32, buffer);		/* wjb */
 		unpackstr_ptr(&object->partition, &tmp32, buffer);
 		unpackstr_ptr(&object->priority, &tmp32, buffer);
 		unpackstr_ptr(&object->qos, &tmp32, buffer);
@@ -993,6 +1126,8 @@ static int _unpack_local_step(local_step_t *object,
 		unpackstr_ptr(&object->nodelist, &tmp32, buffer);
 		unpackstr_ptr(&object->nodes, &tmp32, buffer);
 		unpackstr_ptr(&object->node_inx, &tmp32, buffer);
+		unpackstr_ptr(&object->packjobid, &tmp32, buffer);	/* wjb */
+		unpackstr_ptr(&object->packstepid, &tmp32, buffer);	/* wjb */
 		unpackstr_ptr(&object->period_end, &tmp32, buffer);
 		unpackstr_ptr(&object->period_start, &tmp32, buffer);
 		unpackstr_ptr(&object->period_suspended, &tmp32, buffer);
@@ -1926,6 +2061,7 @@ static Buf _pack_archive_jobs(MYSQL_RES *result, char *cluster_name,
 		job.name = row[JOB_REQ_NAME];
 		job.nodelist = row[JOB_REQ_NODELIST];
 		job.node_inx = row[JOB_REQ_NODE_INX];
+		job.packid = row[JOB_REQ_PACKID];			/* wjb */
 		job.partition = row[JOB_REQ_PARTITION];
 		job.priority = row[JOB_REQ_PRIORITY];
 		job.qos = row[JOB_REQ_QOS];
@@ -2001,6 +2137,7 @@ static char *_load_jobs(uint16_t rpc_version, Buf buffer,
 			   object.name,
 			   object.nodelist,
 			   object.node_inx,
+			   object.packid,				/* wjb */
 			   object.partition,
 			   object.priority,
 			   object.qos,
@@ -2183,6 +2320,8 @@ static Buf _pack_archive_steps(MYSQL_RES *result, char *cluster_name,
 		step.nodelist = row[STEP_REQ_NODELIST];
 		step.nodes = row[STEP_REQ_NODES];
 		step.node_inx = row[STEP_REQ_NODE_INX];
+		step.packjobid = row[STEP_REQ_PACKJOBID];		/* wjb */
+		step.packstepid = row[STEP_REQ_PACKSTEPID];		/* wjb */
 		step.period_end = row[STEP_REQ_END];
 		step.period_start = row[STEP_REQ_START];
 		step.period_suspended = row[STEP_REQ_SUSPENDED];
@@ -2283,6 +2422,8 @@ static char *_load_steps(uint16_t rpc_version, Buf buffer,
 			   object.ave_disk_write,
 			   object.req_cpufreq_min,
 			   object.req_cpufreq_gov,
+			   object.packjobid,				/* wjb */
+			   object.packstepid,				/* wjb */
 			   object.tres_alloc_str);
 
 		if (rpc_version < SLURM_15_08_PROTOCOL_VERSION)
