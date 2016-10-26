@@ -35,7 +35,7 @@ exec $bin_rm -f $pwd/prolog_test_file $pwd/epilog_test_file
 set file [open $pwd/prolog_test_file w]
 puts $file "#!/bin/bash"	
 puts $file "{"
-puts $file "date;id;env | grep SLURM_"
+puts $file "env | grep SLURM_"
 puts $file "} > $pwd/salloc_slurm.prolog.out 2>&1"
 puts $file "exit 0"
 close $file
@@ -44,7 +44,7 @@ exec $bin_chmod 755 $pwd/prolog_test_file
 set file [open $pwd/epilog_test_file w]
 puts $file "#!/bin/bash"
 puts $file "{"
-puts $file "date;id;env | grep SLURM_"
+puts $file "env | grep SLURM_"
 puts $file "} > $pwd/salloc_slurm.epilog.out 2>&1"
 puts $file "exit 0"
 close $file
