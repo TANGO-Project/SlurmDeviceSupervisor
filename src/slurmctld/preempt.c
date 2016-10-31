@@ -202,6 +202,23 @@ extern List slurm_find_preemptable_jobs(struct job_record *job_ptr)
 	if (slurm_preempt_init() < 0)
 		return NULL;
 
+	List pack_depend;
+	ListIterator depend_iter;
+	struct depend_spec *dep_ptr;
+
+	/* test if job_pack member, if so, don't try and find preemptable */
+	if (job_ptr->details == NULL)
+		return (*(ops.find_jobs))(job_ptr);
+	pack_depend = job_ptr->details->depend_list;
+	if (pack_depend == NULL)
+		return (*(ops.find_jobs))(job_ptr);
+	depend_iter = list_iterator_create(pack_depend);
+	while ((dep_ptr = (struct depend_spec *) list_next(depend_iter))) {
+		if (dep_ptr->depend_type == SLURM_DEPEND_PACK) {
+			list_iterator_destroy(depend_iter);
+			return NULL;
+		}
+	}
 	return (*(ops.find_jobs))(job_ptr);
 }
 

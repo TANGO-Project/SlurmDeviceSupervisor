@@ -670,7 +670,7 @@ info("1 allocate_nodes_jobpack desc[%u].pack_job_env[%u].resp->job_id is %u", gr
 		}
 	}
 	if (!resp) {
-		fatal("JPCK: ***RBS*** failed to allocate packleader");
+		fatal("JPCK: failed to allocate packleader");
 	}
 //	pack_job_env[0].job_id = resp->job_id;
 	desc[0].pack_job_env[0].job_id = resp->job_id;

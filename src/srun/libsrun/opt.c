@@ -786,13 +786,13 @@ static void _opt_env_pack(uint32_t group_number)  //dhp
 	env_vars_t *e   = env_vars;
 	char *name;
 
-	info("DHP _opt_env_pack: group_number = %d", group_number);
+	debug("_opt_env_pack: group_number = %d", group_number);
 
 	while (e->var) {
 	        name = xmalloc(strlen(e->var) + 16);
 	        sprintf(name, "%s_PACK_GROUP_%d", e->var, group_number);
 		if ((val = getenv(name)) != NULL) {
-		        info("DHP libsrun/_opt_env_pack: name = %s, value = %s", name, val);
+		        debug("_opt_env_pack: name = %s, value = %s", name, val);
 		        _process_env_var(e, val);
 		}
 		xfree(name);

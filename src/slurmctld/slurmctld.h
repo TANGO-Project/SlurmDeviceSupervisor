@@ -2441,6 +2441,24 @@ waitpid_timeout(const char *, pid_t, int *, int);
  * Calcuate and populate the number of tres' for all partitions.
  */
 extern void set_partition_tres();
+/* Destroy tres_billing_weight_t */
+extern void destroy_tres_billing_weight(void *object);
+/*
+ * Create a node list containing all the nodes allocated to all the members
+ * of a job pack. (Also works for legacy jobs).
+ *
+ * Parameters
+ * 	job_id	- uint32_t, job id of pack leader.
+ * 		  If that job is not a pack leader, the nodelist of the
+ * 		  nodes allocated to that single job description is returned.
+ * 	nodelist - char** xmalloc'd string, in hostlist form of all nodes
+ * 		  in all job descriptions in job.
+ * 		  Callers responsibility to xfree().
+ *
+ * Returns - number of nodes in the nodelist.
+ *
+ */
+uint32_t get_pack_nodelist(uint32_t job_id,  char **nodelist);
 
 /*
  * Set job's siblings and make sibling strings

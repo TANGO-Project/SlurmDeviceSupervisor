@@ -1950,6 +1950,27 @@ next_task:
 			/* potentially starve this job */
 			if (assoc_limit_stop)
 				fail_by_part = true;
+		} else if (error_code ==
+			    ESLURM_REQUESTED_NODE_CONFIG_UNAVAILABLE) {
+			if (job_ptr->part_ptr_list) {
+				debug("JobId=%u non-runnable in partition %s: %s",
+				         job_ptr->job_id, job_ptr->part_ptr->name,
+			                 slurm_strerror(error_code));
+			} else {
+
+				if (slurm_get_debug_flags()
+						   & DEBUG_FLAG_JOB_PACK) {
+					info("JPCK: PackLeader=%d fails with"
+						 " BadConstraints",
+						 job_ptr->job_id);
+				}
+				job_ptr->job_state = JOB_FAILED;
+				job_ptr->exit_code = 1;
+				job_ptr->state_reason = FAIL_BAD_CONSTRAINTS;
+				xfree(job_ptr->state_desc);
+				job_ptr->start_time = job_ptr->end_time = now;
+				job_completion_logger(job_ptr, false);
+			}
 		} else if ((error_code !=
 			    ESLURM_REQUESTED_PART_CONFIG_UNAVAILABLE) &&
 			   (error_code != ESLURM_NODE_NOT_AVAIL)      &&
@@ -2296,31 +2317,32 @@ extern batch_job_launch_msg_t *build_launch_job_msg(struct job_record *job_ptr,
 	return launch_msg_ptr;
 }
 
-static void _check_for_jobpack_launch(struct job_record *job_ptr)
+static char ** _check_for_jobpack_envs(struct job_record *job_ptr,
+				       int *numpack, char **list_jobids)
 {
 	ListIterator depend_iter;
 	struct depend_spec *dep_ptr;
 	struct job_record *dep_job_ptr;
 	batch_job_launch_msg_t *launch_msg_ptr;
 	uint16_t protocol_version = (uint16_t) NO_VAL;
-	agent_arg_t *agent_arg_ptr;
+	char **member_env = env_array_create();
+	char *tmp = NULL;
+	uint32_t nnodes_pack;
+	char *nodelist_pack;
+	int packcnt = 0;
 
-//info("**** wjb - entered _check_for_jobpack_launch");
 	if (job_ptr->details == NULL) {
-		return;
+		return NULL;
 	}
 	if (job_ptr->details->depend_list == NULL) {
-		return;
+		return NULL;
 	}
-//info("**** wjb - found a PackLeader, launching pack jobs!");
 	depend_iter = list_iterator_create(job_ptr->details->depend_list);
 	while ((dep_ptr = (struct depend_spec *) list_next(depend_iter))) {
 		if (dep_ptr->depend_type != SLURM_DEPEND_PACKLEADER) {
 			continue;
 		}
-//info("**** wjb - found a PackLeader jobid %u, launching pack jobs!\n", job_ptr->job_id);
 		dep_job_ptr = dep_ptr->job_ptr;
-//info("**** wjb - launching pack job %u\n", dep_job_ptr->job_id);
 #ifdef HAVE_FRONT_END
 		front_end_record_t *front_end_ptr;
 		front_end_ptr = find_front_end_record(dep_job_ptr->batch_host);
@@ -2333,25 +2355,44 @@ static void _check_for_jobpack_launch(struct job_record *job_ptr)
 			protocol_version = node_ptr->protocol_version;
 #endif
 
-		launch_msg_ptr = build_launch_job_msg(dep_job_ptr, protocol_version);
+		launch_msg_ptr = build_launch_job_msg(dep_job_ptr,
+						      protocol_version);
 		if (launch_msg_ptr == NULL)
-			return;
+			return NULL;
 
-		agent_arg_ptr = (agent_arg_t *) xmalloc(sizeof(agent_arg_t));
-		agent_arg_ptr->protocol_version = protocol_version;
-		agent_arg_ptr->node_count = 1;
-		agent_arg_ptr->retry = 0;
-		xassert(dep_job_ptr->batch_host);
-		agent_arg_ptr->hostlist = hostlist_create(dep_job_ptr->batch_host);
-		agent_arg_ptr->msg_type = REQUEST_BATCH_JOB_LAUNCH;
-		agent_arg_ptr->msg_args = (void *) launch_msg_ptr;
+		xstrfmtcat(*list_jobids, ",%d", dep_job_ptr->job_id);
+		packcnt++;
 
-		/* Launch the RPC via agent */
-		agent_queue_request(agent_arg_ptr);
+		/* add SLURM_GROUP_NUMBER to member_env */
+		if ((tmp = getenvp(launch_msg_ptr->environment,
+				   "SLURM_GROUP_NUMBER")))
+		        env_array_append_fmt(&member_env, "SLURM_GROUP_NUMBER",
+					     "%s", tmp);
+
+		/* add SLURM_NODELIST_PACK & SLURM_NNODES_PACK to member_env */
+		nnodes_pack = get_pack_nodelist(job_ptr->job_id,
+						    &nodelist_pack);
+		env_array_append_fmt(&member_env, "SLURM_NODELIST_PACK",
+				     "%s", nodelist_pack);
+		env_array_append_fmt(&member_env, "SLURM_NNODES_PACK",
+				     "%d", nnodes_pack);
+		xfree(nodelist_pack);
+
+		/* populate member_env with launch env list */
+		env_array_for_batch_job(&member_env,
+					launch_msg_ptr,
+					job_ptr->batch_host);
+
+		/* remove SLURM_GROUP_NUMBER from env so that it does not
+		   conflict with the pack leader's SLURM_GROUP_NUMBER */
+		unsetenvp (member_env, "SLURM_GROUP_NUMBER");
+
 	}
 	list_iterator_destroy(depend_iter);
-//info("**** wjb - exiting _check_for_jobpack_launch");
-	return;
+
+	*numpack = packcnt;
+
+	return member_env;
 }
 
 /*
@@ -2363,8 +2404,15 @@ extern void launch_job(struct job_record *job_ptr)
 	batch_job_launch_msg_t *launch_msg_ptr;
 	uint16_t protocol_version = (uint16_t) NO_VAL;
 	agent_arg_t *agent_arg_ptr;
+	char ** member_env = NULL;
+	uint32_t member_envc;
+	char *list_jobids = NULL;
+	int numpack = 0;
+	int i, j;
 
-	_check_for_jobpack_launch(job_ptr);
+	xstrfmtcat(list_jobids, "%d", job_ptr->job_id);
+	member_env = _check_for_jobpack_envs(job_ptr, &numpack, &list_jobids);
+
 #ifdef HAVE_FRONT_END
 	front_end_record_t *front_end_ptr;
 	front_end_ptr = find_front_end_record(job_ptr->batch_host);
@@ -2380,6 +2428,30 @@ extern void launch_job(struct job_record *job_ptr)
 	launch_msg_ptr = build_launch_job_msg(job_ptr, protocol_version);
 	if (launch_msg_ptr == NULL)
 		return;
+
+	/* add SLURM_NUMPACK to member_env */
+	numpack++;  /* add 1 for legacy job or packleader job */
+	env_array_append_fmt(&member_env, "SLURM_NUMPACK",
+				     "%d", numpack);
+
+	/* add SLURM_LISTJOBIDS to member_env */
+	env_array_append_fmt(&member_env, "SLURM_LISTJOBIDS",
+				     "%s", list_jobids);
+	xfree(list_jobids);
+
+	if (member_env != NULL) {
+	        member_envc = envcount(member_env);
+		xrealloc(launch_msg_ptr->environment,
+			 sizeof(char *) * (launch_msg_ptr->envc +
+					   member_envc));
+
+		j = launch_msg_ptr->envc;
+		for(i=0; i<member_envc; i++)
+		        launch_msg_ptr->environment[j++] = member_env[i];
+		launch_msg_ptr->envc += member_envc;
+
+		debug("pack members environments merged with packleader's");
+	}
 
 	agent_arg_ptr = (agent_arg_t *) xmalloc(sizeof(agent_arg_t));
 	agent_arg_ptr->protocol_version = protocol_version;

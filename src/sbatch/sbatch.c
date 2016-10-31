@@ -64,8 +64,7 @@
 
 static void  _add_bb_to_script(char **script_body, char *burst_buffer_file);
 static void  _env_merge_filter(job_desc_msg_t *desc);
-static int   _fill_job_desc_from_opts(job_desc_msg_t *desc,
-				      uint32_t group_number);
+static int   _fill_job_desc_from_opts(job_desc_msg_t *desc);
 static int   _check_cluster_specific_settings(job_desc_msg_t *desc);
 static void *_get_script_buffer(const char *filename, int *size);
 static char *_script_wrap(char *command_string);
@@ -76,7 +75,9 @@ static void  _set_spank_env(void);
 static void  _set_submit_dir_env(void);
 static int   _set_umask_env(void);
 static int   _job_wait(uint32_t job_id);
+static void   _set_group_number_env(uint32_t group_number);
 static void  _set_sbatch_pack_envs(void);
+static char *_script_donothing(int *size);
 static int main_jobpack(int argc, char *argv[]);
 
 char *pack_job_id = NULL;
@@ -107,13 +108,14 @@ int _build_env_structs(int ac, char **av)
 {
 	int rc = 0;
 	int i;
-/*
+
+	/*
 	int index;
-	info("in _build_env_structs ac contains %u", ac);
+	debug("in _build_env_structs ac contains %u", ac);
 	for (index = 0; index < ac; index++) {
-		info ("av[%u] is %s", index, av[index]);
+		debug ("av[%u] is %s", index, av[index]);
 	}
-*/
+	*/
 
 pack_job_env = xmalloc(sizeof(pack_job_env_t) * pack_desc_count);
 	for (i = 0; i < pack_desc_count; i++) {
@@ -151,17 +153,17 @@ int _identify_job_descriptions(int ac, char **av)
 	uint16_t dependency_position = 0;
 
 
-
-//	int index3;
-//	info("in_identify_job_descriptions ac contains %u\n", ac);
-//	for (index3 = 0; index3 < ac; index3++) {
-//		info("av[%u] is %s\n", index3, av[index3]);
-//	}
-
-	newcmd = xmalloc(sizeof(char *) * ac);
+/*
+	int index3;
+	info("in _identify_job_descriptions ac contains %u\n", ac);
+	for (index3 = 0; index3 < ac; index3++) {
+		info("av[%u] is %s\n", index3, av[index3]);
+	}
+*/
+	newcmd = xmalloc(sizeof(char *) * (ac + 1));
 	while (current < ac){
 		newcmd[0] = xstrdup(av[0]);
-		for (i = 1; i < ac; i++) {
+		for (i = 1; i < (ac + 1); i++) {
 			newcmd[i] = NULL;
 		}
 		i = 1;
@@ -197,10 +199,9 @@ int _identify_job_descriptions(int ac, char **av)
 
 //		newcmd_cpy = xmalloc(sizeof(char *) * (j+1));
 		if (dependency_position == 0) j++;
-		pack_job_env[job_index].av = xmalloc(sizeof(char *) * (j+2));
-//		newcmd_cpy[0] =  xstrdup(newcmd[0]);
-		pack_job_env[job_index].av[0] = (char * ) xstrdup(newcmd[0]);
-		i=1;
+		pack_job_env[job_index].av = xmalloc(sizeof(char *) * (j + 1));
+		pack_job_env[job_index].av[0] = (char *) xstrdup(newcmd[0]);
+		i = 1;
 		if (dependency_position != 0) {
 			if ((_pack_l == false) && (job_index >= 1)){
 				xstrcat(newcmd[dependency_position], ",pack");
@@ -211,11 +212,11 @@ int _identify_job_descriptions(int ac, char **av)
 			}
 		} else {
 			if (_pack_l == true) {
-				pack_job_env[job_index].av[1] = (char * ) xstrdup(packleader_str);
+				pack_job_env[job_index].av[1] = (char *) xstrdup(packleader_str);
 				packl_dependency_position = 1;
 				i++;
 			} else if ((_pack_l == false) && (job_index >= 1)) {
-				pack_job_env[job_index].av[1] = (char * ) xstrdup(pack_str);
+				pack_job_env[job_index].av[1] = (char *) xstrdup(pack_str);
 				i++;
 			}
 		}
@@ -226,15 +227,15 @@ int _identify_job_descriptions(int ac, char **av)
 		}
 
 		pack_job_env[job_index].ac = j;
-//int index1;
-//for (index1=0; index1 < j; index1++)
-//	printf("pack_job_env[%u].av[%u] = %s\n", job_index, index1, pack_job_env[job_index].av[index1]);	/* wjb */
-//	pack_job_env[job_index].ac = j;
-		job_index++;
-//info("job_index contains %u exiting_identify_job_descriptions\n", job_index);					/* wjb */
 
+/*
+int index1;
+for (index1=0; index1 < j; index1++)
+	info("pack_job_env[%u].av[%u] = %s\n", job_index, index1, pack_job_env[job_index].av[index1]);
+*/
+		job_index++;
 	}
-	for (i = 0; i < ac; i++) {
+	for (i = 0; i < (ac + 1); i++) {
 		if(newcmd[i] != NULL)
 			xfree(newcmd[i]);
 	}
@@ -271,7 +272,6 @@ int main(int argc, char **argv)
 	if (atexit((void (*) (void)) spank_fini) < 0)
 		error("Failed to register atexit handler for plugins: %m");
 
-	group_number = 0;  //dhp
 
 	// dhp TEMPORARY!!!
 	opt.group_number = 1;
@@ -329,7 +329,7 @@ int main(int argc, char **argv)
 	_set_submit_dir_env();
 	_set_umask_env();
 	slurm_init_job_desc_msg(&desc);
-	if (_fill_job_desc_from_opts(&desc, group_number) == -1) {
+	if (_fill_job_desc_from_opts(&desc) == -1) {
 		exit(error_exit);
 	}
 
@@ -547,7 +547,7 @@ static int main_jobpack(int argc, char *argv[])
 	}
 
 	if (!packleader)   //dhp
-	        script_body = _script_donothing();
+		script_body = _script_donothing(&script_size);
 	else {
 	        if (opt.wrap != NULL) {
 		        script_body = _script_wrap(opt.wrap);
@@ -564,7 +564,8 @@ info("found NULL script_body taking exit with error_exit %u", error_exit);	/* wj
 	if (process_options_second_pass(
 				(pack_job_env[group_number].ac - opt.script_argc),
 				pack_job_env[group_number].av,
-				script_name ? xbasename (script_name) : "stdin",
+				script_name ? xbasename (script_name) :
+				!packleader ? NULL : "stdin",
 				script_body, script_size) < 0) {
 		error("sbatch parameter parsing");
 		exit(error_exit);
@@ -594,7 +595,7 @@ info("found NULL script_body taking exit with error_exit %u", error_exit);	/* wj
 	_set_submit_dir_env();
 	_set_umask_env();
 	_set_sbatch_pack_envs();
-
+	_set_group_number_env(group_number);
 	slurm_init_job_desc_msg(&desc);
 
 	if (_fill_job_desc_from_opts(&desc) == -1) {
@@ -796,8 +797,7 @@ static int _check_cluster_specific_settings(job_desc_msg_t *req)
 }
 
 /* Returns 0 on success, -1 on failure */
-static int _fill_job_desc_from_opts(job_desc_msg_t *desc,
-				    uint32_t group_number)
+static int _fill_job_desc_from_opts(job_desc_msg_t *desc)
 {
 	int i;
 	extern char **environ;
@@ -965,6 +965,8 @@ static int _fill_job_desc_from_opts(job_desc_msg_t *desc,
 		_env_merge_filter(desc);
 		opt.get_user_env_time = 0;
 	}
+
+
 	if (opt.get_user_env_time >= 0) {
 		env_array_overwrite(&desc->environment,
 				    "SLURM_GET_USER_ENV", "1");
@@ -979,8 +981,6 @@ static int _fill_job_desc_from_opts(job_desc_msg_t *desc,
 	//dhp
 	info("DHP sbatch: setting SLURM_GROUP_NUMBER to %d in desc.env array",
 	     group_number);
-	env_array_overwrite_fmt(&desc->environment, "SLURM_GROUP_NUMBER",
-			    "%d", group_number);
 
 	desc->env_size = envcount(desc->environment);
 	desc->argv = opt.script_argv;
@@ -1119,6 +1119,16 @@ static void  _set_prio_process_env(void)
 	}
 
 	debug ("propagating SLURM_PRIO_PROCESS=%d", retval);
+}
+
+/* Set SLURM_GROUP_NUMBER environment variable with current jobpack index */
+static void _set_group_number_env(uint32_t group_number)
+{
+	if (setenvf(NULL, "SLURM_GROUP_NUMBER", "%d", group_number) < 0) {
+		error ("unable to set SLURM_GROUP_NUMBER in environment");
+		return;
+	}
+	debug ("propagating GROUP_NUMBER=%d", group_number);
 }
 
 /*
@@ -1269,13 +1279,15 @@ static char *_script_wrap(char *command_string)
 
 /* Create a simple do-nothing shell script for pack member jobs. The pack leader
    will issue the real script. */
-static char *_script_donothing()
+static char *_script_donothing(int *size)
 {
 	char *script = NULL;
 
 	xstrcat(script, "#!/bin/sh\n");
 	xstrcat(script, "# This script was created by sbatch -- does nothing.\n\n");
 	xstrcat(script, "exit 0;\n");
+
+	*size = strlen(script);
 
 	return script;
 }

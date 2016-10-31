@@ -996,6 +996,7 @@ char *process_options_first_pass(int argc, char **argv)
 			opt.script_argv[i] = xstrdup(leftover[i]);
 		opt.script_argv[i] = NULL;
 	}
+
 	if (opt.script_argc > 0) {
 		char *fullpath;
 		char *cmd       = opt.script_argv[0];
@@ -1022,7 +1023,7 @@ int process_options_second_pass(int argc, char **argv, const char *file,
 				const void *script_body, int script_size)
 {
 	int i;
-
+	if (!packjob) {   //nlk this is what I moved from below
 	/* set options from batch script */
 	_opt_batch_script(file, script_body, script_size);
 
@@ -1035,7 +1036,6 @@ int process_options_second_pass(int argc, char **argv, const char *file,
 			break;
 		}
 
-	}
 
 	/* set options from env vars */
 	_opt_env();

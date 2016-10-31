@@ -251,44 +251,6 @@ info("_count_jobs set pack_desc_count to %u", pack_desc_count);			/* wjb */
 	return pack_desc_count;
 }
 
-/*
-int _build_pack_structs(int count)
-{
-	int rc = 0;
-	int i;
-
-	pack_job_env = xmalloc(sizeof(pack_job_env_t) * count);
-	for (i = 0; i < count; i++) {
-		pack_job_env[i].opt = xmalloc(sizeof(opt_t));
-		memset(pack_job_env[i].opt, 0, sizeof(opt_t));
-		pack_job_env[i].env = xmalloc(sizeof(env_t));
-		memset(pack_job_env[i].env, 0, sizeof(env_t));
-		pack_job_env[i].job = xmalloc(sizeof(srun_job_t));
-		memset(pack_job_env[i].job, 0, sizeof(srun_job_t));
-		pack_job_env[i].resp = xmalloc(sizeof(resource_allocation_response_msg_t));
-		memset(pack_job_env[i].resp, 0, sizeof(resource_allocation_response_msg_t));
-		pack_job_env[i].packleader = false;
-		pack_job_env[i].pack_job = false;
-		pack_job_env[i].job_id = 0;
-		pack_job_env[i].pack_group=0;
-
-//		 initialize default values for env structure
-		pack_job_env[i].env->stepid = -1;
-		pack_job_env[i].env->procid = -1;
-		pack_job_env[i].env->localid = -1;
-		pack_job_env[i].env->nodeid = -1;
-		pack_job_env[i].env->cli = NULL;
-		pack_job_env[i].env->env = NULL;
-		pack_job_env[i].env->ckpt_dir = NULL;
-
-		/* initialize default value for opt.group_number */
-		pack_job_env[i].opt->group_number = i;  //dhp
-
-	}
-	return rc;
-}
-*/
-
 int _build_env_structs(int count, pack_job_env_t *pack_job_env)
 {
 	int rc = 0;
@@ -1602,82 +1564,6 @@ static void _pre_launch_srun_jobpack(void)
 	pre_launch_srun_job_pack(job, 0, 1);
 }
 
-/*
-static int _launch_srun_steps_jobpack(bool got_alloc)
-{
-	int i, pid, *forkpids;
-	opt_t *opt_ptr;
-	slurm_step_io_fds_t cio_fds = SLURM_STEP_IO_FDS_INITIALIZER;
-	slurm_step_launch_callbacks_t step_callbacks;
-
-//	MNP start experimental code to pipe stdin
-//	int stdinpipe[2];
-//	if (pipe(stdinpipe) < 0) {
-//		info("******** MNP error creating stdin pipe in parent srun");
-//		exit(0);
-//	}
-//	MNP end experimental code to pipe stdin
-
-//	For each job description, set stdio fds and fork child srun
-//	to handle I/O redirection and step launch
-//
-	forkpids = xmalloc(pack_desc_count * sizeof(int));
-	for (i = 0; i < pack_desc_count; i++) {
-		opt_ptr = _get_opt(i);
-		memcpy(&opt, opt_ptr, sizeof(opt_t));
-		job = _get_srun_job(i);
-		env = _get_env(i);
-		launch_common_set_stdio_fds(job, &cio_fds);
-		info("******** MNP forking child srun for pack desc# %d", i);
-		pid = fork();
-		if (pid < 0) {
-//			Error creating child srun process
-			info("******** MNP fork failed for pack desc# %d", i);
-			exit(0);
-		} else if (pid == 0) {
-//			Child srun process
-			info("******** MNP child srun (PID %d) running", getpid());
-			info("******** MNP %d: launching step for pack desc# %d", getpid(), i);
-//			MNP start experimental code to pipe stdin
-//			dup2(stdinpipe[0], STDIN_FILENO);
-//			close(stdinpipe[0]);
-//			MNP end experimental code to pipe stdin
-			if (!launch_g_step_launch(job, &cio_fds, &global_rc, &step_callbacks)) {
-				info("******** MNP %d: error from launch_g_step_launch, global_rc=%d", getpid(), global_rc);
-				if (launch_g_step_wait(job, got_alloc) == -1) {
-					info("******** MNP child srun PID %d: error from launch_g_step_wait", getpid());
-					exit(0);
-				}
-			}
-			fini_srun(job, got_alloc, &global_rc, 0);
-			info("******** MNP pid=%d, child has finished fini_srun, global_rc=%d", getpid(),global_rc);
-			exit(0);
-//			return (int)global_rc;
-		} else {
-			forkpids[i] = pid;
-			info("******** MNP in parent srun, adding child pid=%d to forkpids[%d]", pid, i);
-		}
-	}
-	info("******** MNP parent srun has forked all child sruns");
-//	Wait for all child sruns to exit
-//	MNP start experimental code to pipe stdin
-//	dup2(stdinpipe[1],STDOUT_FILENO);
-//	close(stdinpipe[1]);
-//	printf("This is the parent");
-//	MNP end experimental code to pipe stdin
-	for (i = 0; i < pack_desc_count; i++) {
-		int status;
-		while (waitpid(forkpids[i], &status, 0) == -1);
-		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-			info("******** MNP pid=%d, child srun pid=%d has failed, WEXITSTATUS(status)=%d", getpid(),forkpids[i], WEXITSTATUS(status));
-			info("******** MNP pid=%d, child srun pid=%d has failed, WIFEXITED(status)=%d", getpid(),forkpids[i], WIFEXITED(status));
-			exit(1);
-		}
-	}
-	info("******** MNP all child sruns have exited successfully");
-	return (int)global_rc;
-}
-*/
 
 static int _launch_srun_steps_jobpack(bool got_alloc)
 {

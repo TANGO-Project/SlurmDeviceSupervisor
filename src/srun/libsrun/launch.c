@@ -327,7 +327,20 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 		if (job->step_ctx != NULL) {
 			if (i > 0)
 				info("Job step created");
-
+			// MNP PMI start
+			job->step_ctx->mpi_jobid = opt.mpi_jobid; // MNP PMI
+			debug("******** MNP, in launch_common_create_job_step, job->step_ctx->mpi_jobid = opt.mpi_jobid=%d", opt.mpi_jobid);
+			slurm_step_ctx_t *step_ctx = job->step_ctx;
+			job_step_create_response_msg_t *step_resp = step_ctx->step_resp;
+			slurm_step_layout_t *layout = step_resp->step_layout;
+	//		layout->mpi_tids = xmalloc(layout->task_cnt * sizeof(uint32_t));
+			debug("******** MNP pid=%d, in launch_common_create_job_step", getpid());
+			for (j=0; j<layout->node_cnt; j++) {
+				for(k=0; k<layout->tasks[j]; k++) {
+					layout->mpi_tids[j][k] = layout->tids[j][k] + opt.mpi_stepftaskid;
+					debug("******** MNP pid=%d, tids[%d][%d]=%d, mpi_tids[%d][%d]=%d", getpid(),j,k,layout->tids[j][k],j,k,layout->mpi_tids[j][k]);
+				}
+			} // MNP PMI end
 			break;
 		}
 		rc = slurm_get_errno();

@@ -166,7 +166,7 @@ int _count_jobs(int ac, char **av)
 				       "following pack job delimiter" );
 		}
 	}
-if(pack_desc_count) pack_desc_count++;
+	if(pack_desc_count) pack_desc_count++;
 	return pack_desc_count;
 }
 
@@ -833,8 +833,8 @@ info("on entr env == NULL");
 	if (atexit((void (*) (void)) spank_fini) < 0)
 		error("Failed to register atexit handler for plugins: %m");
 
-		rc = _build_env_structs(argc, argv);
-		rc = _identify_job_descriptions(argc, argv);
+	rc = _build_env_structs(argc, argv);
+	rc = _identify_job_descriptions(argc, argv);
 
 //info("******************** entering first loop **********************");		/* wjb */
 	for (job_index = pack_desc_count; job_index > 0; job_index--) {
@@ -842,7 +842,6 @@ info("on entr env == NULL");
 		packleader = pack_job_env[group_number].packleader;
 		packjob = pack_job_env[group_number].pack_job;
 		if (packleader == true) {
-
 			if ((strcmp(pack_job_id, "") == 0))
 				fatal( "found packleader but no pack job id" );
 			xstrcat(pack_job_env[group_number].av[packl_dependency_position],
@@ -986,6 +985,9 @@ info("on entr env == NULL");
 				debug("%s", msg);
 			sleep (++retries);
 		}
+		if (!alloc) {
+			fatal("JPCK: failed to allocate pack member");
+		}
 	} else if (packleader == true) {
 		while ((alloc = slurm_allocate_resources_blocking(&desc,
 			opt.immediate, _pending_callback)) == NULL) {
@@ -997,6 +999,9 @@ info("on entr env == NULL");
 			else
 				debug("%s", msg);
 			sleep (++retries);
+		}
+		if (!alloc) {
+		fatal("JPCK: failed to allocate packleader");
 		}
 		pack_job_env[group_number].job_id = alloc->job_id;
 	}
@@ -1035,6 +1040,7 @@ info("on entr env == NULL");
 		/*
 		 * Allocation granted!
 		 */
+
 		info("Granted job allocation %u", alloc->job_id);
 		pending_job_id = alloc->job_id;
 #ifdef HAVE_BG
@@ -1207,7 +1213,8 @@ relinquish:
 	pthread_mutex_lock(&allocation_state_lock);
 	if (allocation_state != REVOKED) {
 		pthread_mutex_unlock(&allocation_state_lock);
-	for (group_number = 0; group_number < pack_desc_count; group_number++) {
+	for (group_number = 0; group_number < pack_desc_count;
+	     group_number++) {
 		_copy_alloc_struct(alloc, pack_job_env[group_number].alloc);
 		info("Relinquishing job allocation %u", alloc->job_id);
 		if ((slurm_complete_job(alloc->job_id, status) != 0) &&

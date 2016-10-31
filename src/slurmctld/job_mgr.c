@@ -5034,10 +5034,15 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 	struct depend_spec *ldr_dep_ptr;
 	struct job_record *job_ptr;
 	struct job_record *mbr_job;
+	uint64_t debug_flags;
 
+	debug_flags = slurm_get_debug_flags();
 	job_ptr = find_job_record(job_id);
 	if (job_ptr == NULL) {
-		debug("JPCK: RBS job_complete failed to find job=%d (assume ESLURM_ALREADY_DONE)", job_id);
+		if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+			info("JPCK: job_complete failed to find job=%d "
+			     "(assume ESLURM_ALREADY_DONE)", job_id);
+		}
 		return ESLURM_ALREADY_DONE;
 	}
 
@@ -5052,14 +5057,18 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 					list_next(depend_iter))) {
 				if (ldr_dep_ptr->depend_type ==
 							SLURM_DEPEND_PACK) {
-					debug("JPCK: RBS: not completing pack %d, will wait for it's leader",ldr_dep_ptr->job_id);
+					if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+						info("JPCK: not completing"
+						     "pack %d, will wait for "
+						     "it's leader",
+						     ldr_dep_ptr->job_id);
+					}
 					return SLURM_SUCCESS;
 				}
 				if (ldr_dep_ptr->depend_type !=
 							SLURM_DEPEND_PACKLEADER)
 					continue;
 				isleader = true;
-				debug("JPCK: RBS: found leader=%d in completion",ldr_dep_ptr->job_id);
 				mbr_job = ldr_dep_ptr->job_ptr;
 				/*
 				 * job_ptr is a pack leader.
@@ -5068,11 +5077,15 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 				 */
 				if (mbr_job->job_state == JOB_COMPLETE
 				    || mbr_job->job_state == JOB_COMPLETING) {
-					debug("JPCK: RBS: skipping pack member %d, already complete",ldr_dep_ptr->job_id);
+					if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+						info("JPCK: skipping pack "
+						     "member %d, (already "
+						     "complete)",
+						     ldr_dep_ptr->job_id);
+					}
 					continue;
 				}
-				if (slurm_get_debug_flags() &
-							DEBUG_FLAG_JOB_PACK) {
+				if (debug_flags & DEBUG_FLAG_JOB_PACK) {
 					info("JPCK: Completing pack member "
 					     "jobid=%d", ldr_dep_ptr->job_id);
 				}
@@ -5080,17 +5093,15 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 							  false, false,
 							  job_return_code);
 
-				if (rc != SLURM_SUCCESS) {
+				if ((debug_flags & DEBUG_FLAG_JOB_PACK)
+				    && (rc != SLURM_SUCCESS)) {
 					if (rc == ESLURM_ALREADY_DONE) {
-/* RBS: TODO -- this is okay for standalong srun.
- *              revisit for step-launch srun. Hopefully is is okay,
- *              or something else obvious breaks. */
-						debug("JPCK: pack job %d is "
+						info("JPCK: pack job %d is "
 						      "already complete",
 						      ldr_dep_ptr->job_id);
 
 					} else {
-						debug("JPCK: Failed to complete "
+						info("JPCK: Failed to complete "
 						      "pack job %d",
 						      ldr_dep_ptr->job_id);
 					}
@@ -5101,7 +5112,13 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 		if (isleader) {
 			if (job_ptr->job_state == JOB_COMPLETE
 			    || job_ptr->job_state == JOB_COMPLETING) {
-				debug("JPCK: RBS: skipping job pack leader %d, already complete",ldr_dep_ptr->job_id);
+				if (slurm_get_debug_flags() &
+						DEBUG_FLAG_JOB_PACK) {
+
+					info("JPCK: skipping job pack leader "
+					     "%d, (already complete)",
+					     ldr_dep_ptr->job_id);
+				}
 				return SLURM_SUCCESS;
 			}
 			if (slurm_get_debug_flags() & DEBUG_FLAG_JOB_PACK) {
@@ -7742,8 +7759,6 @@ void job_time_limit(void)
 				last_job_update = now;
 				info("Time limit exhausted for JobId=%u",
 				     job_ptr->job_id);
-				debug("JPCK: RBS -- Time limit exhausted for JobId=%u",
-				     job_ptr->job_id);
 				_job_timed_out(job_ptr);
 				job_ptr->state_reason = FAIL_TIMEOUT;
 				xfree(job_ptr->state_desc);
@@ -7757,9 +7772,13 @@ void job_time_limit(void)
 					if (dep_ptr->depend_type != SLURM_DEPEND_PACKLEADER) {
 						continue;
 					}
-					debug("JPCK: ***RBS*** killing pack member=%d "
-			                     "because leader time exhausted",
-			                     dep_ptr->job_id);
+					if (slurm_get_debug_flags() &
+							DEBUG_FLAG_JOB_PACK) {
+						info("JPCK: killing pack member"
+						     "=%d (leader time "
+						     "exhausted",
+						     dep_ptr->job_id);
+					}
 					dep_job = dep_ptr->job_ptr;
 					if (dep_job == NULL)
 						continue;
@@ -15898,6 +15917,7 @@ _kill_dependent(struct job_record *job_ptr)
 	srun_allocate_abort(job_ptr);
 }
 
+
 static void _free_job_fed_details(job_fed_details_t **fed_details_pptr)
 {
 	job_fed_details_t *fed_details_ptr = *fed_details_pptr;
@@ -15976,4 +15996,68 @@ extern void set_job_fed_details(struct job_record *job_ptr,
 	job_ptr->fed_details->origin_str =
 		fed_mgr_get_cluster_name(
 				fed_mgr_get_cluster_id(job_ptr->job_id));
+/*
+ * Create a node list containing all the nodes allocated to all the members
+ * of a job pack. (Also works for legacy jobs).
+ *
+ * Parameters
+ * 	job_id	- uint32_t, job id of pack leader.
+ * 		  If that job is not a pack leader, the nodelist of the
+ * 		  nodes allocated to that single job description is returned.
+ * 	nodelist - char** xmalloc'd string, in hostlist form of all nodes
+ * 		  in all job descriptions in job.
+ * 		  Callers responsibility to xfree().
+ *
+ * Returns - number of nodes in the nodelist.
+ *
+ */
+uint32_t get_pack_nodelist(uint32_t job_id,  char **nodelist)
+{
+	List pack_depend;
+	ListIterator depend_iter;
+	struct depend_spec *ldr_dep_ptr;
+	struct job_record *job_ptr;
+	bitstr_t *job_node_bitmap = NULL;
+	uint32_t node_count;
+
+	if (nodelist == NULL)
+		fatal("get_pack_nodelist -- nodelist is NULL");
+
+	job_ptr = find_job_record(job_id);
+	if (job_ptr == NULL) {
+		/* Shouldn't happen but we don't want to bring the controller
+		 * down */
+		error("failed to find job_record for job_id=%d", job_id);
+		return 0;
+	}
+	job_node_bitmap = bit_copy(job_ptr->node_bitmap);
+	if (job_ptr->details == NULL)
+		goto legacy;
+	pack_depend = job_ptr->details->depend_list;
+	if (pack_depend == NULL)
+		goto legacy;
+	depend_iter = list_iterator_create(pack_depend);
+	while ((ldr_dep_ptr = (struct depend_spec *) list_next(depend_iter))) {
+		if (ldr_dep_ptr->depend_type != SLURM_DEPEND_PACKLEADER)
+			goto legacy;
+		/* We are the packleader. If we've gotten here,
+		 * the members have already been allocated.
+		 */
+		if (ldr_dep_ptr->job_ptr->node_bitmap == NULL) {
+			error("JPCK: member=%d for leader=%d has no bitmat",
+					ldr_dep_ptr->job_id, job_id);
+			continue;
+		}
+		bit_or(job_node_bitmap, ldr_dep_ptr->job_ptr->node_bitmap);
+	}
+	list_iterator_destroy(depend_iter);
+/*
+ * Not a pack leader, simply return the nodelist of the nodes in the
+ * jobs bitmap.
+ */
+legacy:
+	*nodelist = bitmap2node_name_sortable(job_node_bitmap, true);
+	node_count = bit_set_count(job_node_bitmap);
+	FREE_NULL_BITMAP(job_node_bitmap);
+	return node_count;
 }
