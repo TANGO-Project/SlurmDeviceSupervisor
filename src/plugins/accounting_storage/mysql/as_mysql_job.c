@@ -1092,14 +1092,15 @@ extern int as_mysql_step_start(mysql_conn_t *mysql_conn,
 		"insert into \"%s_%s\" (job_db_inx, id_step, time_start, "
 		"step_name, state, tres_alloc, "
 		"nodes_alloc, task_cnt, nodelist, node_inx, "
-		"task_dist, req_cpufreq, req_cpufreq_min, req_cpufreq_gov) "
+		"task_dist, req_cpufreq, req_cpufreq_min, req_cpufreq_gov, "
+		"packjobid, packstepid) "
 		"values (%"PRIu64", %d, %d, '%s', %d, '%s', %d, %d, "
-		"'%s', '%s', %d, %u, %u, %u) "
+		"'%s', '%s', %d, %u, %u, %u, %u, %u) "
 		"on duplicate key update "
 		"nodes_alloc=%d, task_cnt=%d, time_end=0, state=%d, "
 		"nodelist='%s', node_inx='%s', task_dist=%d, "
 		"req_cpufreq=%u, req_cpufreq_min=%u, req_cpufreq_gov=%u,"
-		"tres_alloc='%s';",
+		"tres_alloc='%s', packjobid=%u, packstepid=%u;",
 		mysql_conn->cluster_name, step_table,
 		step_ptr->job_ptr->db_index,
 		step_ptr->step_id,
@@ -1107,38 +1108,11 @@ extern int as_mysql_step_start(mysql_conn_t *mysql_conn,
 		JOB_RUNNING, step_ptr->tres_alloc_str,
 		nodes, tasks, node_list, node_inx, task_dist,
 		step_ptr->cpu_freq_max, step_ptr->cpu_freq_min,
-		step_ptr->cpu_freq_gov, nodes, tasks, JOB_RUNNING,
-		node_list, node_inx, task_dist, step_ptr->cpu_freq_max,
+		step_ptr->cpu_freq_gov, packjobid, packstepid,
+		nodes, tasks, JOB_RUNNING, node_list, node_inx,
+		task_dist, step_ptr->cpu_freq_max,
 		step_ptr->cpu_freq_min, step_ptr->cpu_freq_gov,
-		step_ptr->tres_alloc_str);
-
-	if (packjobid)
-		xstrcat(query, ", packjobid, packstepid");
-	xstrfmtcat(query,
-		   ") values (%"PRIu64", %d, %d, '%s', %d, '%s', %d, %d, "
-		   "'%s', '%s', %d, %u, %u, %u",
-		   step_ptr->job_ptr->db_index,
-		   step_ptr->step_id,
-		   (int)start_time, step_name,
-		   JOB_RUNNING, step_ptr->tres_alloc_str,
-		   nodes, tasks, node_list, node_inx, task_dist,
-		   step_ptr->cpu_freq_max, step_ptr->cpu_freq_min,
-		   step_ptr->cpu_freq_gov);
-	if (packjobid)
-		xstrfmtcat(query, ", %u, %u", packjobid, packstepid);
-	xstrfmtcat(query,
-		   ") on duplicate key update "
-		   "nodes_alloc=%d, task_cnt=%d, time_end=0, state=%d, "
-		   "nodelist='%s', node_inx='%s', task_dist=%d, "
-		   "req_cpufreq=%u, req_cpufreq_min=%u, "
-		   "req_cpufreq_gov=%u, tres_alloc='%s'",
-		   nodes, tasks, JOB_RUNNING,
-		   node_list, node_inx, task_dist, step_ptr->cpu_freq_max,
-		   step_ptr->cpu_freq_min, step_ptr->cpu_freq_gov,
-		   step_ptr->tres_alloc_str);
-	if (packjobid)
-		xstrfmtcat(query, ", packjobid=%u, packstepid=%u", packjobid,
-			   packstepid);
+		step_ptr->tres_alloc_str, packjobid, packstepid);
 	if (debug_flags & DEBUG_FLAG_DB_STEP)
 
 		DB_DEBUG(mysql_conn->conn, "query\n%s", query);
