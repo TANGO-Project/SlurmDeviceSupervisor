@@ -612,6 +612,11 @@ int srun(int ac, char **av)
 	bool got_alloc = false;
 	slurm_step_io_fds_t cio_fds = SLURM_STEP_IO_FDS_INITIALIZER;
 	slurm_step_launch_callbacks_t step_callbacks;
+	char *nodelist_mpi = NULL;
+	int nodecnt_mpi = 0;
+	int taskcnt_mpi = 0;
+	hostlist_t hl = NULL;
+	char *tmp;
 
 	env->stepid = -1;
 	env->procid = -1;
@@ -720,6 +725,19 @@ int srun(int ac, char **av)
 
 		env->select_jobinfo = job->select_jobinfo;
 		env->nodelist = job->nodelist;
+
+		hl = hostlist_create(job->nodelist);
+		xstrcat(nodelist_mpi,
+			hostlist_deranged_string_xmalloc(hl));
+		nodecnt_mpi += hostlist_count(hl);
+		hostlist_destroy(hl);
+		setenv("SLURM_NODELIST_MPI", nodelist_mpi, 1);
+
+		int n = snprintf(NULL, 0, "%d", nodecnt_mpi);
+		tmp = xmalloc(n + 1);
+		sprintf(tmp, "%d", nodecnt_mpi);
+		setenv("SLURM_NNODES_MPI", tmp, 1);
+
 		env->partition = job->partition;
 		/* If we didn't get the allocation don't overwrite the
 		 * previous info.
@@ -728,6 +746,12 @@ int srun(int ac, char **av)
 			env->nhosts = job->nhosts;
 		env->ntasks = job->ntasks;
 		env->task_count = _uint16_array_to_str(job->nhosts, tasks);
+		taskcnt_mpi += job->ntasks;
+	        n = snprintf(NULL, 0, "%d", taskcnt_mpi);
+		tmp = xmalloc(n + 1);
+		sprintf(tmp, "%d", taskcnt_mpi);
+		setenv("SLURM_NTASKS_MPI", tmp, 1);
+
 		env->jobid = job->jobid;
 		env->stepid = job->stepid;
 		env->account = job->account;
@@ -1173,7 +1197,6 @@ static void _enhance_env_jobpack(bool got_alloc)
 	int nodecnt_mpi = 0;
 	int taskcnt_mpi = 0;
 	hostlist_t hl = NULL;
-	char *aggr = xmalloc(40);
 	char *tmp;
 
 	/* For each job description, enhance environment for job */
@@ -1225,13 +1248,12 @@ static void _enhance_env_jobpack(bool got_alloc)
 
 				env->select_jobinfo = job->select_jobinfo;
 				env->nodelist = job->nodelist;
-				/* aggregate the jobpack mpi env values */
-				sprintf(aggr, "SLURM_NODELIST_MPI_PACK_GROUP_%d",
-					opt.groupidx[j]);
-				if ((tmp = getenv (aggr))) {
-				        xstrcat(nodelist_mpi, tmp);
-					xstrcat(nodelist_mpi, ",");
-				}
+				hl = hostlist_create(job->nodelist);
+				xstrcat(nodelist_mpi,
+					hostlist_deranged_string_xmalloc(hl));
+				nodecnt_mpi += hostlist_count(hl);
+				xstrcat(nodelist_mpi, ",");
+				hostlist_destroy(hl);
 				env->partition = job->partition;
 				/* If we didn't get the allocation don't
 				* overwrite the previous info.
@@ -1242,11 +1264,7 @@ static void _enhance_env_jobpack(bool got_alloc)
 				env->task_count =
 					_uint16_array_to_str(job->nhosts,
 							     tasks);
-				/* aggregate the jobpack mpi env values */
-				sprintf(aggr, "SLURM_NTASKS_MPI_PACK_GROUP_%d",
-					opt.groupidx[j]);
-				if ((tmp = getenv (aggr)))
-				        taskcnt_mpi += atoi(tmp);
+				taskcnt_mpi += job->ntasks;
 				env->jobid = job->jobid;
 				env->stepid = job->stepid;
 				env->account = job->account;
@@ -1283,27 +1301,25 @@ static void _enhance_env_jobpack(bool got_alloc)
 			memcpy(opt_ptr, &opt, sizeof(opt_t));
 		}
 	}
-	xfree(aggr);
-	/* Set SLURM_NODELIST_MPI env */
-	/* trim off the trailing comma */
-	char *ch = strrchr(nodelist_mpi, ',');
-	if (ch != NULL) *ch = '\0';
-	setenv("SLURM_NODELIST_MPI", nodelist_mpi, 1);
 
-	/* Set SLURM_NNODES_MPI env */
-        hl = hostlist_create(nodelist_mpi);
-        nodecnt_mpi = hostlist_count(hl);
-        hostlist_destroy(hl);
-        int n = snprintf(NULL, 0, "%d", nodecnt_mpi);
-        tmp = xmalloc(n + 1);
-        sprintf(tmp, "%d", nodecnt_mpi);
-        setenv("SLURM_NNODES_MPI", tmp, 1);
+	/* Set SLURM_XXX_MPI envs */
+	int n = 0;
+	if (nodelist_mpi) {
+	        char *ch = strrchr(nodelist_mpi, ',');
+		if (ch != NULL) *ch = '\0';
+		setenv("SLURM_NODELIST_MPI", nodelist_mpi, 1);
 
-	/* Set SLURM_NTASKS_MPI env */
-        n = snprintf(NULL, 0, "%d", taskcnt_mpi);
-        tmp = xmalloc(n + 1);
-        sprintf(tmp, "%d", taskcnt_mpi);
-        setenv("SLURM_NTASKS_MPI", tmp, 1);
+		n = snprintf(NULL, 0, "%d", nodecnt_mpi);
+		tmp = xmalloc(n + 1);
+		sprintf(tmp, "%d", nodecnt_mpi);
+		setenv("SLURM_NNODES_MPI", tmp, 1);
+	}
+	if (taskcnt_mpi) {
+	        n = snprintf(NULL, 0, "%d", taskcnt_mpi);
+		tmp = xmalloc(n + 1);
+		sprintf(tmp, "%d", taskcnt_mpi);
+		setenv("SLURM_NTASKS_MPI", tmp, 1);
+	}
 }
 
 static void _pre_launch_srun_jobpack(void)

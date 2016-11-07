@@ -614,10 +614,6 @@ int main(int argc, char **argv)
 		goto relinquish;
 	}
 
-        /* add SLURM_NODELIST_MPI to env */
-        env_array_overwrite_fmt(&env, "SLURM_NODELIST_MPI",
-				"%s", alloc->node_list);
-
 	/*
 	 * Run the user's command.
 	 */
@@ -630,9 +626,6 @@ int main(int argc, char **argv)
 		/* keep around for old scripts */
 		env_array_append_fmt(&env, "SLURM_NPROCS", "%d", opt.ntasks);
 	}
-        /* add SLURM_NTASKS_MPI to env */
-        env_array_overwrite_fmt(&env, "SLURM_NTASKS_MPI",
-					"%d", opt.ntasks);
 	if (opt.cpus_set) {
 		env_array_append_fmt(&env, "SLURM_CPUS_PER_TASK", "%d",
 				     opt.cpus_per_task);
@@ -1091,21 +1084,8 @@ int main_jobpack(int argc, char *argv[])
 		opt.jobid = pack_job_env[group_number].job_id;
 		alloc = existing_allocation();
 
-		hostlist = hostlist_create(alloc->node_list);
-		aggr_nodelistptr = hostlist_deranged_string_xmalloc(hostlist);
-		xstrcat(aggregate_hosts, aggr_nodelistptr);
-		if (group_number < (pack_desc_count - 1))
-		        xstrcat(aggregate_hosts, ",");
-		hostlist_destroy(hostlist);
-
-
 		env_array_overwrite_fmt(&env, "SLURM_GROUP_NUMBER",
 					"%d", group_number);
-
-		/* add SLURM_NODELIST_MPI to env */
-		env_array_overwrite_fmt(&env, "SLURM_NODELIST_MPI",
-					"%s", aggr_nodelistptr);
-		xfree(aggr_nodelistptr);
 
 		_copy_alloc_struct(pack_job_env[group_number].alloc, alloc);
 
@@ -1123,10 +1103,6 @@ int main_jobpack(int argc, char *argv[])
 			env_array_append_fmt(&env, "SLURM_NPROCS", "%d",
 					     opt.ntasks);
 		}
-		/* add SLURM_NTASKS_MPI to env */
-		env_array_overwrite_fmt(&env, "SLURM_NTASKS_MPI",
-					"%d", opt.ntasks);
-
 		pack_tot_ntasks += opt.ntasks;
 		if (opt.cpus_set) {
 		  env_array_append_fmt(&env, "SLURM_CPUS_PER_TASK", "%d",

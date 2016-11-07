@@ -2337,8 +2337,6 @@ static void _add_jobpack_envs(char **member_env, int numpack, int ntasks,
 	uint32_t nnodes_pack;
 	char *nodelist_pack;
 	char *packptr = NULL;
-	char *nodelistptr = NULL;
-	hostlist_t hostlist = NULL;
 	int i, j;
 
 	/* add SLURM_NUMPACK to member_env */
@@ -2370,14 +2368,6 @@ static void _add_jobpack_envs(char **member_env, int numpack, int ntasks,
 			     "%s", packptr);
         xfree(packptr);
 
-	/* add SLURM_NODELIST_MPI to member_env */
-	hostlist = hostlist_create(job_ptr->nodes);
-	nodelistptr = hostlist_deranged_string_xmalloc(hostlist);
-	env_array_overwrite_fmt(&member_env, "SLURM_NODELIST_MPI",
-				"%s", nodelistptr);
-	xfree(nodelistptr);
-	hostlist_destroy(hostlist);
-
 	member_envc = envcount(member_env);
 	if (member_envc) {
 		xrealloc(launch_msg_ptr->environment,
@@ -2405,8 +2395,6 @@ static char ** _check_for_jobpack_envs(struct job_record *job_ptr,
 	char *ntaskmember = NULL;
 	int packcnt = 0;
 	uint32_t group_number = -1;
-	char *nodelistptr = NULL;
-	hostlist_t hostlist = NULL;
 
 	if (job_ptr->details == NULL) {
 		return NULL;
@@ -2448,14 +2436,6 @@ static char ** _check_for_jobpack_envs(struct job_record *job_ptr,
 						"%s", tmp);
 			group_number = atoi(tmp);
 		}
-
-		/* add SLURM_NODELIST_MPI to member_env */
-		hostlist = hostlist_create(dep_job_ptr->nodes);
-		nodelistptr = hostlist_deranged_string_xmalloc(hostlist);
-		env_array_overwrite_fmt(&member_env, "SLURM_NODELIST_MPI",
-				     "%s", nodelistptr);
-		xfree(nodelistptr);
-		hostlist_destroy(hostlist);
 
 		/* populate member_env with launch env list */
 		env_array_for_batch_job(&member_env,
