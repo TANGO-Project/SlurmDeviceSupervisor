@@ -1263,6 +1263,8 @@ extern int create_cluster_tables(mysql_conn_t *mysql_conn, char *cluster_name)
 		{ "job_db_inx", "bigint unsigned not null" },
 		{ "deleted", "tinyint default 0 not null" },
 		{ "exit_code", "int default 0 not null" },
+		{ "id_packjob", "int unsigned default 0 not null"},
+		{ "id_packstep", "int unsigned default 0 not null"},
 		{ "id_step", "int not null" },
 		{ "kill_requid", "int default -1 not null" },
 		{ "nodelist", "text not null" },
@@ -1309,8 +1311,6 @@ extern int create_cluster_tables(mysql_conn_t *mysql_conn, char *cluster_name)
 		{ "max_disk_write_node", "int unsigned default 0 not null" },
 		{ "ave_disk_write", "double unsigned default 0.0 not null" },
 		{ "tres_alloc", "text not null default ''" },
-		{ "packjobid", "int unsigned default 0 not null"},
-		{ "packstepid", "int unsigned default 0 not null"},
 		{ NULL, NULL}
 	};
 
