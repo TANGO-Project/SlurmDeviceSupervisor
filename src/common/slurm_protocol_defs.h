@@ -739,6 +739,7 @@ typedef struct job_step_specs {
 	uint16_t immediate;	/* 1 if allocate to run or fail immediately,
 				 * 0 if to be queued awaiting resources */
 	uint32_t job_id;	/* job ID */
+	uint32_t mpi_jobid;	/* MPI job ID */
 	uint64_t pn_min_memory; /* minimum real memory per node OR
 				 * real memory per CPU | MEM_PER_CPU,
 				 * default=0 (use job limit) */
@@ -865,13 +866,9 @@ typedef struct launch_tasks_request_msg {
 	char *restart_dir;	/* restart from checkpoint if set */
 	char **spank_job_env;
 	uint32_t spank_job_env_size;
-	char **pelog_env;
-	uint32_t pelog_env_size;
 	dynamic_plugin_data_t *select_jobinfo; /* select context, opaque data */
 	char *alias_list;	/* node name/address/hostnamne aliases */
 	char *partition;	/* partition that job is running in */
-	uint32_t packjobid;	/* jobid of srun first step */
-	uint32_t packstepid;	/* stepid of srun first step */
 } launch_tasks_request_msg_t;
 
 typedef struct task_user_managed_io_msg {
@@ -1053,11 +1050,11 @@ typedef struct batch_job_launch_msg {
 	uint16_t restart_cnt;	/* batch job restart count	*/
 	char **spank_job_env;	/* SPANK job environment variables */
 	uint32_t spank_job_env_size;	/* size of spank_job_env */
-	char **pelog_env;	/* other prolog/epilog job env variables */
-	uint32_t pelog_env_size;/* size of pelog_env */
 	char *resv_name;        /* job's reservation */
-    char *resv_ports;       /* reserve ports for jobpack nodes */
-    uint32_t group_number;  /* jobpack group number index */
+	char **pelog_env;       /* prolog/epilog environment vars */
+	uint32_t pelog_env_size;
+	char *resv_ports;       /* reserve ports for jobpack nodes */
+	uint32_t group_number;  /* jobpack group number index */
 } batch_job_launch_msg_t;
 
 typedef struct job_id_request_msg {
