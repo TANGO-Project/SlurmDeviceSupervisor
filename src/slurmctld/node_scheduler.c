@@ -155,8 +155,8 @@ static int _will_jpck_ldr_run(struct job_record *job_ptr, bool orphan,
 				uint32_t max_nodes, uint32_t req_nodes,
 				List preemptee_candidates,
 				bitstr_t *exc_core_bitmap);
-static void _addto_jobpack_pelog_env(struct job_record **job_pptr);
-static void _addto_jobpack_pelog_env_prolog (struct job_record **job_pptr);
+static void _addto_jobpack_pelog_env(struct job_record **job_pptr,
+				     bool prologflag);
 static void _set_resv_ports_jobpack(struct job_record *job_ptr);
 
 /*
@@ -536,7 +536,7 @@ extern void deallocate_nodes(struct job_record *job_ptr, bool timeout,
 					    job_ptr->spank_job_env);
 	kill_job->spank_job_env_size = job_ptr->spank_job_env_size;
 	/* Add epilog env vars to epilog env */
-	_addto_jobpack_pelog_env(&job_ptr);
+	_addto_jobpack_pelog_env(&job_ptr, false);
 	kill_job->pelog_env = xduparray(job_ptr->pelog_env_size,
 					    job_ptr->pelog_env);
 	kill_job->pelog_env_size = job_ptr->pelog_env_size;
@@ -2685,7 +2685,7 @@ extern int select_nodes_pack(struct job_record *job_ptr, bool test_only,
 			    job_ptr->resv_ports == NULL)
 				_set_resv_ports_jobpack(job_ptr);
 			if (job_ptr->job_id == job_ptr->pack_leader) {
-				_addto_jobpack_pelog_env_prolog(&job_ptr);
+				_addto_jobpack_pelog_env(&job_ptr, true);
 				_launch_prolog(job_ptr);
 			}
 		}
@@ -4339,28 +4339,26 @@ cleanup:
 }
 
 /*
-  Build list of certain jobpack related env vars for the pack job
-  epilog environment. This procedure will only be called once - by
-  the first job in the jobpack that is deallocated. All pelog_env
-  vars will be saved for the entire jobpack during this one time
-  call.  It cannot be called again for the other pack jobs because
-  by then the previously processed pack job will be deallocated and
-  its resources gone.
+ * Build list of certain jobpack related env vars for the pack job
+ * prolog/epilog environments and stored in pelog_env. This procedure
+ * will only be called once - by the first job in the jobpack that calls
+ * this function. All pelog_env vars will be saved for the entire jobpack
+ * during this one time call. Only specific jobpack related env vars are
+ * added here but others could be added if needed.
  */
-static void _addto_jobpack_pelog_env(struct job_record **job_pptr)
+static void _addto_jobpack_pelog_env(struct job_record **job_pptr,
+				     bool prologflag)
 {
 	ListIterator depend_iter;
 	struct depend_spec *dep_ptr;
 	struct job_record *dep_job_ptr;
 	struct job_record *job_ptr, *jptr;
-	char **env = NULL;
+	char **env = env_array_create();
 	char *tmp;
 
 	job_ptr = *job_pptr;
 
 	if (job_ptr->pack_leader == 0) return;
-
-	if (job_ptr->pack_leader == job_ptr->job_id) return;
 
 	/* If we already processed the entire jobpack then return */
 	if (job_ptr->pelog_env_size) return;
@@ -4425,96 +4423,8 @@ static void _addto_jobpack_pelog_env(struct job_record **job_pptr)
 			env_array_merge(&dep_job_ptr->pelog_env,
 					(const char **) env);
 			dep_job_ptr->pelog_env_size = envcnt;
-		}
-	}
-
-	list_iterator_destroy(depend_iter);
-	xfree(tmp);
-	env_array_free(env);
-
-	*job_pptr = job_ptr;
-
-	return;
-}
-
-/*
-  Build list of certain jobpack related env vars for the pack job
-  prolog environment. This procedure will only be called once - by
-  the packleader job being allocated. All pelog_env vars will be
-  saved for the entire jobpack during this one time call.
- */
-static void _addto_jobpack_pelog_env_prolog (struct job_record **job_pptr)
-{
-	ListIterator depend_iter;
-	struct depend_spec *dep_ptr;
-	struct job_record *dep_job_ptr;
-	struct job_record *job_ptr;
-	char **env = env_array_create();
-	int numpack;
-	char *tmp;
-
-	job_ptr = *job_pptr;
-
-	if (job_ptr->pack_leader == 0) return;
-
-	if (job_ptr->pack_leader != job_ptr->job_id) return;
-
-	if (job_ptr && job_ptr->details == NULL)
-		return;
-
-	if (job_ptr && job_ptr->details->depend_list == NULL)
-	        return;
-
-	numpack = job_ptr->numpack;
-	env_array_append_fmt(&env, "SLURM_NUMPACK", "%d", numpack);
-
-	env_array_append_fmt(&env, "SLURM_PACKLEADERID",
-			     "%d", job_ptr->pack_leader);
-
-	env_array_append_fmt(&env, "SLURM_NODELIST_PACK_GROUP_0",
-			     "%s", job_ptr->nodes);
-
-	if (job_ptr->resv_ports)
-	        env_array_append_fmt(&env, "SLURM_RESV_PORTS_PACK_GROUP_0",
-			     "%s", job_ptr->resv_ports);
-
-	tmp = xmalloc(40);
-	depend_iter =
-	        list_iterator_create(job_ptr->details->depend_list);
-	while ((dep_ptr = (struct depend_spec *)
-		list_next(depend_iter))) {
-	        if (dep_ptr->depend_type != SLURM_DEPEND_PACKLEADER)
-		        continue;
-		dep_job_ptr = dep_ptr->job_ptr;
-		sprintf(tmp, "SLURM_NODELIST_PACK_GROUP_%d",
-			dep_job_ptr->group_number);
-		env_array_append_fmt(&env, tmp, "%s", dep_job_ptr->nodes);
-		if (dep_job_ptr->resv_ports) {
-			sprintf(tmp, "SLURM_RESV_PORTS_PACK_GROUP_%d",
-				dep_job_ptr->group_number);
-			env_array_append_fmt(&env, tmp, "%s",
-					     dep_job_ptr->resv_ports);
-		}
-	}
-
-	/* add to pelog_env list for each pack job */
-	int envcnt = envcount(env);
-	if (envcnt) {
-		env_array_merge(&job_ptr->pelog_env,
-				(const char **) env);
-		job_ptr->pelog_env_size = envcnt;
-	}
-	list_iterator_reset(depend_iter);
-	while ((dep_ptr = (struct depend_spec *)
-		list_next(depend_iter))) {
-	        if (dep_ptr->depend_type != SLURM_DEPEND_PACKLEADER)
-		        continue;
-		dep_job_ptr = dep_ptr->job_ptr;
-		if (envcnt) {
-			env_array_merge(&dep_job_ptr->pelog_env,
-					(const char **) env);
-			dep_job_ptr->pelog_env_size = envcnt;
-			_launch_prolog (dep_job_ptr);
+			if(prologflag)
+				_launch_prolog (dep_job_ptr);
 		}
 	}
 
