@@ -748,8 +748,7 @@ allocate_nodes_jobpack(bool handle_signals)
 	if (handle_signals)
 		xsignal_block(sig_array);
 
-		job_desc_msg_destroy(j);
-	
+	job_desc_msg_destroy(j);
 
 	return resp;
 

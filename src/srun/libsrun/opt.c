@@ -1855,11 +1855,11 @@ static void _set_options(const int argc, char **argv)
 		}
 		case LONG_OPT_PRIORITY: {
 			long long priority;
+			if (!(_check_jobpack__opt("--priority")))
+				break;
 			if (strcasecmp(optarg, "TOP") == 0) {
 				opt.priority = NO_VAL - 1;
 			} else {
-				priority = strtoll(optarg, NULL, 10);
-			if (_check_jobpack__opt("--priority")) 
 				priority = strtoll(optarg, NULL, 10);
 				if (priority < 0) {
 					error("Priority must be >= 0");
