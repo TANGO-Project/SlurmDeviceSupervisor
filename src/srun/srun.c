@@ -208,8 +208,9 @@ int _count_jobs(int ac, char **av)
 			pack_group_job = true;
 		}
 	}
-	if(pack_desc_count) pack_desc_count++;
-	if ((tmp = getenv ("SLURM_NUMPACK"))) {
+	if (pack_desc_count)
+		pack_desc_count++;
+	if ((tmp = getenv("SLURM_NUMPACK"))) {
 		pgj = atoi(tmp);
 		if (pgj > 1) {
 			pack_group_job = true;
