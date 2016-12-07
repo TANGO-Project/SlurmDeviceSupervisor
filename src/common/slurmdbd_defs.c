@@ -3298,7 +3298,6 @@ slurmdbd_pack_job_start_msg(void *in,
 		packstr(msg->name, buffer);
 		packstr(msg->nodes, buffer);
 		packstr(msg->node_inx, buffer);
-		pack32(msg->pack_leader, buffer);				/* wjb */
 		packstr(msg->partition, buffer);
 		pack32(msg->priority, buffer);
 		pack32(msg->qos_id, buffer);
