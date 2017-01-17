@@ -4448,6 +4448,59 @@ static int _job_signal(struct job_record *job_ptr, uint16_t signal,
 }
 
 /*
+ * kill_job_pack - signal all jobs in the job_pack
+ * IN job_id - id of the job to be signaled
+ * IN signal - signal to send, SIGKILL == cancel the job
+ * IN flags  - see KILL_JOB_* flags in slurm.h
+ * IN uid - uid of requesting user
+ * IN preempt - true if job being preempted
+ * RET 0 on success, otherwise ESLURM error code
+ */
+static int _kill_job_pack(uint32_t job_id, struct job_record *job_ptr,
+		uint16_t signal, uint16_t flags, uid_t uid, bool preempt)
+{
+	ListIterator dep_iter;
+	struct depend_spec *dep_ptr;
+	struct job_record *mbr_ptr;
+	uint64_t debug_flags;
+
+	debug_flags = slurm_get_debug_flags();
+
+	if (job_ptr->details == NULL
+			|| (job_ptr->details->depend_list == NULL)) {
+		/* Shouldn't happen */
+		return _job_signal(job_ptr, signal, flags, uid, preempt);
+	}
+
+	dep_iter = list_iterator_create(job_ptr->details->depend_list);
+	dep_ptr = (struct depend_spec *) list_next(dep_iter);
+	while (dep_ptr != NULL) {
+		mbr_ptr = dep_ptr->job_ptr;
+		if (!IS_JOB_COMPLETING(mbr_ptr)
+		    && !IS_JOB_FINISHED(mbr_ptr)) {
+			if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+				info("JPCK: kill job_pack -- member=%d "
+				     "leader=%d", dep_ptr->job_id,
+				     job_ptr->job_id);
+			}
+			_job_signal(mbr_ptr, signal, flags, uid, preempt);
+		}
+		dep_ptr = (struct depend_spec *) list_next(dep_iter);
+	}
+	list_iterator_destroy(dep_iter);
+
+	if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+		info("JPCK: kill job_pack --leader=%d org_job_signalled=%d",
+		      job_ptr->job_id, job_id);
+	}
+	if (IS_JOB_COMPLETING(job_ptr))
+		return ESLURM_ALREADY_DONE;
+	if (IS_JOB_FINISHED(job_ptr))
+		return ESLURM_ALREADY_DONE;
+	return _job_signal(job_ptr, signal, flags, uid, preempt);
+}
+
+/*
  * job_signal - signal the specified job
  * IN job_id - id of the job to be signaled
  * IN signal - signal to send, SIGKILL == cancel the job
@@ -4460,6 +4513,10 @@ extern int job_signal(uint32_t job_id, uint16_t signal, uint16_t flags,
 		      uid_t uid, bool preempt)
 {
 	struct job_record *job_ptr;
+	ListIterator dep_iter;
+	struct depend_spec *dep_ptr;
+	struct job_record *ldr_ptr;
+	uint32_t ldr_id;;
 
 	job_ptr = find_job_record(job_id);
 	if (job_ptr == NULL) {
@@ -4474,9 +4531,54 @@ extern int job_signal(uint32_t job_id, uint16_t signal, uint16_t flags,
 		      "uid %d", job_ptr->job_id, uid);
 		return ESLURM_ACCESS_DENIED;
 	}
+	if (!validate_slurm_user(uid) && (signal == SIGKILL) &&
+	    job_ptr->part_ptr &&
+	    (job_ptr->part_ptr->flags & PART_FLAG_ROOT_ONLY) && wiki2_sched) {
+		info("Attempt to cancel Moab job using Slurm command from "
+		     "uid %d", uid);
+		return ESLURM_ACCESS_DENIED;
+	}
+	/*
+	 * RBS -- JPCK
+	 * First pass, if SIGKILL, and member of job_pack, kill entire pack.
+	 * Ultimately, will want to support --pack-member to kill a single
+	 * pack member. This will require a protocol change in the
+	 * job_step_kill_msg
+	 */
 
+	if ((signal == SIGKILL)
+	    && (job_ptr->details != NULL)
+	    && (job_ptr->details->depend_list != NULL)) {
+		/* Could  be a job_pack */
+		dep_iter = list_iterator_create(job_ptr->details->depend_list);
+		dep_ptr = (struct depend_spec *) list_next(dep_iter);
+		if (dep_ptr != NULL
+		    && dep_ptr->depend_type == SLURM_DEPEND_PACKLEADER) {
+			/* Pack leader, have to kill members too */
+			list_iterator_destroy(dep_iter);
+			return _kill_job_pack(job_id, job_ptr, signal, flags,
+					      uid, preempt);
+		}
+		if (dep_ptr != NULL
+		    && dep_ptr->depend_type == SLURM_DEPEND_PACK) {
+			/* Pack member, have to kill members too */
+			list_iterator_destroy(dep_iter);
+			ldr_id = dep_ptr->pack_leader;
+			ldr_ptr = find_job_record(ldr_id);
+			if (ldr_ptr) {
+				return _kill_job_pack(job_id, ldr_ptr, signal,
+						      flags, uid, preempt);
+			} else {
+				debug2("JPCK: job_signal_pack -- no job rec for"
+				     " leader=%d of member %d", ldr_id, job_id);
+				return SLURM_FAILURE;
+			}
+		}
+		list_iterator_destroy(dep_iter);
+	}
 	return _job_signal(job_ptr, signal, flags, uid, preempt);
 }
+
 
 /*
  * job_str_signal - signal the specified job
@@ -7767,9 +7869,11 @@ void job_time_limit(void)
 			if ((job_ptr->details == NULL) ||
 				    (job_ptr->details->depend_list == NULL))
 					continue;
-				dep_iter = list_iterator_create(job_ptr->details->depend_list);
+				dep_iter = list_iterator_create(
+						job_ptr->details->depend_list);
 				while ((dep_ptr = list_next(dep_iter))) {
-					if (dep_ptr->depend_type != SLURM_DEPEND_PACKLEADER) {
+					if (dep_ptr->depend_type
+						!= SLURM_DEPEND_PACKLEADER) {
 						continue;
 					}
 					if (slurm_get_debug_flags() &
@@ -16044,7 +16148,7 @@ uint32_t get_pack_nodelist(uint32_t job_id,  char **nodelist)
 		 * the members have already been allocated.
 		 */
 		if (ldr_dep_ptr->job_ptr->node_bitmap == NULL) {
-			error("JPCK: member=%d for leader=%d has no bitmat",
+			error("JPCK: member=%d for leader=%d has no bitmap",
 					ldr_dep_ptr->job_id, job_id);
 			continue;
 		}
