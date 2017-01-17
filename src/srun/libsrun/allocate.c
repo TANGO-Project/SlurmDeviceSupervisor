@@ -447,60 +447,6 @@ static int _wait_nodes_ready(resource_allocation_response_msg_t *alloc)
 }
 #endif	/* HAVE_BG */
 
-static bool _check_allocation_common(resource_allocation_response_msg_t *resp)
-{
-	/*
-	 * Allocation granted!
-	 */
-	pending_job_id = resp->job_id;
-
-	/*
-	 * These values could be changed while the job was
-	 * pending so overwrite the request with what was
-	 * allocated so we don't have issues when we use them
-	 * in the step creation.
-	 */
-	if (opt.pn_min_memory != NO_VAL)
-		opt.pn_min_memory = (resp->pn_min_memory &
-				     (~MEM_PER_CPU));
-	else if (opt.mem_per_cpu != NO_VAL)
-		opt.mem_per_cpu = (resp->pn_min_memory &
-				   (~MEM_PER_CPU));
-	/*
-	 * FIXME: timelimit should probably also be updated
-	 * here since it could also change.
-	 */
-
-#ifdef HAVE_BG
-	uint32_t node_cnt = 0;
-	select_g_select_jobinfo_get(resp->select_jobinfo,
-				    SELECT_JOBDATA_NODE_CNT,
-				    &node_cnt);
-	if ((node_cnt == 0) || (node_cnt == NO_VAL)) {
-		opt.min_nodes = node_cnt;
-		opt.max_nodes = node_cnt;
-	} /* else we just use the original request */
-
-	if (!_wait_bluegene_block_ready(resp)) {
-		if (!destroy_job)
-			error("Something is wrong with the "
-			      "boot of the block.");
-		return false;
-	}
-#else
-	opt.min_nodes = resp->node_cnt;
-	opt.max_nodes = resp->node_cnt;
-	
-	if (!_wait_nodes_ready(resp)) {
-		if (!destroy_job)
-			error("Something is wrong with the "
-			      "boot of the nodes.");
-		return false;
-	}
-#endif
-	return true;
-}
-
 int
 allocate_test(void)
 {
@@ -649,6 +595,9 @@ allocate_nodes_jobpack(bool handle_signals)
 	copy_opt_struct(desc[group_index].pack_job_env[job_index].opt, &opt);
 	if (!j)
 		return NULL;
+	if (pack_desc_count)
+		copy_opt_struct(desc[group_index].pack_job_env[job_index].opt,
+				 &opt);
 
 	/* Do not re-use existing job id when submitting new job
 	 * from within a running job */
@@ -738,39 +687,69 @@ allocate_nodes_jobpack(bool handle_signals)
 			/* save response message for pack-member */
 			copy_resp_struct(desc[desc_index].pack_job_env[0].resp,
 				         resp);
+			 }
+	}			 
 			
-			if (resp && !destroy_job) {
-				if (!_check_allocation_common(resp))
-					goto relinquish;
-				/* save updated opt for pack-member */
-				copy_opt_struct(desc[desc_index].
-					        pack_job_env[0].opt, &opt);
-			}
+	if (resp && !destroy_job) {
+		/*
+		 * Allocation granted!
+		 */
+		pending_job_id = resp->job_id;
 
-			else if (destroy_job) {
-				goto relinquish;
-			}
+		/*
+		 * These values could be changed while the job was
+		 * pending so overwrite the request with what was
+		 * allocated so we don't have issues when we use them
+		 * in the step creation.
+		 */
+//XXXX pn_min_memory here is an int, not uint. these bit operations may have some bizarre side effects
+		if (opt.pn_min_memory != NO_VAL64)
+			opt.pn_min_memory = (resp->pn_min_memory &
+					     (~MEM_PER_CPU));
+		else if (opt.mem_per_cpu != NO_VAL64)
+			opt.mem_per_cpu = (resp->pn_min_memory &
+					   (~MEM_PER_CPU));
+		/*
+		 * FIXME: timelimit should probably also be updated
+		 * here since it could also change.
+		 */
 
-			if (handle_signals)
-				xsignal_block(sig_array);
+#ifdef HAVE_BG
+		uint32_t node_cnt = 0;
+		select_g_select_jobinfo_get(resp->select_jobinfo,
+					    SELECT_JOBDATA_NODE_CNT,
+					    &node_cnt);
+		if ((node_cnt == 0) || (node_cnt == NO_VAL)) {
+			opt.min_nodes = node_cnt;
+			opt.max_nodes = node_cnt;
+		} /* else we just use the original request */
 
-		}
-		job_desc_msg_destroy(j);
-	}
-
-	else {
-		if (resp && !destroy_job) {
-			if (!_check_allocation_common(resp))
-				goto relinquish;
-		} else if (destroy_job) {
+		if (!_wait_bluegene_block_ready(resp)) {
+			if (!destroy_job)
+				error("Something is wrong with the "
+				      "boot of the block.");
 			goto relinquish;
 		}
+#else
+		opt.min_nodes = resp->node_cnt;
+		opt.max_nodes = resp->node_cnt;
 
-		if (handle_signals)
-			xsignal_block(sig_array);
+		if (!_wait_nodes_ready(resp)) {
+			if (!destroy_job)
+				error("Something is wrong with the "
+				      "boot of the nodes.");
+			goto relinquish;
+		}
+#endif
+	} else if (destroy_job) {
+		goto relinquish;
+	}
+
+	if (handle_signals)
+		xsignal_block(sig_array);
 
 		job_desc_msg_destroy(j);
-	}
+	
 
 	return resp;
 

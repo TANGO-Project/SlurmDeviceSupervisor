@@ -165,7 +165,7 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 					 sig_atomic_t *destroy_job)
 {
 	int i, j, rc;
-	int j,k; // MNP PMI
+	int j,k; 
 	unsigned long step_wait = 0;
 	uint16_t base_dist, slurmctld_timeout;
 
@@ -310,8 +310,6 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 	else
 		job->ctx_params.name = opt.cmd_name;
 	job->ctx_params.features = opt.constraints;
-	job->ctx_params.mpi_jobid = opt.mpi_jobid;
-	job->ctx_params.mpi_stepid = packstepid;
 
 	debug("requesting job %u, user %u, nodes %u including (%s)",
 	      job->ctx_params.job_id, job->ctx_params.uid,
@@ -343,8 +341,6 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 			if (i > 0)
 				info("Job step created");
 
-			job->step_ctx->mpi_jobid = opt.mpi_jobid;
-			job->step_ctx->mpi_stepid = opt.mpi_stepid;
 			break;
 		}
 		rc = slurm_get_errno();
