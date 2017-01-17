@@ -97,7 +97,8 @@
 #endif
 #define BUILD_TIMEOUT 2000000	/* Max build_job_queue() run time in usec */
 #define MAX_FAILED_RESV 10
-
+#define MAX_RETRIES 10
+#define MAX_PACKMEMBER_ORPHAN 180 /* Max time pack member waits for leader */
 typedef struct epilog_arg {
 	char *epilog_slurmctld;
 	uint32_t job_id;
@@ -2742,6 +2743,7 @@ extern int test_job_dependency(struct job_record *job_ptr)
 	static struct job_record *cache_job_ptr = NULL;
 	static int cache_results;
 	static time_t cache_time = 0;
+	time_t orphan_et;
 
 	if ((job_ptr->details == NULL) ||
 	    (job_ptr->details->depend_list == NULL) ||
@@ -2783,19 +2785,20 @@ extern int test_job_dependency(struct job_record *job_ptr)
 		} else if (dep_ptr->depend_type == SLURM_DEPEND_PACK) {
 			depends = true; /* member is always dependent. */
 			job_ptr->bit_flags |= KILL_INV_DEP;
-			/* pack_leader field used as flag to determine if job
-			 * is orphaned. Pack members arrive before the leader,
-			 * so leader=0, set to NO_VAL to indicate we've been
-			 * here once. The leader should be the next job
-			 * and will set leader=jobid. If leader is not
-			 * created, the next time through the scheduler,
-			 * it will find leader=NO_VAL, and will cancel the
-			 * member.
-			 */
 			if (dep_ptr->pack_leader == 0) {
-				dep_ptr->pack_leader = NO_VAL;
+				/* Check max orphan time */
+				orphan_et = (now - dep_ptr->submit_time);
+				if (orphan_et > MAX_PACKMEMBER_ORPHAN) {
+					if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+						info("JPCK: Pack Jobid=%d doesn"
+						     "'t know its leader. Assum"
+						     "e it's orphaned and cance"
+						     "l job", job_ptr->job_id);
+					}
+					failure = true;
+				}
+				break;
 			} else if ((dep_ptr->pack_leader != 0) &&
-				   (dep_ptr->pack_leader != NO_VAL) &&
 				   (job_ptr->job_id > lpackmbr)) {
 				if (debug_flags & DEBUG_FLAG_JOB_PACK) {
 					info("JPCK: Jobid=%d (%s) is a pack "
@@ -2804,14 +2807,6 @@ extern int test_job_dependency(struct job_record *job_ptr)
 					      dep_ptr->pack_leader);
 				}
 				lpackmbr = job_ptr->job_id;
-			} else if (dep_ptr->pack_leader == NO_VAL) {
-				if (debug_flags & DEBUG_FLAG_JOB_PACK) {
-					info("JPCK: Pack Jobid=%d doesn't know "
-					     "its leader. Assume it's orphaned "
-					     "and cancel job", job_ptr->job_id);
-				}
-				failure = true;
-				break;
 			}
 		} else if (dep_ptr->depend_type == SLURM_DEPEND_PACKLEADER) {
 			depends = false;
@@ -3142,6 +3137,7 @@ extern int update_job_dependency(struct job_record *job_ptr, char *new_depend)
 			depend_type = SLURM_DEPEND_PACK;
 			dep_ptr = xmalloc(sizeof(struct depend_spec));
 			dep_ptr->depend_type = depend_type;
+			dep_ptr->submit_time = time(NULL);
 			/* dep_ptr->job_id = 0;		set by xmalloc */
 			/* dep_ptr->job_ptr = NULL;	set by xmalloc */
 			(void) list_append(new_depend_list, dep_ptr);

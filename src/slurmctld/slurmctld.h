@@ -816,6 +816,7 @@ struct	depend_spec {
 	struct job_record *job_ptr;	/* pointer to this job */
 	uint32_t	pack_leader;    /* SLURM job_id of packleader job */
 	uint16_t	alloc;		/* Member is allocated */
+	time_t          submit_time;    /* time pack member submitted */
 };
 
 #define STEP_FLAG 0xbbbb
