@@ -179,6 +179,9 @@ opt_t opt;
 int error_exit = 1;
 int immediate_exit = 1;
 
+extern bool packjob;
+extern bool packleader;
+
 /*---- forward declarations of static functions  ----*/
 
 typedef struct env_vars env_vars_t;
@@ -228,6 +231,16 @@ extern void _copy_alloc_struct(resource_allocation_response_msg_t *to,
 			       resource_allocation_response_msg_t *from)
 {
 	memcpy(to, from, sizeof(resource_allocation_response_msg_t));
+}
+
+static bool _check_jobpack__opt(char *option)
+{
+	if (packjob == true) {
+		info("WARNING - option %s ignored, allowed for packleader "
+		     "only", option);
+		return false;
+	}
+	return true;
 }
 
 int initialize_and_process_args(int argc, char *argv[])
@@ -849,7 +862,18 @@ void set_options(const int argc, char **argv)
 			break;
 		case 'd':
 			xfree(opt.dependency);
-			opt.dependency = xstrdup(optarg);
+			if ((packjob == true) &&
+			    (strcmp(optarg, "pack") == 0)) {
+				opt.dependency = xstrdup(optarg);
+				break;
+			}
+			if (_check_jobpack__opt("-d")) {
+				opt.dependency = xstrdup(optarg);
+			}
+			else {
+				if (packjob == true)
+					opt.dependency = xstrdup("pack");
+			}
 			break;
 		case 'D':
 			xfree(opt.cwd);
@@ -878,13 +902,17 @@ void set_options(const int argc, char **argv)
 			_help();
 			exit(0);
 		case 'H':
-			opt.hold = true;
+			if (_check_jobpack__opt("-H"))
+				opt.hold = true;
 			break;
 		case 'I':
-			if (optarg)
-				opt.immediate = parse_int("immediate", optarg, true);
-			else
-				opt.immediate = DEFAULT_IMMEDIATE;
+			if (_check_jobpack__opt("-I")) {
+				if (optarg)
+					opt.immediate = parse_int("immediate",
+								  optarg, true);
+				else
+					opt.immediate = DEFAULT_IMMEDIATE;
+			}
 			break;
 		case 'J':
 			xfree(opt.job_name);
@@ -944,7 +972,18 @@ void set_options(const int argc, char **argv)
 		case 'P':
 			verbose("-P option is deprecated, use -d instead");
 			xfree(opt.dependency);
-			opt.dependency = xstrdup(optarg);
+			if ((packjob == true) &&
+			    (strcmp(optarg, "pack") == 0)) {
+				opt.dependency = xstrdup(optarg);
+				break;
+			}
+			if (_check_jobpack__opt("-P")) {
+				opt.dependency = xstrdup(optarg);
+			}
+			else {
+				if (packjob == true)
+					opt.dependency = xstrdup("pack");
+			}
 			break;
 		case 'Q':
 			opt.quiet++;
@@ -960,7 +999,8 @@ void set_options(const int argc, char **argv)
 			break;
 		case 't':
 			xfree(opt.time_limit_str);
-			opt.time_limit_str = xstrdup(optarg);
+			if (_check_jobpack__opt("-t"))
+				opt.time_limit_str = xstrdup(optarg);
 			break;
 		case 'u':
 			_usage();
@@ -988,7 +1028,8 @@ void set_options(const int argc, char **argv)
 		case 'W':
 			verbose("wait option has been deprecated, use "
 				"immediate option");
-			opt.immediate = parse_int("wait", optarg, true);
+			if (_check_jobpack__opt("-W"))
+				opt.immediate = parse_int("wait", optarg, true);
 			break;
 		case 'x':
 			xfree(opt.exc_nodes);
@@ -1114,11 +1155,13 @@ void set_options(const int argc, char **argv)
 			verify_conn_type(optarg, opt.conn_type);
 			break;
 		case LONG_OPT_BEGIN:
-			opt.begin = parse_time(optarg, 0);
-			if (opt.begin == 0) {
-				error("Invalid time specification %s",
-				      optarg);
-				exit(error_exit);
+			if (_check_jobpack__opt("--begin")) {
+				opt.begin = parse_time(optarg, 0);
+				if (opt.begin == 0) {
+					error("Invalid time specification %s",
+					      optarg);
+					exit(error_exit);
+				}
 			}
 			break;
 		case LONG_OPT_MAIL_TYPE:
@@ -1167,6 +1210,8 @@ void set_options(const int argc, char **argv)
 				opt.priority = NO_VAL - 1;
 			} else {
 				priority = strtoll(optarg, NULL, 10);
+			if (_check_jobpack__opt("--priority")) {
+				long long priority = strtoll(optarg, NULL, 10);
 				if (priority < 0) {
 					error("Priority must be >= 0");
 					exit(error_exit);
@@ -1185,6 +1230,11 @@ void set_options(const int argc, char **argv)
 			opt.bell = BELL_NEVER;
 			break;
 		case LONG_OPT_JOBID:
+			if ((packleader == true) || (packjob == true)) {
+				info ("WARNING - option --jobid ignored, "
+				      "not allowed for packleader or packjob");
+				break;
+			}
 			opt.jobid = parse_int("jobid", optarg, true);
 			break;
 		case LONG_OPT_PROFILE:
@@ -1322,7 +1372,8 @@ void set_options(const int argc, char **argv)
 			break;
 		case LONG_OPT_TIME_MIN:
 			xfree(opt.time_min_str);
-			opt.time_min_str = xstrdup(optarg);
+			if (_check_jobpack__opt("--time-min"))
+				opt.time_min_str = xstrdup(optarg);
 			break;
 		case LONG_OPT_GRES:
 			if (!xstrcasecmp(optarg, "help") ||

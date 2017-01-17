@@ -211,6 +211,8 @@
 
 
 extern char **environ;
+extern bool packjob;
+extern bool packleader;
 
 /*---- global variables, defined in opt.h ----*/
 int _verbose;
@@ -279,6 +281,16 @@ extern void _copy_resp_struct(resource_allocation_response_msg_t *to,
 			      resource_allocation_response_msg_t *from)
 {
 	memcpy(to, from, sizeof(resource_allocation_response_msg_t));
+}
+
+static bool _check_jobpack__opt(char *option)
+{
+	if (packjob == true) {
+		info("WARNING - option %s ignored, allowed for packleader "
+		     "only", option);
+		return false;
+	}
+	return true;
 }
 
 int initialize_and_process_args(int argc, char *argv[])
@@ -1297,7 +1309,18 @@ static void _set_options(const int argc, char **argv)
 			break;
 		case (int)'d':
 			xfree(opt.dependency);
-			opt.dependency = xstrdup(optarg);
+			if ((packjob == true) &&
+			    (strcmp(optarg, "pack") == 0)) {
+				opt.dependency = xstrdup(optarg);
+				break;
+			}
+			if (_check_jobpack__opt("-d")) {
+				opt.dependency = xstrdup(optarg);
+			}
+			else {
+				if (packjob == true)
+					opt.dependency = xstrdup("pack");
+			}
 			break;
 		case (int)'D':
 			opt.cwd_set = true;
@@ -1327,7 +1350,8 @@ static void _set_options(const int argc, char **argv)
 				exit(error_exit);
 			break;
 		case (int)'H':
-			opt.hold = true;
+			if (_check_jobpack__opt("-H"))
+				opt.hold = true;
 			break;
 		case (int)'i':
 			if (opt.pty) {
@@ -1342,10 +1366,13 @@ static void _set_options(const int argc, char **argv)
 				opt.ifname = xstrdup(optarg);
 			break;
 		case (int)'I':
-			if (optarg)
-				opt.immediate = strtol(optarg, NULL, 10);
-			else
-				opt.immediate = DEFAULT_IMMEDIATE;
+			if (_check_jobpack__opt("-I")) {
+				if (optarg)
+					opt.immediate = strtol(optarg, NULL,
+							       10);
+				else
+					opt.immediate = DEFAULT_IMMEDIATE;
+			}
 			break;
 		case (int)'j':
 			opt.join = true;
@@ -1427,10 +1454,22 @@ static void _set_options(const int argc, char **argv)
 		case (int)'P':
 			verbose("-P option is deprecated, use -d instead");
 			xfree(opt.dependency);
-			opt.dependency = xstrdup(optarg);
+			if ((packjob == true) &&
+			    (strcmp(optarg, "pack") == 0)) {
+				opt.dependency = xstrdup(optarg);
+				break;
+			}
+			if (_check_jobpack__opt("-P")) {
+				opt.dependency = xstrdup(optarg);
+			}
+			else {
+				if (packjob == true)
+					opt.dependency = xstrdup("pack");
+			}
 			break;
 		case (int)'q':
-			opt.quit_on_intr = true;
+			if (_check_jobpack__opt("-q"))
+				opt.quit_on_intr = true;
 			break;
 		case (int) 'Q':
 			opt.quiet++;
@@ -1451,7 +1490,8 @@ static void _set_options(const int argc, char **argv)
 			break;
 		case (int)'t':
 			xfree(opt.time_limit_str);
-			opt.time_limit_str = xstrdup(optarg);
+			if (_check_jobpack__opt("-t"))
+				opt.time_limit_str = xstrdup(optarg);
 			break;
 		case (int)'T':
 			opt.max_threads =
@@ -1473,7 +1513,8 @@ static void _set_options(const int argc, char **argv)
 			opt.nodelist = xstrdup(optarg);
 			break;
 		case (int)'W':
-			opt.max_wait = _get_int(optarg, "wait", false);
+			if (_check_jobpack__opt("-W"))
+				opt.max_wait = _get_int(optarg, "wait", false);
 			break;
 		case (int)'x':
 			xfree(opt.exc_nodes);
@@ -1482,7 +1523,8 @@ static void _set_options(const int argc, char **argv)
 				exit(error_exit);
 			break;
 		case (int)'X':
-			opt.disable_status = true;
+			if (_check_jobpack__opt("-X"))
+				opt.disable_status = true;
 			break;
 		case (int)'Z':
 			opt.no_alloc = true;
@@ -1594,8 +1636,24 @@ static void _set_options(const int argc, char **argv)
 				exit(error_exit);
 			}
 			break;
+		case LONG_OPT_MPI_COMBINE:
+			if (strcmp(optarg, "yes") == 0)
+				opt.mpi_combine = true;
+			else if (strcmp(optarg, "no") == 0)
+				opt.mpi_combine = false;
+			else {
+				error("\"--mpi-combine=%s\" -- invalid MPI_COMBINE, "
+				      " must be yes or no.", optarg);
+				exit(error_exit);
+			}
+			break;
 		case LONG_OPT_MPI:
 			xfree(mpi_type);
+			if ((packjob == true) && (opt.mpi_combine == true)) {
+				info ("WARNING - option --mpi ignored for "
+				      "packjob with --mpi-combine=yes");
+				break;
+			}
 			mpi_type = xstrdup(optarg);
 			if (mpi_hook_client_init((char *)optarg)
 			    == SLURM_ERROR) {
@@ -1620,6 +1678,11 @@ static void _set_options(const int argc, char **argv)
 			}
 			break;
 		case LONG_OPT_JOBID:
+			if ((packleader == true) || (packjob == true)) {
+				info ("WARNING - option --jobid ignored, "
+				      "not allowed for packleader or packjob");
+				break;
+			}
 			opt.jobid = _get_int(optarg, "jobid", true);
 			opt.jobid_set = true;
 			break;
@@ -1710,11 +1773,13 @@ static void _set_options(const int argc, char **argv)
 			opt.burst_buffer = _read_file(optarg);
 			break;
 		case LONG_OPT_BEGIN:
-			opt.begin = parse_time(optarg, 0);
-			if (errno == ESLURM_INVALID_TIME_VALUE) {
-				error("Invalid time specification %s",
-				      optarg);
-				exit(error_exit);
+			if (_check_jobpack__opt("--begin")) {
+				opt.begin = parse_time(optarg, 0);
+				if (errno == ESLURM_INVALID_TIME_VALUE) {
+					error("Invalid time specification %s",
+					optarg);
+					exit(error_exit);
+				}
 			}
 			break;
 		case LONG_OPT_MAIL_TYPE:
@@ -1770,6 +1835,8 @@ static void _set_options(const int argc, char **argv)
 				opt.priority = NO_VAL - 1;
 			} else {
 				priority = strtoll(optarg, NULL, 10);
+			if (_check_jobpack__opt("--priority")) {
+				long long priority = strtoll(optarg, NULL, 10);
 				if (priority < 0) {
 					error("Priority must be >= 0");
 					exit(error_exit);
@@ -1945,7 +2012,8 @@ static void _set_options(const int argc, char **argv)
 			break;
 		case LONG_OPT_TIME_MIN:
 			xfree(opt.time_min_str);
-			opt.time_min_str = xstrdup(optarg);
+			if (_check_jobpack__opt("--time-min"))
+				opt.time_min_str = xstrdup(optarg);
 			break;
 		case LONG_OPT_GRES:
 			if (!xstrcasecmp(optarg, "help") ||
@@ -2004,6 +2072,11 @@ static void _set_options(const int argc, char **argv)
 			opt.job_flags |= SPREAD_JOB;
 		case LONG_OPT_PACK_GROUP:
 			xfree(opt.pack_group);
+			if ((packleader == true) || (packjob == true)) {
+				info ("WARNING - option --pack-group ignored, "
+				      "not allowed for packleader or packjob");
+				break;
+			}
 			opt.pack_group = xstrdup(optarg);
 			debug("JPCK: PACK-GROUP srun-opt pack_group=%s",opt.pack_group);
 			_parse_pack_group(opt.pack_group);
@@ -2699,6 +2772,56 @@ extern int   spank_unset_job_env(const char *name)
 	}
 
 	return 0;	/* not found */
+}
+
+extern int pelog_set_env(int overwrite)
+{
+	int i, len;
+	char *name, *eq, *value;
+	char *tmp_str = NULL;
+
+	for (i = 0; environ[i]; i++) {
+		if (strncmp(environ[i], "SLURM_NODELIST_PACK_GROUP_", 26))
+			continue;
+		name = xstrdup(environ[i] + 26);
+		eq = strchr(name, (int)'=');
+		if (eq == NULL) {
+			xfree(name);
+			break;
+		}
+		eq[0] = '\0';
+		value = eq + 1;
+
+		xstrcat(tmp_str, name);
+		xstrcat(tmp_str, "=");
+		len = strlen(tmp_str);
+		xstrcat(tmp_str, value);
+
+		for (i = 0; i < opt.pelog_env_size; i++) {
+		        if (strncmp(opt.pelog_env[i], tmp_str, len))
+			        continue;
+			if (overwrite) {
+			        xfree(opt.pelog_env[i]);
+				opt.pelog_env[i] = tmp_str;
+			} else
+			        xfree(tmp_str);
+			xfree(name);
+			return 0;
+		}
+		/* Need to add an entry */
+		opt.pelog_env_size++;
+		xrealloc(opt.pelog_env, sizeof(char *) * opt.pelog_env_size);
+		opt.pelog_env[i] = tmp_str;
+		xfree(name);
+	}
+
+	if ((name == NULL) || (name[0] == '\0') ||
+	    (strchr(name, (int)'=') != NULL)) {
+		slurm_seterrno(EINVAL);
+		return -1;
+	}
+
+	return 0;
 }
 
 /* helper function for printing options
