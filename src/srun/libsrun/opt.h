@@ -288,11 +288,11 @@ typedef struct {
 
 extern pack_group_struct_t *desc;
 
-void _copy_opt_struct(opt_t *to, opt_t *from);
-void _copy_env_struct(env_t *to, env_t *from);
-void _copy_srun_job_struct(srun_job_t *to, srun_job_t *from);
-void _copy_resp_struct(resource_allocation_response_msg_t *to,
-		       resource_allocation_response_msg_t *from);
+void copy_opt_struct(opt_t *to, opt_t *from);
+void copy_env_struct(env_t *to, env_t *from);
+void copy_srun_job_struct(srun_job_t *to, srun_job_t *from);
+void copy_resp_struct(resource_allocation_response_msg_t *to,
+		      resource_allocation_response_msg_t *from);
 
 extern int error_exit;		/* exit code for slurm errors */
 extern int immediate_exit;	/* exit code for --imediate option & busy */

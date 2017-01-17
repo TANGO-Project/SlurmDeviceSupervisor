@@ -217,19 +217,21 @@ extern void _copy_opt_struct(opt_t *to, opt_t *from)
 	memcpy(to, from, sizeof(opt_t));
 }
 
-extern void _copy_env(char ***to, char **from)
+void copy_env(char ***to, char **from)
+
 {
 	env_array_free(*to);
 	*to = env_array_copy((const char **) from);
 }
 
-extern void _copy_job_desc_msg(job_desc_msg_t *to, job_desc_msg_t *from)
+void copy_job_desc_msg(job_desc_msg_t *to, job_desc_msg_t *from)
+
 {
 	memcpy(to, from, sizeof(job_desc_msg_t));
 }
 
-extern void _copy_alloc_struct(resource_allocation_response_msg_t *to,
-			       resource_allocation_response_msg_t *from)
+void copy_alloc_struct(resource_allocation_response_msg_t *to,
+		       resource_allocation_response_msg_t *from)
 {
 	memcpy(to, from, sizeof(resource_allocation_response_msg_t));
 }

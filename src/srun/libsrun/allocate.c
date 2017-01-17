@@ -592,7 +592,7 @@ allocate_nodes_jobpack(bool handle_signals)
 	int i;
 	int desc_index;
 
-	_copy_opt_struct(desc[group_index].pack_job_env[job_index].opt, &opt);
+	copy_opt_struct(desc[group_index].pack_job_env[job_index].opt, &opt);
 	if (!j)
 		return NULL;
 
@@ -638,8 +638,8 @@ allocate_nodes_jobpack(bool handle_signals)
 		if (! resp) {
 			fatal( "no response to pack job allocation request" );
 		}
-		_copy_resp_struct(desc[group_index].pack_job_env[
-				  job_index].resp, resp);
+		copy_resp_struct(desc[group_index].pack_job_env[
+				 job_index].resp, resp);
 		return resp;
 	}
 
@@ -658,10 +658,10 @@ allocate_nodes_jobpack(bool handle_signals)
 		return NULL; /* Fix Clang false positive */
 	}
 	desc[0].pack_job_env[0].job_id = resp->job_id;
-	_copy_resp_struct(desc[group_index].pack_job_env[job_index].resp, resp);
+	copy_resp_struct(desc[group_index].pack_job_env[job_index].resp, resp);
 	for (desc_index = 0; desc_index < pack_desc_count; desc_index++) {
-		_copy_opt_struct(&opt, desc[desc_index].pack_job_env[0].opt);
-		_copy_resp_struct(resp, desc[desc_index].pack_job_env[0].resp);
+		copy_opt_struct(&opt, desc[desc_index].pack_job_env[0].opt);
+		copy_resp_struct(resp, desc[desc_index].pack_job_env[0].resp);
 			opt.jobid = desc[desc_index].pack_job_env[0].job_id;
 		resp = existing_allocation();
 
@@ -673,7 +673,7 @@ allocate_nodes_jobpack(bool handle_signals)
 		}
 
 		/* save response message for pack-member */
-		_copy_resp_struct(desc[desc_index].pack_job_env[0].resp, resp);
+		copy_resp_struct(desc[desc_index].pack_job_env[0].resp, resp);
 
 		if (resp && !destroy_job) {
 			/*
@@ -725,8 +725,8 @@ allocate_nodes_jobpack(bool handle_signals)
 				goto relinquish;
 			}
 			/* save updated opt for pack-member */
-			_copy_opt_struct(desc[desc_index].pack_job_env[0].opt,
-					 &opt);
+			copy_opt_struct(desc[desc_index].pack_job_env[0].opt,
+					&opt);
 #endif
 		} else if (destroy_job) {
 				goto relinquish;

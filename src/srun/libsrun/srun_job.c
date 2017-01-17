@@ -822,8 +822,8 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 		if (!job)
 			exit(error_exit);
 		job->pack_member = true;
-		_copy_srun_job_struct(desc[group_index].pack_job_env[
-				      job_index].job, job);
+		copy_srun_job_struct(desc[group_index].pack_job_env[
+				     job_index].job, job);
 		slurm_free_resource_allocation_response_msg(resp);
 		if (opt.begin != 0) {
 			error("--begin is ignored because nodes"
@@ -837,8 +837,8 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 			opt.shepard_fd = -1;
 			opt.shepard_fd = _shepard_spawn(job,
 					 *got_alloc);
-			_copy_opt_struct(desc[group_index].pack_job_env[
-					 job_index].opt, &opt);
+			copy_opt_struct(desc[group_index].pack_job_env[
+					job_index].opt, &opt);
 		}
 	} else {
 		/* Combined job allocation and job step launch */
@@ -881,10 +881,10 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 		*got_alloc = true;
 		for (desc_index = 0; desc_index < pack_desc_count;
 		     desc_index++) {
-			_copy_opt_struct(&opt,
-					 desc[desc_index].pack_job_env[0].opt);
-			_copy_resp_struct(resp,desc[desc_index].pack_job_env[
-					  0].resp);
+			copy_opt_struct(&opt,
+					desc[desc_index].pack_job_env[0].opt);
+			copy_resp_struct(resp,desc[desc_index].pack_job_env[
+					 0].resp);
 			_print_job_information(resp);
 			_set_env_vars(resp);
 			if (_validate_relative(resp)) {
@@ -896,8 +896,8 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 			if (!job)
 				exit(error_exit);
 			job->pack_member = true;
-			_copy_srun_job_struct(desc[desc_index].pack_job_env[
-					      0].job, job);
+			copy_srun_job_struct(desc[desc_index].pack_job_env[
+					     0].job, job);
 
 			opt.time_limit = NO_VAL;/* not applicable for step,
 						 * only job */
@@ -935,12 +935,12 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 				*p_job = desc[0].pack_job_env[0].job;
 			}
 			/* save updated opt information for pack-member */
-			_copy_opt_struct(desc[desc_index].pack_job_env[0].opt,
-					 &opt);
+			copy_opt_struct(desc[desc_index].pack_job_env[0].opt,
+					&opt);
 		}
 
 	}
-	 _copy_opt_struct(&opt, desc[0].pack_job_env[0].opt);
+	copy_opt_struct(&opt, desc[0].pack_job_env[0].opt);
 }
 
 extern void pre_launch_srun_job(srun_job_t *job, bool slurm_started,

@@ -806,7 +806,7 @@ int _srun_jobpack(int ac, char **av)
 
 			if (packleader != true) {
 
-				_copy_opt_struct(&opt,
+				copy_opt_struct(&opt,
 				desc[group_index].pack_job_env[job_index].opt);
 				log_init(xbasename(desc[
 					 group_index].pack_job_env[
@@ -817,8 +817,8 @@ int _srun_jobpack(int ac, char **av)
 						  group_index].pack_job_env[
 						  job_index].av, &logopt,
 						  debug_level, 1);
-				_copy_opt_struct(desc[group_index].pack_job_env[
-						 job_index].opt,  &opt);
+				copy_opt_struct(desc[group_index].pack_job_env[
+						job_index].opt,  &opt);
 			}
 		}
 	}
@@ -832,8 +832,8 @@ int _srun_jobpack(int ac, char **av)
 				job_index].packleader;
 			packjob = desc[group_index].pack_job_env[
 				job_index].pack_job;
-			_copy_opt_struct(&opt, desc[group_index].pack_job_env[
-					 job_index].opt);
+			copy_opt_struct(&opt, desc[group_index].pack_job_env[
+					job_index].opt);
 			if (packleader == true) {
 
 				if (pack_job_id == NULL)

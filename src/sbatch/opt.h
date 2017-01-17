@@ -211,10 +211,6 @@ typedef struct {
 } pack_job_env_t;
 
 extern pack_job_env_t *pack_job_env;
-void _copy_opt_struct(opt_t *to, opt_t *from);
-void  _copy_job_desc_msg(job_desc_msg_t *to, job_desc_msg_t *from);
-void _copy_resp_struct(submit_response_msg_t *to,
-		       submit_response_msg_t *from);
 extern opt_t opt;
 extern int error_exit;
 extern int ignore_pbs;
