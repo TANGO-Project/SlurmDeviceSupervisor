@@ -195,6 +195,26 @@ typedef struct sbatch_options {
 	int group_number;       /* pack group number */
 } opt_t;
 
+typedef struct {
+	bool packleader;
+	bool pack_job;
+	uint32_t job_id;
+	opt_t *opt;
+//	env_t *env;
+	char *script_name;
+	void *script_body;
+	job_desc_msg_t *desc;
+	submit_response_msg_t *resp;
+	uint32_t ac;
+	char **av;
+} pack_job_env_t;
+
+extern pack_job_env_t *pack_job_env;
+void _copy_opt_struct(opt_t *to, opt_t *from);
+//void _copy_env_struct(env_t *to, env_t *from);
+void  _copy_job_desc_msg(job_desc_msg_t *to, job_desc_msg_t *from);
+void _copy_resp_struct(submit_response_msg_t *to,
+		       submit_response_msg_t *from);
 extern opt_t opt;
 extern int error_exit;
 extern int ignore_pbs;

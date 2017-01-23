@@ -76,6 +76,174 @@ static void  _set_submit_dir_env(void);
 static int   _set_umask_env(void);
 static int   _job_wait(uint32_t job_id);
 static void  _set_sbatch_pack_envs(void);
+static int main_jobpack(int argc, char *argv[]);
+
+char *pack_job_id = NULL;
+uint32_t pack_desc_count = 0;
+bool packjob = false;
+bool packleader = false;
+uint16_t packl_dependency_position = 0;
+pack_job_env_t *pack_job_env = NULL;
+uint32_t group_number;
+
+int _count_jobs(int ac, char **av)
+{
+	int index;
+
+	for (index = 0; index < ac; index++) {
+		if ((strcmp(av[index], ":") == 0)) {
+			pack_desc_count ++;
+			if (index+1 == ac)
+			        fatal( "Missing pack job specification "
+				       "following pack job delimiter" );
+		}
+	}
+if(pack_desc_count) pack_desc_count++;
+	return pack_desc_count;
+}
+
+int _build_env_structs(int ac, char **av)
+{
+	int rc = 0;
+	int i;
+/*
+	int index;
+	info("in _build_env_structs ac contains %u", ac);
+	for (index = 0; index < ac; index++) {
+		info ("av[%u] is %s", index, av[index]);
+	}
+*/
+
+pack_job_env = xmalloc(sizeof(pack_job_env_t) * pack_desc_count);
+	for (i = 0; i < pack_desc_count; i++) {
+		pack_job_env[i].opt = xmalloc(sizeof(opt_t));
+		memset(pack_job_env[i].opt, 0, sizeof(opt_t));
+//		pack_job_env[i].env = xmalloc(sizeof(env_t));
+//		memset(pack_job_env[i].env, 0, sizeof(env_t));
+		pack_job_env[i].desc = xmalloc(sizeof(job_desc_msg_t));
+		memset(pack_job_env[i].desc, 0, sizeof(job_desc_msg_t));
+		pack_job_env[i].resp = xmalloc(sizeof(submit_response_msg_t));
+		memset(pack_job_env[i].resp, 0, sizeof(submit_response_msg_t));
+		pack_job_env[i].packleader = false;
+		pack_job_env[i].pack_job = false;
+		pack_job_env[i].job_id = 0;
+		pack_job_env[i].script_name = NULL;
+		pack_job_env[i].script_body = NULL;
+
+	}
+	return rc;
+}
+
+int _identify_job_descriptions(int ac, char **av)
+{
+	int rc = 0;
+	int index, index2;
+	int i = 0;
+	int j = 0;
+	int current = 1;
+	int job_index = 0;
+//	char *sbatch_str = xstrdup("sbatch");
+	char *pack_str = xstrdup("-dpack");
+	char *packleader_str = xstrdup("-dpackleader");
+	char *command = NULL;
+	char **newcmd;
+	char **newcmd_cpy;
+	bool _pack_l;
+	uint16_t dependency_position = 0;
+
+	pack_job_id = xstrdup("");
+
+
+	int index3;
+	printf("in_identify_job_descriptions ac contains %u", ac);
+	for (index3 = 0; index3 < ac; index3++) {
+		printf("av[%u] is %s", index3, av[index3]);
+	}
+
+
+	while (current < ac){
+		newcmd = xmalloc(sizeof(char *) * (ac + 1));
+//		newcmd[0] = sbatch_str;
+		newcmd[0] = xstrdup(av[0]);
+		for (i = 1; i < (ac + 1); i++) {
+			newcmd[i] = NULL;
+		}
+		i = 1;
+		j = 1;
+		_pack_l = false;
+		dependency_position = 0;
+		for (index = current; index < ac; index++) {
+			command = xstrdup(av[index]);
+			if ((strcmp(command, ":") != 0)) {
+				newcmd[i] = command;
+				if ((strncmp(command, "-d", 2) == 0) ||
+				    (strncmp(command, "--d", 3) == 0)) {
+					dependency_position = i;
+				}
+				i++;
+				j++;
+			} else {
+				if (job_index == 0) {
+					_pack_l = true;
+				}
+				break;
+			}
+		}
+
+		if (_pack_l == false) {
+			if (job_index >= 1)
+				pack_job_env[job_index].pack_job = true;
+		} else {
+				pack_job_env[job_index].packleader = true;
+		}
+		current = index + 1;
+		i = 1;
+
+		newcmd_cpy = xmalloc(sizeof(char *) * (j+1));
+		newcmd_cpy[0] =  xstrdup(newcmd[0]);
+		i=1;
+		if (dependency_position != 0) {
+			if ((_pack_l == false) && (job_index >= 1)){
+				xstrcat(newcmd[dependency_position], ",pack");
+			} else if (_pack_l == true) {
+				xstrfmtcat(newcmd[dependency_position],
+					   ",packleader");
+				packl_dependency_position = dependency_position;
+			}
+		} else {
+			if (_pack_l == true) {
+				newcmd_cpy[1] = xstrdup(packleader_str);
+				packl_dependency_position = 1;
+				j++;
+				i++;
+			} else if ((_pack_l == false) && (job_index >= 1)) {
+				newcmd_cpy[1] = xstrdup(pack_str);
+				j++;
+				i++;
+			}
+		}
+		int k = 1;
+		for (index2 = i; index2 < j + 1; index2++) {
+			newcmd_cpy[index2] =  xstrdup(newcmd[k]);
+			k++;
+		}
+
+	pack_job_env[job_index].ac = j;
+	pack_job_env[job_index].av = newcmd_cpy;
+int index1;
+for (index1=0; index1 < j; index1++)
+	printf("pack_job_env[%u].av[%u] = %s\n", job_index, index1, pack_job_env[job_index].av[index1]);	/* wjb */
+//	pack_job_env[job_index].ac = j;
+	job_index++;
+info("job_index contains %u exiting_identify_job_descriptions\n", job_index);					/* wjb */
+	for (i = 0; i < (ac + 1); i++) {
+		xfree(newcmd[i]);
+	}
+
+	}
+
+	return rc;
+}
 
 int main(int argc, char **argv)
 {
@@ -91,6 +259,12 @@ int main(int argc, char **argv)
 	log_init(xbasename(argv[0]), logopt, 0, NULL);
 
 	_set_exit_code();
+
+	if(_count_jobs(argc, argv)) {
+		rc = main_jobpack(argc, argv);
+		return 0;
+	}
+
 	if (spank_init_allocator() < 0) {
 		error("Failed to initialize plugin stack");
 		exit(error_exit);
@@ -326,6 +500,180 @@ static int _job_wait(uint32_t job_id)
 	}
 
 	return ec;
+}
+
+static int main_jobpack(int argc, char *argv[])
+{
+	log_options_t logopt = LOG_OPTS_STDERR_ONLY;
+	job_desc_msg_t desc;
+	submit_response_msg_t *resp;
+	char *script_name;
+	void *script_body;
+	int script_size = 0;
+	int retries = 0;
+	int rc = 0;
+	int job_index;
+
+	slurm_conf_init(NULL);
+	log_init(xbasename(argv[0]), logopt, 0, NULL);
+
+	_set_exit_code();
+	if (spank_init_allocator() < 0) {
+		error("Failed to initialize plugin stack");
+		exit(error_exit);
+	}
+
+	/* Be sure to call spank_fini when sbatch exits
+	 */
+	if (atexit((void (*) (void)) spank_fini) < 0)
+		error("Failed to register atexit handler for plugins: %m");
+
+		rc = _build_env_structs(argc, argv);
+		rc = _identify_job_descriptions(argc, argv);
+
+	for (job_index = pack_desc_count; job_index > 0; job_index--) {
+	int index1;
+	for (index1=0; index1 < pack_job_env[job_index].ac; index1++)
+	printf("pack_job_env[%u].av[%u] = %s\n", job_index, index1, pack_job_env[job_index].av[index1]);	/* wjb */
+info("job_index is %u", job_index);										/* wjb */
+		group_number = job_index - 1;
+		packleader = pack_job_env[group_number].packleader;
+		packjob = pack_job_env[group_number].pack_job;
+		if (packleader == true)
+			if ((strcmp(pack_job_id, "") == 0))
+				fatal( "found packleader but no pack job id" );
+			xstrcat(pack_job_env[group_number].av[packl_dependency_position],
+			        pack_job_id);
+		_copy_opt_struct( &opt, pack_job_env[group_number].opt);
+
+	script_name = process_options_first_pass(pack_job_env[group_number].ac,
+						 pack_job_env[group_number].av);
+info("returned from call to process_options_first_pass");				/* wjb */
+info("process_options_first_pass returned script_name %s", script_name);		/* wjb */
+	/* reinit log with new verbosity (if changed by command line) */
+	if (opt.verbose || opt.quiet) {
+		logopt.stderr_level += opt.verbose;
+		logopt.stderr_level -= opt.quiet;
+		logopt.prefix_level = 1;
+		log_alter(logopt, 0, NULL);
+	}
+
+	if (opt.wrap != NULL) {
+		script_body = _script_wrap(opt.wrap);
+	} else {
+		script_body = _get_script_buffer(script_name, &script_size);
+	}
+	if (script_body == NULL) {						/* wjb added { */
+info("found NULL script_body taking exit with error_exit %u", error_exit);	/* wjb */
+		exit(error_exit);
+	}									/* wjb */
+info("calling process_options_second_pass");					/* wjb */
+	if (process_options_second_pass(
+				(pack_job_env[group_number].ac - opt.script_argc),
+				pack_job_env[group_number].av,
+				script_name ? xbasename (script_name) : "stdin",
+				script_body, script_size) < 0) {
+		error("sbatch parameter parsing");
+		exit(error_exit);
+	}
+info("returned from process_options_second_pass");				/* wjb */
+
+	if (spank_init_post_opt() < 0) {
+		error("Plugin stack post-option processing failed");
+		exit(error_exit);
+	}
+
+	if (opt.get_user_env_time < 0) {
+		/* Moab does not propage the user's resource limits, so
+		 * slurmd determines the values at the same time that it
+		 * gets the user's default environment variables. */
+		(void) _set_rlimit_env();
+	}
+
+	/*
+	 * if the environment is coming from a file, the
+	 * environment at execution startup, must be unset.
+	 */
+	if (opt.export_file != NULL)
+		env_unset_environment();
+
+	_set_prio_process_env();
+	_set_spank_env();
+	_set_submit_dir_env();
+	_set_umask_env();
+	slurm_init_job_desc_msg(&desc);
+	if (_fill_job_desc_from_opts(&desc) == -1) {
+		exit(error_exit);
+	}
+
+	desc.script = (char *)script_body;
+
+	/* If can run on multiple clusters find the earliest run time
+	 * and run it there */
+	if (opt.clusters &&
+	    slurmdb_get_first_avail_cluster(&desc, opt.clusters,
+			&working_cluster_rec) != SLURM_SUCCESS) {
+		print_db_notok(opt.clusters, 0);
+		exit(error_exit);
+	}
+
+
+	if (_check_cluster_specific_settings(&desc) != SLURM_SUCCESS)
+		exit(error_exit);
+
+	if (opt.test_only) {
+		if (slurm_job_will_run(&desc) != SLURM_SUCCESS) {
+			slurm_perror("allocation failure");
+			exit (1);
+		}
+		exit (0);
+	}
+
+	while (slurm_submit_batch_job(&desc, &resp) < 0) {
+		static char *msg;
+
+		if (errno == ESLURM_ERROR_ON_DESC_TO_RECORD_COPY)
+			msg = "Slurm job queue full, sleeping and retrying.";
+		else if (errno == ESLURM_NODES_BUSY) {
+			msg = "Job step creation temporarily disabled, "
+			      "retrying";
+		} else if (errno == EAGAIN) {
+			msg = "Slurm temporarily unable to accept job, "
+			      "sleeping and retrying.";
+		} else
+			msg = NULL;
+		if ((msg == NULL) || (retries >= MAX_RETRIES)) {
+			error("Batch job submission failed: %m");
+			exit(error_exit);
+		}
+
+		if (retries)
+			debug("%s", msg);
+		else if (errno == ESLURM_NODES_BUSY)
+			info("%s", msg); /* Not an error, powering up nodes */
+		else
+			error("%s", msg);
+		sleep (++retries);
+        }
+	if (packjob == true)
+		xstrfmtcat(pack_job_id,":%u", resp->job_id);
+	if (!opt.parsable){
+		printf("Submitted batch job %u", resp->job_id);
+		if (working_cluster_rec)
+			printf(" on cluster %s", working_cluster_rec->name);
+		printf("\n");
+	} else {
+		printf("%u", resp->job_id);
+		if (working_cluster_rec)
+			printf(";%s", working_cluster_rec->name);
+		printf("\n");
+	}
+
+	xfree(desc.script);
+	slurm_free_submit_response_response_msg(resp);
+
+}					/* wjb end of for loop */
+	return 0;
 }
 
 static char *_find_quote_token(char *tmp, char *sep, char **last)
@@ -838,6 +1186,7 @@ static void *_get_script_buffer(const char *filename, int *size)
 	 * First figure out whether we are reading from STDIN_FILENO
 	 * or from a file.
 	 */
+info("entered _get_script_buffer with filename %s", filename);			/* wjb */
 	if (filename == NULL) {
 		fd = STDIN_FILENO;
 	} else {
@@ -851,6 +1200,7 @@ static void *_get_script_buffer(const char *filename, int *size)
 	/*
 	 * Then read in the script.
 	 */
+info("preparing to read the script");						/* wjb */
 	buf = ptr = xmalloc(buf_size);
 	buf_left = buf_size;
 	while((tmp_size = read(fd, ptr, buf_left)) > 0) {
@@ -869,6 +1219,7 @@ static void *_get_script_buffer(const char *filename, int *size)
 	/*
 	 * Finally we perform some sanity tests on the script.
 	 */
+info("performing sanity tests on the script");					/* wjb */
 	if (script_size == 0) {
 		error("Batch script is empty!");
 		goto fail;
@@ -892,8 +1243,10 @@ static void *_get_script_buffer(const char *filename, int *size)
 	}
 
 	*size = script_size;
+info("passed sanity checks, script_size %u", script_size);			/* wjb */
 	return buf;
 fail:
+info("at label fail");								/* wjb */
 	xfree(buf);
 	*size = 0;
 	return NULL;

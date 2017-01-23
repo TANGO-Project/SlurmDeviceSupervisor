@@ -286,6 +286,7 @@ void _copy_resp_struct(resource_allocation_response_msg_t *to,
 typedef struct {
 	bool packleader;
 	bool pack_job;
+	uint32_t pack_group;
 	uint32_t job_id;
 	opt_t *opt;
 	env_t *env;
@@ -296,6 +297,15 @@ typedef struct {
 } pack_job_env_t;
 
 extern pack_job_env_t *pack_job_env;
+
+typedef struct {
+	bool groupjob;			/* indicates group numbers designated */
+	uint16_t pack_group_count;	/* count of pack groups for this desc */
+	pack_job_env_t *pack_job_env;	/* array of pack_job_env_t */
+} pack_group_struct_t;
+
+extern pack_group_struct_t *desc;
+
 void _copy_opt_struct(opt_t *to, opt_t *from);
 void _copy_env_struct(env_t *to, env_t *from);
 void _copy_srun_job_struct(srun_job_t *to, srun_job_t *from);

@@ -210,6 +210,9 @@
 #define LONG_OPT_TASK_GROUP      0x168
 
 extern char **environ;
+ extern uint32_t group_number;
+extern bool packjob;
+extern bool packleader;
 
 /*---- global variables, defined in opt.h ----*/
 int _verbose;

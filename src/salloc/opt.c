@@ -206,6 +206,53 @@ static void  _usage(void);
 /*---[ end forward declarations of static functions ]---------------------*/
 
 int initialize_and_process_args(int argc, char **argv)
+
+extern void _copy_opt_struct(opt_t *to, opt_t *from)
+{
+	memcpy(to, from, sizeof(opt_t));
+}
+
+extern void _copy_env(char **to, char **from)
+{
+	env_array_free(to);
+	to = env_array_copy((const char **) from);
+/*
+int i = 0;
+while (from[i] != '\0') {
+	xfree(to[i]);
+	to[i] = xstrdup(from[i]);
+}
+*/
+/*
+	int to_length;
+	int from_length;
+	int i;
+
+	to_length = strlen(to);
+	for (i = 0; i < to_length; i++) {
+		xfree(to[i]);
+	}
+	from_length = strlen(from);
+	to = xmalloc(sizeof(char *) * (from_length));
+	for (i = 0; i < from_length; i++) {
+		to[i] = xtrdup(from[i]);
+	}
+*/
+}
+
+extern void _copy_job_desc_msg(job_desc_msg_t *to, job_desc_msg_t *from)
+{
+	memcpy(to, from, sizeof(job_desc_msg_t));
+}
+
+extern void _copy_alloc_struct(resource_allocation_response_msg_t *to,
+			      resource_allocation_response_msg_t *from)
+{
+	memcpy(to, from, sizeof(resource_allocation_response_msg_t));
+}
+
+int initialize_and_process_args(int argc, char *argv[])
+
 {
 	/* initialize option defaults */
 	_opt_default();

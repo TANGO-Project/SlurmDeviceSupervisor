@@ -140,9 +140,12 @@ uint32_t pack_job_count = 0;
 uint32_t pack_desc_count = 0;
 bool packjob = false;
 bool packleader = false;
-uint16_t packl_dependency_position = 0;
-pack_job_env_t *pack_job_env = NULL;
-uint32_t group_number;
+ uint16_t packl_dependency_position = 0;
+pack_group_struct_t *desc = NULL;
+ pack_job_env_t *pack_job_env = NULL;
+ uint32_t group_number = -1;
+uint32_t group_index = 0;
+static uint32_t total_jobs = 0;
 bool srun_max_timer = false;
 bool srun_shutdown  = false;
 
@@ -161,10 +164,14 @@ static void  _setup_env_working_cluster();
 static int   _slurm_debug_env_val (void);
 static char *_uint16_array_to_str(int count, const uint16_t *array);
 
-static resource_allocation_response_msg_t  *_get_resp(int job_idx);
-static opt_t *_get_opt(int job_idx);
-static srun_job_t *_get_srun_job(int job_idx);
-static env_t *_get_env(int job_idx);
+//static resource_allocation_response_msg_t  *_get_resp(int job_idx);
+//static opt_t *_get_opt(int job_idx);
+//static srun_job_t *_get_srun_job(int job_idx);
+//static env_t *_get_env(int job_idx);
+static resource_allocation_response_msg_t  *_get_resp(int desc_idx, int job_idx);
+static opt_t *_get_opt(int desc_idx, int job_idx);
+static srun_job_t *_get_srun_job(int desc_idx, int job_idx);
+static env_t *_get_env(int desc_idx, int job_idx);
 
 static int _srun_jobpack(int ac, char **av);
 static void _create_srun_steps_jobpack(void);
@@ -201,23 +208,18 @@ int _count_jobs(int ac, char **av)
 		}
 	}
 	if(pack_desc_count) pack_desc_count++;
+info("_count_jobs set pack_desc_count to %u", pack_desc_count);			/* wjb */
 	return pack_desc_count;
 }
 
-int _build_env_structs(int ac, char **av)
+/*
+int _build_env_structs(int count)
 {
 	int rc = 0;
 	int i;
-/*
-	int index;
-	info("in _build_env_structs ac contains %u", ac);
-	for (index = 0; index < ac; index++) {
-		info ("av[%u] is %s", index, av[index]);
-	}
-*/
 
-	pack_job_env = xmalloc(sizeof(pack_job_env_t) * pack_desc_count);
-	for (i = 0; i < pack_desc_count; i++) {
+	pack_job_env = xmalloc(sizeof(pack_job_env_t) * count);
+	for (i = 0; i < count; i++) {
 		pack_job_env[i].opt = xmalloc(sizeof(opt_t));
 		memset(pack_job_env[i].opt, 0, sizeof(opt_t));
 		pack_job_env[i].env = xmalloc(sizeof(env_t));
@@ -229,9 +231,9 @@ int _build_env_structs(int ac, char **av)
 		pack_job_env[i].packleader = false;
 		pack_job_env[i].pack_job = false;
 		pack_job_env[i].job_id = 0;
+		pack_job_env[i].pack_group=0;
 
-		/* initialize default values for env structure */
-
+//		 initialize default values for env structure
 		pack_job_env[i].env->stepid = -1;
 		pack_job_env[i].env->procid = -1;
 		pack_job_env[i].env->localid = -1;
@@ -242,8 +244,113 @@ int _build_env_structs(int ac, char **av)
 	}
 	return rc;
 }
+*/
 
-int _establish_env(int ac, char **av)
+int _build_env_structs(int count, pack_job_env_t *env_struct)
+{
+	int rc = 0;
+	int i;
+
+//	env_struct = xmalloc(sizeof(pack_job_env_t) * count);
+	for (i = 0; i < count; i++) {
+		env_struct[i].opt = xmalloc(sizeof(opt_t));
+		memset(env_struct[i].opt, 0, sizeof(opt_t));
+		env_struct[i].env = xmalloc(sizeof(env_t));
+		memset(env_struct[i].env, 0, sizeof(env_t));
+		env_struct[i].job = xmalloc(sizeof(srun_job_t));
+		memset(env_struct[i].job, 0, sizeof(srun_job_t));
+		env_struct[i].resp = xmalloc(sizeof(resource_allocation_response_msg_t));
+		memset(env_struct[i].resp, 0, sizeof(resource_allocation_response_msg_t));
+		env_struct[i].packleader = false;
+		env_struct[i].pack_job = false;
+		env_struct[i].job_id = 0;
+		env_struct[i].pack_group=0;
+
+//		 initialize default values for env structure
+
+		env_struct[i].env->stepid = -1;
+		env_struct[i].env->procid = -1;
+		env_struct[i].env->localid = -1;
+		env_struct[i].env->nodeid = -1;
+		env_struct[i].env->cli = NULL;
+		env_struct[i].env->env = NULL;
+		env_struct[i].env->ckpt_dir = NULL;
+	}
+	return rc;
+}
+
+/*
+int _build_pack_env_structs(int count, pack_job_env_t *env)
+{
+	int rc = 0;
+	int i;
+
+	env = xmalloc(sizeof(pack_job_env_t) * count);
+	for (i = 0; i < count; i++) {
+		env[i].opt = xmalloc(sizeof(opt_t));
+		memset(env[i].opt, 0, sizeof(opt_t));
+		env[i].env = xmalloc(sizeof(env_t));
+		memset(env[i].env, 0, sizeof(env_t));
+		env[i].job = xmalloc(sizeof(srun_job_t));
+		memset(env[i].job, 0, sizeof(srun_job_t));
+		env[i].resp = xmalloc(sizeof(resource_allocation_response_msg_t));
+		memset(env[i].resp, 0, sizeof(resource_allocation_response_msg_t));
+		env[i].packleader = false;
+		env[i].pack_job = false;
+		env[i].job_id = 0;
+		pack_job_env[i].pack_group=0;
+
+//		 initialize default values for env structure
+
+		env[i].env->stepid = -1;
+		env[i].env->procid = -1;
+		env[i].env->localid = -1;
+		env[i].env->nodeid = -1;
+		env[i].env->cli = NULL;
+		env[i].env->env = NULL;
+		env[i].env->ckpt_dir = NULL;
+	}
+	return rc;
+}
+*/
+
+int _build_pack_group_struct(uint32_t index, pack_job_env_t *env_struct)
+{
+	int rc = 0;
+	int i, j, struct_index;
+
+	info("entered _build_pack_group_struct with index = %u", index);					/* wjb */
+	desc = xmalloc(sizeof(pack_group_struct_t) * index);
+	total_jobs = index;
+	for (i = 0; i < index; i++) {
+		desc[i].groupjob = false;
+	info("in _build_pack_group_struct with index = %u", i);					/* wjb */
+		initialize_and_process_args(env_struct[i].ac,
+					    env_struct[i].av);
+//info("returned from call to initialize_and_process_args with opt.ngrpidx = %u", opt.ngrpidx);		/* wjb */
+		desc[i].pack_group_count = opt.ngrpidx;
+
+/*  there always needs to be a non-zero count so that at least 1 set of structures is built */
+		struct_index = opt.ngrpidx;
+		if (struct_index == 0) struct_index ++;
+		total_jobs += (struct_index-1);
+//info("for index %u calling _build_pack_env_structs with struct_index %u", i, struct_index);		/* wjb */
+		desc[i].pack_job_env = xmalloc(sizeof(pack_job_env_t) * struct_index);
+		_build_env_structs(struct_index, desc[i].pack_job_env);
+//info("desc[%u].pack_job_env[%u].env->stepid is %d", i, (struct_index-1), desc[i].pack_job_env[(struct_index-1)].env->stepid);		/* wjb */
+//info("desc[%u].pack_job_env[%u].opt->uid is %d", i, (struct_index-1), desc[i].pack_job_env[(struct_index-1)].opt->uid);		/* wjb */
+		if (opt.ngrpidx != 0) desc[i].groupjob = true;
+		for (j = 0; i < opt.ngrpidx; i++) {
+			desc[i].pack_job_env[j].pack_group =
+			  opt.groupidx[j];
+info("set desc[%u].pack_job_env[%u].pack_group - %u", i, j, opt.groupidx[j]);				/* wjb */
+		}
+	}
+	return rc;
+}
+
+//int _identify_job_descriptions(int ac, char **av)
+int _identify_job_descriptions(int ac, char **av, pack_job_env_t *pack_env)
 {
 	int rc = 0;
 	int index, index2;
@@ -262,9 +369,10 @@ int _establish_env(int ac, char **av)
 
 	pack_job_id = xstrdup("");
 
+
 /*
 	int index3;
-	info("in _establish_env ac contains %u", ac);
+	info("in _identify_job_descriptions ac contains %u", ac);
 	for (index3 = 0; index3 < ac; index3++) {
 		info ("av[%u] is %s", index3, av[index3]);
 	}
@@ -300,9 +408,11 @@ int _establish_env(int ac, char **av)
 
 		if (_pack_l == false) {
 			if (job_index >= 1)
-				pack_job_env[job_index].pack_job = true;
+//				pack_job_env[job_index].pack_job = true;
+				pack_env[job_index].pack_job = true;
 		} else {
-				pack_job_env[job_index].packleader = true;
+//				pack_job_env[job_index].packleader = true;
+				pack_env[job_index].packleader = true;
 		}
 		current = index + 1;
 		i = 1;
@@ -336,11 +446,144 @@ int _establish_env(int ac, char **av)
 			k++;
 		}
 
-	pack_job_env[job_index].ac = j;
-	pack_job_env[job_index].av = newcmd_cpy;
+//	pack_job_env[job_index].ac = j;
+	pack_env[job_index].ac = j;
+//	pack_job_env[job_index].av = newcmd_cpy;
+	pack_env[job_index].av = newcmd_cpy;
 //int index1;
 //for (index1=0; index1 < j; index1++)
-//	info("pack_job_env[%u].av[%u] = %s", job_index, index1, pack_job_env[job_index].av[index1]);	/* wjb */
+//	info("pack_job_env[%u].av[%u] = %s\n", job_index, index1, pack_job_env[job_index].av[index1]);	/* wjb */
+//	pack_job_env[job_index]->ac = j;
+	job_index++;
+//info("job_index contains %u", job_index);					/* wjb */
+//	for (i = 0; i < (ac + 1); i++) {
+//		xfree(newcmd[i]);
+//	}
+
+	}
+
+	return rc;
+}
+
+int _identify_group_job_descriptions(int ac, char **av)
+{
+	int rc = 0;
+	int index, index1, index2;
+	int i = 0;
+	int j = 0;
+	int current = 1;
+	int job_index = 0;
+	char *srun_str = xstrdup("srun");
+	char *pack_str = xstrdup("-dpack");
+	char *packleader_str = xstrdup("-dpackleader");
+	char *command = NULL;
+	char **newcmd;
+	char **newcmd_cpy;
+	bool _pack_l;
+	uint16_t dependency_position = 0;
+
+	pack_job_id = xstrdup("");
+
+
+/*
+	int index3;
+	info("in _identify_job_descriptions ac contains %u", ac);
+	for (index3 = 0; index3 < ac; index3++) {
+		info ("av[%u] is %s", index3, av[index3]);
+	}
+*/
+
+	while (current < ac){
+		newcmd = xmalloc(sizeof(char *) * (ac + 1));
+		newcmd[0] = srun_str;
+		for (i = 1; i < (ac + 1); i++) {
+			newcmd[i] = NULL;
+		}
+		i = 1;
+		j = 1;
+		_pack_l = false;
+		dependency_position = 0;
+		for (index = current; index < ac; index++) {
+			command = xstrdup(av[index]);
+			if ((strcmp(command, ":") != 0)) {
+				newcmd[i] = command;
+				if ((strncmp(command, "-d", 2) == 0) ||
+				    (strncmp(command, "--d", 3) == 0)) {
+					dependency_position = i;
+				}
+				i++;
+				j++;
+			} else {
+				if (job_index == 0) {
+					_pack_l = true;
+				}
+				break;
+			}
+		}
+		if(desc[job_index].groupjob == false) {
+			if (_pack_l == false) {
+				if (job_index >= 1)
+//					pack_job_env[job_index].pack_job = true;
+//					pack_env[job_index].pack_job = true;
+					desc[job_index].pack_job_env[0].pack_job = true;
+			} else {
+//				pack_job_env[job_index].packleader = true;
+//				pack_env[job_index].packleader = true;
+				desc[job_index].pack_job_env[0].packleader = true;
+			}
+		}
+		/* establish the start of the next command */
+		current = index + 1;
+
+
+		newcmd_cpy = xmalloc(sizeof(char *) * (j+1));
+		newcmd_cpy[0] =  xstrdup(newcmd[0]);
+		i = 1;
+		if(desc[job_index].groupjob == false) {
+			if (dependency_position != 0) {
+				if ((_pack_l == false) && (job_index >= 1)){
+					xstrcat(newcmd[dependency_position], ",pack");
+				} else if (_pack_l == true) {
+					xstrfmtcat(newcmd[dependency_position],
+						   ",packleader");
+					packl_dependency_position = dependency_position;
+				}
+			} else {
+				if (_pack_l == true) {
+					newcmd_cpy[1] = xstrdup(packleader_str);
+					packl_dependency_position = 1;
+					j++;
+					i++;
+				} else if ((_pack_l == false) && (job_index >= 1)) {
+					newcmd_cpy[1] = xstrdup(pack_str);
+					j++;
+					i++;
+				}
+			}
+		}
+
+		int k = 1;
+		for (index2 = i; index2 < j + 1; index2++) {
+			newcmd_cpy[index2] =  xstrdup(newcmd[k]);
+			k++;
+		}
+
+		desc[job_index].pack_job_env[0].ac = j;
+		desc[job_index].pack_job_env[0].av = newcmd_cpy;
+
+		if (desc[job_index].groupjob == true) {
+			for (index = 1; index < desc[job_index].pack_group_count; index++) {
+				newcmd_cpy = xmalloc(sizeof(char *) * (j+1));
+				for (index1 = 0; index1 < j + 1; index1++) {
+					newcmd_cpy[index1] =  xstrdup(newcmd[index1]);
+				}
+				desc[job_index].pack_job_env[index].ac = j;
+				desc[job_index].pack_job_env[index].av = newcmd_cpy;
+			}
+		}
+
+//for (index1=0; index1 < j; index1++)
+//	info("pack_job_env[%u].av[%u] = %s\n", job_index, index1, pack_job_env[job_index].av[index1]);	/* wjb */
 //	pack_job_env[job_index]->ac = j;
 	job_index++;
 //info("job_index contains %u", job_index);					/* wjb */
@@ -768,7 +1011,10 @@ int _srun_jobpack(int ac, char **av)
 	int rc = 0;
 	log_options_t logopt = LOG_OPTS_STDERR_ONLY;
 	bool got_alloc = false;
-	int job_index;
+	int j, desc_index, job_index;
+pack_job_env_t *pack_struct = NULL;
+
+//info("in _srun_jobpack inputs were as follows:");				/* wjb */
 
 /*
 	int index1;
@@ -783,15 +1029,23 @@ int _srun_jobpack(int ac, char **av)
 	log_init(xbasename(av[0]), logopt, 0, NULL);
 	_set_exit_code();
 
-	rc = _build_env_structs(ac, av);
-	rc = _establish_env(ac, av);
+	pack_struct = xmalloc(sizeof(pack_job_env_t) * pack_desc_count);
+	rc = _build_env_structs(pack_desc_count, pack_struct);
+//	rc = _identify_job_descriptions(ac, av);
+	rc = _identify_job_descriptions(ac, av, pack_struct);
 
 	if (slurm_select_init(1) != SLURM_SUCCESS )
 		fatal( "failed to initialize node selection plugin" );
 
 	if (switch_init() != SLURM_SUCCESS )
 		fatal("failed to initialize switch plugin");
-	for (job_index = pack_desc_count; job_index > 0; job_index--) {
+
+	log_init(xbasename(av[0]), logopt, 0, NULL);
+	init_srun(ac, av, &logopt, debug_level, 1);
+	rc =  _build_pack_group_struct(pack_desc_count, pack_struct);
+info("returned from  _build_pack_group_struct");				/* wjb */
+
+/*	for (job_index = pack_desc_count; job_index > 0; job_index--) {
 		group_number = job_index - 1;
 		packleader = pack_job_env[group_number].packleader;
 		packjob = pack_job_env[group_number].pack_job;
@@ -805,6 +1059,49 @@ int _srun_jobpack(int ac, char **av)
 		_copy_opt_struct(pack_job_env[group_number].opt,  &opt);
 		create_srun_jobpack(&pack_job_env[group_number].job, &got_alloc, 0, 1);
 }
+*/
+	rc = _identify_group_job_descriptions(ac, av);
+
+	for (desc_index = pack_desc_count; desc_index > 0; desc_index--) {
+		group_index = desc_index-1;
+		job_index = desc[group_index].pack_group_count;
+		if (job_index == 0) job_index++;
+		for (j = 0; j < job_index; j++) {
+info("group_index is %u j is %u", group_index, j);					/* wjb */
+//			if (desc[group_index].pack_group_count != 0) {
+//				group_number = desc[group_index].pack_job_env[j].pack_group;
+//			} else {
+				group_number = j;
+//			}
+			packleader = desc[group_index].pack_job_env[group_number].packleader;
+			packjob = desc[group_index].pack_job_env[group_number].pack_job;
+			if (packleader == true) {
+				if ((strcmp(pack_job_id, "") == 0))
+					fatal( "found packleader but no pack job id" );
+				xstrcat(desc[group_index].pack_job_env[group_number].av[packl_dependency_position],
+					pack_job_id);
+			}
+/*
+int k, index10;
+k = desc[group_index].pack_job_env[group_number].ac;
+for (index10=0; index10 < k ; index10++)
+	info("desc[%u].pack_job_env[%u].av[%u] = %s\n", group_index, group_number, index10, desc[group_index].pack_job_env[group_number].av[index10]);
+*/							/* wjb */
+
+
+			_copy_opt_struct(&opt, desc[group_index].pack_job_env[group_number].opt);
+info("1 srun_jobgroup desc[%u].pack_job_env[%u].opt->jobid is %d", group_index, group_number, desc[group_index].pack_job_env[(group_number)].opt->jobid);		/* wjb */
+			log_init(xbasename(desc[group_index].pack_job_env[group_number].av[0]), logopt, 0, NULL);
+			init_srun(desc[group_index].pack_job_env[group_number].ac, desc[group_index].pack_job_env[group_number].av, &logopt, debug_level, 1);
+			_copy_opt_struct(desc[group_index].pack_job_env[group_number].opt,  &opt);
+info("2 srun_jobgroup desc[%u].pack_job_env[%u].opt->jobid is %d", group_index, group_number, desc[group_index].pack_job_env[(group_number)].opt->jobid);		/* wjb */
+info("calling create_srun_jobpack %u %u", group_index, group_number);								/* wjb */
+			create_srun_jobpack(&desc[group_index].pack_job_env[group_number].job, &got_alloc, 0, 1);
+		}
+	}
+info("srun_jobgroup end desc[0].pack_job_env[0].job>jobid is %u", desc[0].pack_job_env[0].job->jobid);	/* wjb */
+info("srun_jobgroup end desc[1].pack_job_env[0].job>jobid is %u", desc[1].pack_job_env[0].job->jobid);	/* wjb */
+
 
 	_create_srun_steps_jobpack();
 	info("******** MNP all job steps now created");
@@ -971,33 +1268,63 @@ static void _setup_env_working_cluster()
 		xfree(cluster_name);
 	}
 }
+/*
 static resource_allocation_response_msg_t  *_get_resp(int job_idx)
 {
 	return pack_job_env[job_idx].resp;
 }
+*/
 
+static resource_allocation_response_msg_t  *_get_resp(int desc_idx, int job_idx)
+{
+	return desc[desc_idx].pack_job_env[job_idx].resp;
+}
+
+/*
 static opt_t *_get_opt(int job_idx)
 {
 	return pack_job_env[job_idx].opt;
 }
+*/
 
+static opt_t *_get_opt(int desc_idx, int job_idx)
+{
+	return desc[desc_idx].pack_job_env[job_idx].opt;
+}
+
+/*
 static srun_job_t *_get_srun_job(int job_idx)
 {
 	return pack_job_env[job_idx].job;
 }
+*/
 
+
+static srun_job_t *_get_srun_job(int desc_idx, int job_idx)
+{
+	return desc[desc_idx].pack_job_env[job_idx].job;
+}
+
+/*
 static env_t *_get_env(int job_idx)
 {
 	return pack_job_env[job_idx].env;
 }
+*/
 
+static env_t *_get_env(int desc_idx, int job_idx)
+{
+	return desc[desc_idx].pack_job_env[job_idx].env;
+}
+
+/*
 static void _create_srun_steps_jobpack(void)
 {
 	int i;
 	opt_t *opt_ptr;
 	resource_allocation_response_msg_t *resp;
 
-	/* For each job description, create a job step */
+//	For each job description, create a job step
 	for (i = 0; i < pack_desc_count; i++) {
 		info("******** MNP creating step for pack desc# %d", i);
 		opt_ptr = _get_opt(i);
@@ -1005,19 +1332,57 @@ static void _create_srun_steps_jobpack(void)
 		job = _get_srun_job(i);
 		resp = _get_resp(i);
 
-//		info("******** MNP calling create_job_step for pack desc# %d", i);
+		info("******** MNP calling create_job_step for pack desc# %d", i);
 		if (!job || create_job_step(job, true) < 0) {
 			info("******** MNP error from create_job_step for pack desc# %d", i);
 			slurm_complete_job(resp->job_id, 1);
 			exit(error_exit);
 		}
-//		info("******** MNP returned from create_job_step for pack desc# %d", i);
+		info("******** MNP returned from create_job_step for pack desc# %d", i);
 		slurm_free_resource_allocation_response_msg(resp);
-		/* What about code at lines 625-638 in srun_job.c? */
+// 		What about code at lines 625-638 in srun_job.c?
 		memcpy(opt_ptr, &opt, sizeof(opt_t));
 	}
 }
+*/
 
+static void _create_srun_steps_jobpack(void)
+{
+	int i, j, job_index;
+	opt_t *opt_ptr = NULL;
+	resource_allocation_response_msg_t *resp = NULL;
+
+	/* For each job description, create a job step */
+	for (i = 0; i < pack_desc_count; i++) {
+		job_index = desc[i].pack_group_count;
+		if (job_index == 0) job_index++;
+info("job_index established to be %u", job_index);					/* wjb */
+		for (j = 0; j <job_index; j++) {
+
+			info("******** MNP creating step for pack desc# %d,%d", i, j);
+			opt_ptr = _get_opt(i, j);
+			memcpy(&opt, opt_ptr, sizeof(opt_t));
+			job = _get_srun_job(i, j);
+			resp = _get_resp(i, j);
+info(" _create_srun_steps_jobpack desc[%u].pack_job_env[%u].opt->jobid is %d", i, j, desc[i].pack_job_env[j].opt->jobid);		/* wjb */
+info("_create_srun_steps_jobpack desc[%u].pack_job_env[%u].resp->job_id is %u", i, j, desc[i].pack_job_env[j].resp->job_id);	/* wjb */
+info("_create_srun_steps_jobpack desc[%u].pack_job_env[%u].job>jobid is %u", i, j, desc[i].pack_job_env[j].job->jobid);	/* wjb */
+
+//			info("******** MNP calling create_job_step for pack desc# %d", i);
+			if (!job || create_job_step(job, true) < 0) {
+				info("******** MNP error from create_job_step for pack desc# %d", i);
+				slurm_complete_job(resp->job_id, 1);
+				exit(error_exit);
+			}
+//			info("******** MNP returned from create_job_step for pack desc# %d", i);
+//			slurm_free_resource_allocation_response_msg(resp);
+			/* What about code at lines 625-638 in srun_job.c? */
+			memcpy(opt_ptr, &opt, sizeof(opt_t));
+		}
+	}
+}
+
+/*
 static void _enhance_env_jobpack(bool got_alloc)
 {
 	int i;
@@ -1026,16 +1391,16 @@ static void _enhance_env_jobpack(bool got_alloc)
 	srun_job_t *job;
 	slurm_step_launch_callbacks_t step_callbacks;
 
-	/* For each job description, enhance environment for job */
+//	For each job description, enhance environment for job
 	for (i = 0; i < pack_desc_count; i++) {
 		info("******** MNP enhancing environment for pack desc# %d", i);
 		opt_ptr = _get_opt(i);
 		memcpy(&opt, opt_ptr, sizeof(opt_t));
 		job = _get_srun_job(i);
 		env = _get_env(i);
-		/*
-		 *  Enhance environment for job
-		 */
+//
+//		 *  Enhance environment for job
+//
 		if (opt.cpus_set)
 			env->cpus_per_task = opt.cpus_per_task;
 		if (opt.ntasks_per_node != NO_VAL)
@@ -1068,9 +1433,9 @@ static void _enhance_env_jobpack(bool got_alloc)
 			env->select_jobinfo = job->select_jobinfo;
 			env->nodelist = job->nodelist;
 			env->partition = job->partition;
-			/* If we didn't get the allocation don't overwrite the
-			 * previous info.
-			 */
+//			 If we didn't get the allocation don't overwrite the
+//			 previous info.
+//
 			if (got_alloc)
 				env->nhosts = job->nhosts;
 			env->ntasks = job->ntasks;
@@ -1089,10 +1454,10 @@ static void _enhance_env_jobpack(bool got_alloc)
 			struct termios term;
 			int fd = STDIN_FILENO;
 
-			/* Save terminal settings for restore */
+//			 Save terminal settings for restore
 			tcgetattr(fd, &termdefaults);
 			tcgetattr(fd, &term);
-			/* Set raw mode on local tty */
+//			Set raw mode on local tty
 			cfmakeraw(&term);
 			tcsetattr(fd, TCSANOW, &term);
 			atexit(&_pty_restore);
@@ -1113,16 +1478,118 @@ static void _enhance_env_jobpack(bool got_alloc)
 		memcpy(opt_ptr, &opt, sizeof(opt_t));
 	}
 }
+*/
+
+static void _enhance_env_jobpack(bool got_alloc)
+{
+	int i, j, job_index;
+	opt_t *opt_ptr;
+	env_t *env;
+	srun_job_t *job;
+	slurm_step_launch_callbacks_t step_callbacks;
+
+	/* For each job description, enhance environment for job */
+	for (i = 0; i < pack_desc_count; i++) {
+		job_index = desc[i].pack_group_count;
+		if (job_index == 0) job_index++;
+		for (j = 0; j <job_index; j++) {
+			info("******** MNP enhancing environment for pack desc# %d", i);
+			opt_ptr = _get_opt(i, j);
+			memcpy(&opt, opt_ptr, sizeof(opt_t));
+			job = _get_srun_job(i, j);
+			env = _get_env(i, j);
+			/*
+			*  Enhance environment for job
+			*/
+			if (opt.cpus_set)
+				env->cpus_per_task = opt.cpus_per_task;
+			if (opt.ntasks_per_node != NO_VAL)
+				env->ntasks_per_node = opt.ntasks_per_node;
+			if (opt.ntasks_per_socket != NO_VAL)
+				env->ntasks_per_socket = opt.ntasks_per_socket;
+			if (opt.ntasks_per_core != NO_VAL)
+				env->ntasks_per_core = opt.ntasks_per_core;
+			env->distribution = opt.distribution;
+			if (opt.plane_size != NO_VAL)
+				env->plane_size = opt.plane_size;
+			env->cpu_bind_type = opt.cpu_bind_type;
+			env->cpu_bind = opt.cpu_bind;
+
+			env->cpu_freq_min = opt.cpu_freq_min;
+			env->cpu_freq_max = opt.cpu_freq_max;
+			env->cpu_freq_gov = opt.cpu_freq_gov;
+			env->mem_bind_type = opt.mem_bind_type;
+			env->mem_bind = opt.mem_bind;
+			env->overcommit = opt.overcommit;
+			env->slurmd_debug = opt.slurmd_debug;
+			env->labelio = opt.labelio;
+			env->comm_port = slurmctld_comm_addr.port;
+			env->batch_flag = 0;
+			if (job) {
+				uint16_t *tasks = NULL;
+				slurm_step_ctx_get(job->step_ctx, SLURM_STEP_CTX_TASKS,
+						   &tasks);
+
+				env->select_jobinfo = job->select_jobinfo;
+				env->nodelist = job->nodelist;
+				env->partition = job->partition;
+				/* If we didn't get the allocation don't overwrite the
+				* previous info.
+				*/
+				if (got_alloc)
+					env->nhosts = job->nhosts;
+				env->ntasks = job->ntasks;
+				env->task_count = _uint16_array_to_str(job->nhosts, tasks);
+				env->jobid = job->jobid;
+				env->stepid = job->stepid;
+				env->account = job->account;
+				env->qos = job->qos;
+				env->resv_name = job->resv_name;
+			}
+			if (opt.pty && (set_winsize(job) < 0)) {
+				error("Not using a pseudo-terminal, disregarding --pty option");
+				opt.pty = false;
+			}
+			if (opt.pty) {
+				struct termios term;
+				int fd = STDIN_FILENO;
+
+				/* Save terminal settings for restore */
+				tcgetattr(fd, &termdefaults);
+				tcgetattr(fd, &term);
+				/* Set raw mode on local tty */
+				cfmakeraw(&term);
+				tcsetattr(fd, TCSANOW, &term);
+				atexit(&_pty_restore);
+
+				block_sigwinch();
+				pty_thread_create(job);
+				env->pty_port = job->pty_port;
+				env->ws_col   = job->ws_col;
+				env->ws_row   = job->ws_row;
+			}
+			setup_env(env, opt.preserve_env);
+			xfree(env->task_count);
+			xfree(env);
+			_set_node_alias();
+
+			memset(&step_callbacks, 0, sizeof(step_callbacks));
+			step_callbacks.step_signal   = launch_g_fwd_signal;
+			memcpy(opt_ptr, &opt, sizeof(opt_t));
+		}
+	}
+}
 
 static void _pre_launch_srun_jobpack(void)
 {
 	srun_job_t *job;
 
 	/* For now, do pre_launch_srun_job for pack leader only */
-	job = _get_srun_job(0);
+	job = _get_srun_job(0, 0);
 	pre_launch_srun_job_pack(job, 0, 1);
 }
 
+/*
 static int _launch_srun_steps_jobpack(bool got_alloc)
 {
 	int i, pid, *forkpids;
@@ -1131,17 +1598,17 @@ static int _launch_srun_steps_jobpack(bool got_alloc)
 	slurm_step_io_fds_t cio_fds = SLURM_STEP_IO_FDS_INITIALIZER;
 	slurm_step_launch_callbacks_t step_callbacks;
 
-	/* MNP start experimental code to pipe stdin */
+//	MNP start experimental code to pipe stdin
 //	int stdinpipe[2];
 //	if (pipe(stdinpipe) < 0) {
 //		info("******** MNP error creating stdin pipe in parent srun");
 //		exit(0);
 //	}
-	/* MNP end experimental code to pipe stdin */
+//	MNP end experimental code to pipe stdin
 
-	/* For each job description, set stdio fds and fork child srun
-	 * to handle I/O redirection and step launch
-	 */
+//	For each job description, set stdio fds and fork child srun
+//	to handle I/O redirection and step launch
+//
 	forkpids = xmalloc(pack_desc_count * sizeof(int));
 	for (i = 0; i < pack_desc_count; i++) {
 		opt_ptr = _get_opt(i);
@@ -1152,17 +1619,17 @@ static int _launch_srun_steps_jobpack(bool got_alloc)
 		info("******** MNP forking child srun for pack desc# %d", i);
 		pid = fork();
 		if (pid < 0) {
-			/* Error creating child srun process */
+//			Error creating child srun process
 			info("******** MNP fork failed for pack desc# %d", i);
 			exit(0);
 		} else if (pid == 0) {
-			/* Child srun process */
+//			Child srun process
 			info("******** MNP child srun (PID %d) running", getpid());
 			info("******** MNP %d: launching step for pack desc# %d", getpid(), i);
-			/* MNP start experimental code to pipe stdin */
+//			MNP start experimental code to pipe stdin
 //			dup2(stdinpipe[0], STDIN_FILENO);
 //			close(stdinpipe[0]);
-			/* MNP end experimental code to pipe stdin */
+//			MNP end experimental code to pipe stdin
 			if (!launch_g_step_launch(job, &cio_fds, &global_rc, &step_callbacks)) {
 				info("******** MNP %d: error from launch_g_step_launch, global_rc=%d", getpid(), global_rc);
 				if (launch_g_step_wait(job, got_alloc) == -1) {
@@ -1180,13 +1647,98 @@ static int _launch_srun_steps_jobpack(bool got_alloc)
 		}
 	}
 	info("******** MNP parent srun has forked all child sruns");
+//	Wait for all child sruns to exit
+//	MNP start experimental code to pipe stdin
+//	dup2(stdinpipe[1],STDOUT_FILENO);
+//	close(stdinpipe[1]);
+//	printf("This is the parent");
+//	MNP end experimental code to pipe stdin
+	for (i = 0; i < pack_desc_count; i++) {
+		int status;
+		while (waitpid(forkpids[i], &status, 0) == -1);
+		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+			info("******** MNP pid=%d, child srun pid=%d has failed, WEXITSTATUS(status)=%d", getpid(),forkpids[i], WEXITSTATUS(status));
+			info("******** MNP pid=%d, child srun pid=%d has failed, WIFEXITED(status)=%d", getpid(),forkpids[i], WIFEXITED(status));
+			exit(1);
+		}
+	}
+	info("******** MNP all child sruns have exited successfully");
+	return (int)global_rc;
+}
+*/
+
+static int _launch_srun_steps_jobpack(bool got_alloc)
+{
+	int i, j, job_index, pid_idx, pid, *forkpids;
+	opt_t *opt_ptr;
+	env_t *env;
+	slurm_step_io_fds_t cio_fds = SLURM_STEP_IO_FDS_INITIALIZER;
+	slurm_step_launch_callbacks_t step_callbacks;
+
+	/* MNP start experimental code to pipe stdin */
+//	int stdinpipe[2];
+//	if (pipe(stdinpipe) < 0) {
+//		info("******** MNP error creating stdin pipe in parent srun");
+//		exit(0);
+//	}
+	/* MNP end experimental code to pipe stdin */
+
+	/* For each job description, set stdio fds and fork child srun
+	 * to handle I/O redirection and step launch
+	 */
+	memset(&step_callbacks, 0, sizeof(step_callbacks));
+	step_callbacks.step_signal   = launch_g_fwd_signal;
+	forkpids = xmalloc(total_jobs * sizeof(int));
+	pid_idx = 0;
+	for (i = 0; i < pack_desc_count; i++) {
+		job_index = desc[i].pack_group_count;
+		if (job_index == 0) job_index++;
+		for (j = 0; j <job_index; j++) {
+			opt_ptr = _get_opt(i, j);
+			memcpy(&opt, opt_ptr, sizeof(opt_t));
+			job = _get_srun_job(i, j);
+			env = _get_env(i, j);
+			launch_common_set_stdio_fds(job, &cio_fds);
+			info("******** MNP forking child srun for pack desc# %d", i);
+			pid = fork();
+			if (pid < 0) {
+				/* Error creating child srun process */
+				info("******** MNP fork failed for pack desc# %d", i);
+				exit(0);
+			} else if (pid == 0) {
+				/* Child srun process */
+				info("******** MNP child srun (PID %d) running", getpid());
+				info("******** MNP %d: launching step for pack desc# %d", getpid(), i);
+				/* MNP start experimental code to pipe stdin */
+//				dup2(stdinpipe[0], STDIN_FILENO);
+//				close(stdinpipe[0]);
+				/* MNP end experimental code to pipe stdin */
+				if (!launch_g_step_launch(job, &cio_fds, &global_rc, &step_callbacks)) {
+					info("******** MNP %d: error from launch_g_step_launch, global_rc=%d", getpid(), global_rc);
+					if (launch_g_step_wait(job, got_alloc) == -1) {
+						info("******** MNP child srun PID %d: error from launch_g_step_wait", getpid());
+						exit(0);
+					}
+				}
+				fini_srun(job, got_alloc, &global_rc, 0);
+				info("******** MNP pid=%d, child has finished fini_srun, global_rc=%d", getpid(),global_rc);
+				exit(0);
+//			return (int)global_rc;
+			} else {
+				forkpids[pid_idx] = pid;
+				pid_idx++;
+				info("******** MNP in parent srun, adding child pid=%d to forkpids[%d]", pid, i);
+			}
+		}
+	}
+	info("******** MNP parent srun has forked all child sruns");
 	/* Wait for all child sruns to exit */
 	/* MNP start experimental code to pipe stdin */
 //	dup2(stdinpipe[1],STDOUT_FILENO);
 //	close(stdinpipe[1]);
 //	printf("This is the parent");
 	/* MNP end experimental code to pipe stdin */
-	for (i = 0; i < pack_desc_count; i++) {
+	for (i = 0; i < total_jobs; i++) {
 		int status;
 		while (waitpid(forkpids[i], &status, 0) == -1);
 		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
