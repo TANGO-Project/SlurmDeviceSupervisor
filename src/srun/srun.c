@@ -166,6 +166,12 @@ static opt_t *_get_opt(int job_idx);
 static srun_job_t *_get_srun_job(int job_idx);
 static env_t *_get_env(int job_idx);
 
+static int _srun_jobpack(int ac, char **av);
+static void _create_srun_steps_jobpack(void);
+static void _enhance_env_jobpack(bool got_alloc);
+static void _pre_launch_srun_jobpack(void);
+static int _launch_srun_steps_jobpack(bool got_alloc);
+
 /*
  * from libvirt-0.6.2 GPL2
  *
@@ -189,14 +195,13 @@ void cfmakeraw(struct termios *attr)
 int _count_jobs(int ac, char **av)
 {
 	int index;
-	int rc = 0;
 	for (index = 0; index < ac; index++) {
 		if ((strcmp(av[index], ":") == 0)) {
 			pack_desc_count ++;
 		}
 	}
-if(pack_desc_count) pack_desc_count++;
-	return rc;
+	if(pack_desc_count) pack_desc_count++;
+	return pack_desc_count;
 }
 
 int _build_env_structs(int ac, char **av)
@@ -757,6 +762,62 @@ static int _file_bcast(void)
 	return rc;
 }
 
+int _srun_jobpack(int ac, char **av)
+{
+	int debug_level;
+	int rc = 0;
+	log_options_t logopt = LOG_OPTS_STDERR_ONLY;
+	bool got_alloc = false;
+	int job_index;
+
+/*
+	int index1;
+	info(" srun ac contains %u", ac);
+	for (index1 = 0; index1 < ac; index1++) {
+		info ("av[%u] is %s", index1, av[index1]);
+	}
+*/
+	slurm_conf_init(NULL);
+	debug_level = _slurm_debug_env_val();
+	logopt.stderr_level += debug_level;
+	log_init(xbasename(av[0]), logopt, 0, NULL);
+	_set_exit_code();
+
+	rc = _build_env_structs(ac, av);
+	rc = _establish_env(ac, av);
+
+	if (slurm_select_init(1) != SLURM_SUCCESS )
+		fatal( "failed to initialize node selection plugin" );
+
+	if (switch_init() != SLURM_SUCCESS )
+		fatal("failed to initialize switch plugin");
+	for (job_index = pack_desc_count; job_index > 0; job_index--) {
+		group_number = job_index - 1;
+		packleader = pack_job_env[group_number].packleader;
+		packjob = pack_job_env[group_number].pack_job;
+		if (packleader == true)
+			xstrcat(pack_job_env[group_number].av[packl_dependency_position],
+			        pack_job_id);
+
+		_copy_opt_struct( &opt, pack_job_env[group_number].opt);
+		log_init(xbasename(pack_job_env[group_number].av[0]), logopt, 0, NULL);
+		init_srun(pack_job_env[group_number].ac, pack_job_env[group_number].av, &logopt, debug_level, 1);
+		_copy_opt_struct(pack_job_env[group_number].opt,  &opt);
+		create_srun_jobpack(&pack_job_env[group_number].job, &got_alloc, 0, 1);
+}
+
+	_create_srun_steps_jobpack();
+	info("******** MNP all job steps now created");
+	_enhance_env_jobpack(got_alloc);
+	info("******** MNP all jobs now environment enhanced");
+	_pre_launch_srun_jobpack();
+	info("******** MNP pre_launch_srun_job finished");
+	info("******** MNP parent srun pid = %d", getpid());
+	_launch_srun_steps_jobpack(got_alloc);
+	info("******** MNP all job steps now launched");
+	return (int)global_rc;
+ }
+
 static int _slurm_debug_env_val (void)
 {
 	long int level = 0;
@@ -909,4 +970,231 @@ static void _setup_env_working_cluster()
 		}
 		xfree(cluster_name);
 	}
+}
+static resource_allocation_response_msg_t  *_get_resp(int job_idx)
+{
+	return pack_job_env[job_idx].resp;
+}
+
+static opt_t *_get_opt(int job_idx)
+{
+	return pack_job_env[job_idx].opt;
+}
+
+static srun_job_t *_get_srun_job(int job_idx)
+{
+	return pack_job_env[job_idx].job;
+}
+
+static env_t *_get_env(int job_idx)
+{
+	return pack_job_env[job_idx].env;
+}
+
+static void _create_srun_steps_jobpack(void)
+{
+	int i;
+	opt_t *opt_ptr;
+	resource_allocation_response_msg_t *resp;
+
+	/* For each job description, create a job step */
+	for (i = 0; i < pack_desc_count; i++) {
+		info("******** MNP creating step for pack desc# %d", i);
+		opt_ptr = _get_opt(i);
+		memcpy(&opt, opt_ptr, sizeof(opt_t));
+		job = _get_srun_job(i);
+		resp = _get_resp(i);
+
+//		info("******** MNP calling create_job_step for pack desc# %d", i);
+		if (!job || create_job_step(job, true) < 0) {
+			info("******** MNP error from create_job_step for pack desc# %d", i);
+			slurm_complete_job(resp->job_id, 1);
+			exit(error_exit);
+		}
+//		info("******** MNP returned from create_job_step for pack desc# %d", i);
+		slurm_free_resource_allocation_response_msg(resp);
+		/* What about code at lines 625-638 in srun_job.c? */
+		memcpy(opt_ptr, &opt, sizeof(opt_t));
+	}
+}
+
+static void _enhance_env_jobpack(bool got_alloc)
+{
+	int i;
+	opt_t *opt_ptr;
+	env_t *env;
+	srun_job_t *job;
+	slurm_step_launch_callbacks_t step_callbacks;
+
+	/* For each job description, enhance environment for job */
+	for (i = 0; i < pack_desc_count; i++) {
+		info("******** MNP enhancing environment for pack desc# %d", i);
+		opt_ptr = _get_opt(i);
+		memcpy(&opt, opt_ptr, sizeof(opt_t));
+		job = _get_srun_job(i);
+		env = _get_env(i);
+		/*
+		 *  Enhance environment for job
+		 */
+		if (opt.cpus_set)
+			env->cpus_per_task = opt.cpus_per_task;
+		if (opt.ntasks_per_node != NO_VAL)
+			env->ntasks_per_node = opt.ntasks_per_node;
+		if (opt.ntasks_per_socket != NO_VAL)
+			env->ntasks_per_socket = opt.ntasks_per_socket;
+		if (opt.ntasks_per_core != NO_VAL)
+			env->ntasks_per_core = opt.ntasks_per_core;
+		env->distribution = opt.distribution;
+		if (opt.plane_size != NO_VAL)
+			env->plane_size = opt.plane_size;
+		env->cpu_bind_type = opt.cpu_bind_type;
+		env->cpu_bind = opt.cpu_bind;
+
+		env->cpu_freq_min = opt.cpu_freq_min;
+		env->cpu_freq_max = opt.cpu_freq_max;
+		env->cpu_freq_gov = opt.cpu_freq_gov;
+		env->mem_bind_type = opt.mem_bind_type;
+		env->mem_bind = opt.mem_bind;
+		env->overcommit = opt.overcommit;
+		env->slurmd_debug = opt.slurmd_debug;
+		env->labelio = opt.labelio;
+		env->comm_port = slurmctld_comm_addr.port;
+		env->batch_flag = 0;
+		if (job) {
+			uint16_t *tasks = NULL;
+			slurm_step_ctx_get(job->step_ctx, SLURM_STEP_CTX_TASKS,
+						  &tasks);
+
+			env->select_jobinfo = job->select_jobinfo;
+			env->nodelist = job->nodelist;
+			env->partition = job->partition;
+			/* If we didn't get the allocation don't overwrite the
+			 * previous info.
+			 */
+			if (got_alloc)
+				env->nhosts = job->nhosts;
+			env->ntasks = job->ntasks;
+			env->task_count = _uint16_array_to_str(job->nhosts, tasks);
+			env->jobid = job->jobid;
+			env->stepid = job->stepid;
+			env->account = job->account;
+			env->qos = job->qos;
+			env->resv_name = job->resv_name;
+		}
+		if (opt.pty && (set_winsize(job) < 0)) {
+			error("Not using a pseudo-terminal, disregarding --pty option");
+			opt.pty = false;
+		}
+		if (opt.pty) {
+			struct termios term;
+			int fd = STDIN_FILENO;
+
+			/* Save terminal settings for restore */
+			tcgetattr(fd, &termdefaults);
+			tcgetattr(fd, &term);
+			/* Set raw mode on local tty */
+			cfmakeraw(&term);
+			tcsetattr(fd, TCSANOW, &term);
+			atexit(&_pty_restore);
+
+			block_sigwinch();
+			pty_thread_create(job);
+			env->pty_port = job->pty_port;
+			env->ws_col   = job->ws_col;
+			env->ws_row   = job->ws_row;
+		}
+		setup_env(env, opt.preserve_env);
+		xfree(env->task_count);
+		xfree(env);
+		_set_node_alias();
+
+		memset(&step_callbacks, 0, sizeof(step_callbacks));
+		step_callbacks.step_signal   = launch_g_fwd_signal;
+		memcpy(opt_ptr, &opt, sizeof(opt_t));
+	}
+}
+
+static void _pre_launch_srun_jobpack(void)
+{
+	srun_job_t *job;
+
+	/* For now, do pre_launch_srun_job for pack leader only */
+	job = _get_srun_job(0);
+	pre_launch_srun_job_pack(job, 0, 1);
+}
+
+static int _launch_srun_steps_jobpack(bool got_alloc)
+{
+	int i, pid, *forkpids;
+	opt_t *opt_ptr;
+	env_t *env;
+	slurm_step_io_fds_t cio_fds = SLURM_STEP_IO_FDS_INITIALIZER;
+	slurm_step_launch_callbacks_t step_callbacks;
+
+	/* MNP start experimental code to pipe stdin */
+//	int stdinpipe[2];
+//	if (pipe(stdinpipe) < 0) {
+//		info("******** MNP error creating stdin pipe in parent srun");
+//		exit(0);
+//	}
+	/* MNP end experimental code to pipe stdin */
+
+	/* For each job description, set stdio fds and fork child srun
+	 * to handle I/O redirection and step launch
+	 */
+	forkpids = xmalloc(pack_desc_count * sizeof(int));
+	for (i = 0; i < pack_desc_count; i++) {
+		opt_ptr = _get_opt(i);
+		memcpy(&opt, opt_ptr, sizeof(opt_t));
+		job = _get_srun_job(i);
+		env = _get_env(i);
+		launch_common_set_stdio_fds(job, &cio_fds);
+		info("******** MNP forking child srun for pack desc# %d", i);
+		pid = fork();
+		if (pid < 0) {
+			/* Error creating child srun process */
+			info("******** MNP fork failed for pack desc# %d", i);
+			exit(0);
+		} else if (pid == 0) {
+			/* Child srun process */
+			info("******** MNP child srun (PID %d) running", getpid());
+			info("******** MNP %d: launching step for pack desc# %d", getpid(), i);
+			/* MNP start experimental code to pipe stdin */
+//			dup2(stdinpipe[0], STDIN_FILENO);
+//			close(stdinpipe[0]);
+			/* MNP end experimental code to pipe stdin */
+			if (!launch_g_step_launch(job, &cio_fds, &global_rc, &step_callbacks)) {
+				info("******** MNP %d: error from launch_g_step_launch, global_rc=%d", getpid(), global_rc);
+				if (launch_g_step_wait(job, got_alloc) == -1) {
+					info("******** MNP child srun PID %d: error from launch_g_step_wait", getpid());
+					exit(0);
+				}
+			}
+			fini_srun(job, got_alloc, &global_rc, 0);
+			info("******** MNP pid=%d, child has finished fini_srun, global_rc=%d", getpid(),global_rc);
+			exit(0);
+//			return (int)global_rc;
+		} else {
+			forkpids[i] = pid;
+			info("******** MNP in parent srun, adding child pid=%d to forkpids[%d]", pid, i);
+		}
+	}
+	info("******** MNP parent srun has forked all child sruns");
+	/* Wait for all child sruns to exit */
+	/* MNP start experimental code to pipe stdin */
+//	dup2(stdinpipe[1],STDOUT_FILENO);
+//	close(stdinpipe[1]);
+//	printf("This is the parent");
+	/* MNP end experimental code to pipe stdin */
+	for (i = 0; i < pack_desc_count; i++) {
+		int status;
+		while (waitpid(forkpids[i], &status, 0) == -1);
+		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+			info("******** MNP pid=%d, child srun pid=%d has failed, WEXITSTATUS(status)=%d", getpid(),forkpids[i], WEXITSTATUS(status));
+			info("******** MNP pid=%d, child srun pid=%d has failed, WIFEXITED(status)=%d", getpid(),forkpids[i], WIFEXITED(status));
+			exit(1);
+		}
+	}
+	info("******** MNP all child sruns have exited successfully");
+	return (int)global_rc;
 }

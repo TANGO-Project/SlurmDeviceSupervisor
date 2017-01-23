@@ -103,10 +103,10 @@ typedef struct allocation_info {
 
 static int shepherd_fd = -1;
 
-extern uint32_t pack_desc_count;					/* wjb */
-extern uint32_t group_number;						/* wjb */
-extern bool packjob;							/* wjb */
-extern bool packleader;							/* wjb */
+extern uint32_t pack_desc_count;
+extern uint32_t group_number;
+extern bool packjob;
+extern bool packleader;
 
 
 static pthread_t signal_thread = (pthread_t) 0;
@@ -139,58 +139,6 @@ static int _shepherd_spawn(srun_job_t *job, bool got_alloc);
 static void *_srun_signal_mgr(void *no_data);
 static void _step_opt_exclusive(void);
 static int _validate_relative(resource_allocation_response_msg_t *resp);
-
-int _complete_group_job_creation(void)
-{
-	int rc = 0;
-	int job_index = 0;
-	resource_allocation_response_msg_t *resp = NULL;
-
-	resp = xmalloc(sizeof(resource_allocation_response_msg_t));
-
-	/* save opt for pack-leader */
-	_copy_opt_struct(pack_job_env[0].opt, &opt);
-	for (job_index = 1; job_index < pack_desc_count; job_index++) {
-
-		/* load opt for pack-member */
-		_copy_opt_struct(&opt, pack_job_env[job_index].opt);
-
-		/* restore response message for pack-member */
-		_copy_resp_struct(resp, pack_job_env[job_index].resp);
-//		global_resp = resp;
-//		*got_alloc = true;
-		_print_job_information(resp);
-		_set_env_vars(resp);
-		if (_validate_relative(resp)) {
-			slurm_complete_job(resp->job_id, 1);
-			exit(error_exit);
-		}
-
-		/* save job for pack-member */
-		pack_job_env[job_index].job = job_create_allocation(resp);
-
-		opt.time_limit = NO_VAL;/* not applicable for step, only job */
-		xfree(opt.constraints);	/* not applicable for this step */
-		if (!opt.job_name_set_cmd && opt.job_name_set_env) {
-			/* use SLURM_JOB_NAME env var */
-			opt.job_name_set_cmd = true;
-		}
-		if ((opt.core_spec_set || opt.exclusive) && opt.cpus_set) {
-			/* Step gets specified CPU count, which may only part
-			 * of the job allocation. */
-			opt.exclusive = true;
-		} else {
-			/* Step gets all CPUs in the job allocation. */
-			opt.exclusive = false;
-		}
-		/* save updated opt information for pack-member */
-		_copy_opt_struct(pack_job_env[job_index].opt, &opt);
-	}
-	xfree(resp);
-	/* reload opt for pack-leader */
-	_copy_opt_struct(&opt, pack_job_env[0].opt);
-	return rc;
-}
 
 /*
  * Create an srun job structure w/out an allocation response msg.
@@ -567,7 +515,6 @@ extern void create_srun_job(srun_job_t **p_job, bool *got_alloc,
 {
 	resource_allocation_response_msg_t *resp;
 	srun_job_t *job = NULL;
-	int rc;
 
 	/* now global "opt" should be filled in and available,
 	 * create a job from opt
@@ -674,12 +621,6 @@ extern void create_srun_job(srun_job_t **p_job, bool *got_alloc,
 		if ( !(resp = allocate_nodes(handle_signals)) )
 			exit(error_exit);
 
-		if (packjob == true) {
-			opt.shepard_fd = -1;
-			opt.shepard_fd = _shepard_spawn(job, *got_alloc);
-			//info("******** MNP %d: in create_srun_job, opt.shepard_fd=%d", getpid(), opt.shepard_fd);
-			return;
-		}
 		global_resp = resp;
 		*got_alloc = true;
 		_print_job_information(resp);
@@ -704,32 +645,20 @@ extern void create_srun_job(srun_job_t **p_job, bool *got_alloc,
 			/* Step gets all CPUs in the job allocation. */
 			opt.exclusive = false;
 		}
-		if (packleader == true) {
 
-			/* save response message for pack-leader */
-			_copy_resp_struct(pack_job_env[0].resp, resp);
-
-			/* save job for pack-leader */
-			_copy_srun_job_struct(pack_job_env[0].job, job);
-			rc = _complete_group_job_creation();
-		}
-
-/* ############ Martin's changes start below this point ################ */
 		/*
 		 *  Become --uid user
 		 */
 		if (_become_user () < 0)
 			info("Warning: Unable to assume uid=%u", opt.uid);
 
-		if(pack_desc_count == 0) {
-			if (!job || create_job_step(job, true) < 0) {
-				slurm_complete_job(resp->job_id, 1);
-				exit(error_exit);
-			}
-
-			global_resp = NULL;
-			slurm_free_resource_allocation_response_msg(resp);
+		if (!job || create_job_step(job, true) < 0) {
+			slurm_complete_job(resp->job_id, 1);
+			exit(error_exit);
 		}
+
+		global_resp = NULL;
+		slurm_free_resource_allocation_response_msg(resp);
 	}
 
 	/*
@@ -744,9 +673,177 @@ extern void create_srun_job(srun_job_t **p_job, bool *got_alloc,
 		 * on abnormal termination
 		 */
 		shepherd_fd = _shepherd_spawn(job, *got_alloc);
+
 	}
 
 	*p_job = job;
+}
+
+extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
+			    bool slurm_started, bool handle_signals)
+{
+	resource_allocation_response_msg_t *resp;
+	srun_job_t *job = NULL;
+	int job_index = 0;
+
+	/* now global "opt" should be filled in and available,
+	 * create a job from opt
+	 */
+
+	if (opt.test_only) {
+		int rc = allocate_test();
+		if (rc) {
+			slurm_perror("allocation failure");
+			exit (1);
+		}
+		exit (0);
+
+	} else if (opt.no_alloc) {
+		info("do not allocate resources");
+		job = job_create_noalloc();
+		if (job == NULL) {
+			error("Job creation failure.");
+			exit(error_exit);
+		}
+		if (create_job_step(job, false) < 0) {
+			exit(error_exit);
+		}
+	} else if ((resp = existing_allocation())) {
+		select_g_alter_node_cnt(SELECT_APPLY_NODE_MAX_OFFSET,
+					&resp->node_cnt);
+		if (opt.nodes_set_env && !opt.nodes_set_opt &&
+		    (opt.min_nodes > resp->node_cnt)) {
+			/* This signifies the job used the --no-kill option
+			 * and a node went DOWN or it used a node count range
+			 * specification, was checkpointed from one size and
+			 * restarted at a different size */
+			error("SLURM_NNODES environment variable "
+			      "conflicts with allocated node count (%u!=%u).",
+			      opt.min_nodes, resp->node_cnt);
+			/* Modify options to match resource allocation.
+			 * NOTE: Some options are not supported */
+			opt.min_nodes = resp->node_cnt;
+			xfree(opt.alloc_nodelist);
+			if (!opt.ntasks_set)
+				opt.ntasks = opt.min_nodes;
+		}
+		if (opt.core_spec_set) {
+			/* NOTE: Silently ignore specialized core count set
+			 * with SLURM_CORE_SPEC environment variable */
+			error("Ignoring --core-spec value for a job step "
+			      "within an existing job. Set specialized cores "
+			      "at job allocation time.");
+		}
+#ifdef HAVE_NATIVE_CRAY
+		if (opt.network) {
+			if (opt.network_set_env)
+				debug2("Ignoring SLURM_NETWORK value for a "
+				       "job step within an existing job. "
+				       "Using what was set at job "
+				       "allocation time.  Most likely this "
+				       "variable was set by sbatch or salloc.");
+			else
+				error("Ignoring --network value for a job step "
+				      "within an existing job. Set network "
+				      "options at job allocation time.");
+		}
+#endif
+		if (opt.alloc_nodelist == NULL)
+			opt.alloc_nodelist = xstrdup(resp->node_list);
+		if (opt.exclusive)
+			_step_opt_exclusive();
+		_set_env_vars(resp);
+		if (_validate_relative(resp))
+			exit(error_exit);
+		job = job_step_create_allocation(resp);
+		slurm_free_resource_allocation_response_msg(resp);
+
+		if (opt.begin != 0) {
+			error("--begin is ignored because nodes"
+			      " are already allocated.");
+		}
+		if (!job || create_job_step(job, false) < 0)
+			exit(error_exit);
+	} else {
+		/* Combined job allocation and job step launch */
+#if defined HAVE_FRONT_END && (!defined HAVE_BG || defined HAVE_BG_L_P || !defined HAVE_BG_FILES) && (!defined HAVE_REAL_CRAY)
+		uid_t my_uid = getuid();
+		if ((my_uid != 0) &&
+		    (my_uid != slurm_get_slurm_user_id())) {
+			error("srun task launch not supported on this system");
+			exit(error_exit);
+		}
+#endif
+		if (opt.relative_set && opt.relative) {
+			fatal("--relative option invalid for job allocation "
+			      "request");
+		}
+
+		if (!opt.job_name_set_env && opt.job_name_set_cmd)
+			setenvfs("SLURM_JOB_NAME=%s", opt.job_name);
+		else if (!opt.job_name_set_env && opt.argc)
+			setenvfs("SLURM_JOB_NAME=%s", opt.argv[0]);
+
+		if ( !(resp = allocate_nodes_jobpack(handle_signals)) )
+			exit(error_exit);
+
+		if (packjob == true) {
+			return;
+		}
+		global_resp = resp;
+		*got_alloc = true;
+		for (job_index = 0; job_index < pack_desc_count; job_index++) {
+			_copy_opt_struct(&opt, pack_job_env[job_index].opt);
+			_copy_resp_struct(resp, pack_job_env[job_index].resp);
+			_print_job_information(resp);
+			_set_env_vars(resp);
+			if (_validate_relative(resp)) {
+				slurm_complete_job(resp->job_id, 1);
+				exit(error_exit);
+			}
+			/* save job for pack-member */
+			pack_job_env[job_index].job = job_create_allocation(resp);
+
+			opt.time_limit = NO_VAL;/* not applicable for step, only job */
+			xfree(opt.constraints);	/* not applicable for this step */
+			if (!opt.job_name_set_cmd && opt.job_name_set_env) {
+				/* use SLURM_JOB_NAME env var */
+				opt.job_name_set_cmd = true;
+			}
+			if ((opt.core_spec_set || opt.exclusive) &&
+			    opt.cpus_set) {
+				/* Step gets specified CPU count, which may only
+				* part of the job allocation. */
+				opt.exclusive = true;
+			} else {
+				/* Step gets all CPUs in the job allocation. */
+				opt.exclusive = false;
+			}
+			if (!slurm_started) {
+				/*
+				* Spawn process to insure clean-up of
+				* job and/or step on abnormal term
+				*/
+				job = pack_job_env[job_index].job;
+				opt.shepard_fd = -1;
+				opt.shepard_fd = _shepard_spawn(job,
+						 *got_alloc);
+			}
+			/*
+			*  Become --uid user
+			*/
+			if (_become_user () < 0)
+				info("Warning: Unable to assume uid=%u",
+				     opt.uid);
+			if (packleader == true) {
+				*p_job = pack_job_env[0].job;
+			}
+			/* save updated opt information for pack-member */
+			_copy_opt_struct(pack_job_env[job_index].opt, &opt);
+		}
+	}
+
+	 _copy_opt_struct(&opt, pack_job_env[0].opt);
 }
 
 extern void pre_launch_srun_job(srun_job_t *job, bool slurm_started,

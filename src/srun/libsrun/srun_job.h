@@ -137,6 +137,8 @@ extern void init_srun(int ac, char **av,
 
 extern void create_srun_job(srun_job_t **p_job, bool *got_alloc,
 			    bool slurm_started, bool handle_signals);
+extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
+			    bool slurm_started, bool handle_signals);
 extern void pre_launch_srun_job(srun_job_t *job, bool slurm_started,
 				bool handle_signals);
 extern void pre_launch_srun_job_pack(srun_job_t *job, bool slurm_started,

@@ -111,90 +111,6 @@ static int _wait_nodes_ready(resource_allocation_response_msg_t *alloc);
 
 static sig_atomic_t destroy_job = 0;
 
-static int _continue_task_groups_alloc(bool handle_signals)
-{
-	int rc = 0;
-	int job_index;
-	resource_allocation_response_msg_t *resp = NULL;
-
-	/* save opt for pack-leader */
-	_copy_opt_struct(pack_job_env[0].opt, &opt);
-	for (job_index = 1; job_index < pack_desc_count; job_index++) {
-
-		/* load opt for pack-member */
-		_copy_opt_struct(&opt, pack_job_env[job_index].opt);
-		opt.jobid = pack_job_env[job_index].job_id;
-		resp = existing_allocation();
-
-		/* save response message for pack-member */
-		_copy_resp_struct(pack_job_env[job_index].resp, resp);
-		if (resp && !destroy_job) {
-			/*
-			* Allocation granted!
-			*/
-			pending_job_id = resp->job_id;
-
-			/*
-			* These values could be changed while the job was
-			* pending so overwrite the request with what was
-			* allocated so we don't have issues when we use them
-			* in the step creation.
-			*/
-			if (opt.pn_min_memory != NO_VAL)
-				opt.pn_min_memory = (resp->pn_min_memory &
-						     (~MEM_PER_CPU));
-			else if (opt.mem_per_cpu != NO_VAL)
-				opt.mem_per_cpu = (resp->pn_min_memory &
-						   (~MEM_PER_CPU));
-			/*
-			* FIXME: timelimit should probably also be updated
-			* here since it could also change.
-			*/
-
-#ifdef HAVE_BG
-			uint32_t node_cnt = 0;
-			select_g_select_jobinfo_get(resp->select_jobinfo,
-						SELECT_JOBDATA_NODE_CNT,
-						&node_cnt);
-			if ((node_cnt == 0) || (node_cnt == NO_VAL)) {
-				opt.min_nodes = node_cnt;
-				opt.max_nodes = node_cnt;
-			} /* else we just use the original request */
-
-			if (!_wait_bluegene_block_ready(resp)) {
-				if (!destroy_job)
-					error("Something is wrong with the "
-					"boot of the block.");
-				rc = SLURM_ERROR;
-				return rc;
-			}
-#else
-			opt.min_nodes = resp->node_cnt;
-			opt.max_nodes = resp->node_cnt;
-
-			if (!_wait_nodes_ready(resp)) {
-				if (!destroy_job)
-					error("Something is wrong with the "
-					"boot of the nodes.");
-				rc = SLURM_ERROR;
-				return rc;
-			}
-#endif
-		} else if (destroy_job) {
-			rc = SLURM_ERROR;
-			return rc;
-		}
-		if (handle_signals)
-			xsignal_block(sig_array);
-
-		/* save updated opt for pack-member */
-		_copy_opt_struct(pack_job_env[job_index].opt, &opt);
-	}
-	/* reload opt for pack-leader */
-	_copy_opt_struct(&opt, pack_job_env[0].opt);
-	return rc;
-}
-
  static void _set_pending_job_id(uint32_t job_id)
  {
 	debug2("Pending job allocation %u", job_id);
@@ -589,21 +505,6 @@ allocate_nodes(bool handle_signals)
 		return resp;
 	}
 
-	if (packjob == true) {
-		while (!resp) {
-			resp = slurm_allocate_pack_resources(j, opt.immediate,
-							     _set_pending_job_id);
-			if (destroy_job) {
-				/* cancelled by signal */
-				break;
-			} else if (!resp && !_retry()) {
-				break;
-			}
-		}
-		job_desc_msg_destroy(j);
-		return resp;
-	}
-
 	while (!resp) {
 		resp = slurm_allocate_resources_blocking(j, opt.immediate,
 							 _set_pending_job_id);
@@ -677,14 +578,157 @@ allocate_nodes(bool handle_signals)
 
 	job_desc_msg_destroy(j);
 
-	int rc = 0;
-	if (packleader) {
-		/* save response message for pack-leader */
-		_copy_resp_struct(pack_job_env[0].resp, resp);
-		rc = _continue_task_groups_alloc(handle_signals);
-		if (rc == SLURM_ERROR)
-			goto relinquish;
+	return resp;
+
+relinquish:
+	if (resp) {
+		if (!destroy_job)
+			slurm_complete_job(resp->job_id, 1);
+		slurm_free_resource_allocation_response_msg(resp);
 	}
+	exit(error_exit);
+	return NULL;
+}
+
+resource_allocation_response_msg_t *
+allocate_nodes_jobpack(bool handle_signals)
+{
+	resource_allocation_response_msg_t *resp = NULL;
+	job_desc_msg_t *j = job_desc_msg_create_from_opts();
+	slurm_allocation_callbacks_t callbacks;
+	int i;
+	int job_index;
+
+	if (!j)
+		return NULL;
+
+	/* Do not re-use existing job id when submitting new job
+	 * from within a running job */
+	if ((j->job_id != NO_VAL) && !opt.jobid_set) {
+		info("WARNING: Creating SLURM job allocation from within "
+		     "another allocation");
+		info("WARNING: You are attempting to initiate a second job");
+		if (!opt.jobid_set)	/* Let slurmctld set jobid */
+			j->job_id = NO_VAL;
+	}
+	callbacks.ping = _ping_handler;
+	callbacks.timeout = _timeout_handler;
+	callbacks.job_complete = _job_complete_handler;
+	callbacks.job_suspend = NULL;
+	callbacks.user_msg = _user_msg_handler;
+	callbacks.node_fail = _node_fail_handler;
+
+	/* create message thread to handle pings and such from slurmctld */
+	msg_thr = slurm_allocation_msg_thr_create(&j->other_port, &callbacks);
+
+	/* NOTE: Do not process signals in separate pthread. The signal will
+	 * cause slurm_allocate_resources_blocking() to exit immediately. */
+	if (handle_signals) {
+		xsignal_unblock(sig_array);
+		for (i = 0; sig_array[i]; i++)
+			xsignal(sig_array[i], _signal_while_allocating);
+	}
+
+	if (packjob == true) {
+		while (!resp) {
+			resp = slurm_allocate_pack_resources(j, opt.immediate,
+							     _set_pending_job_id);
+			if (destroy_job) {
+				/* cancelled by signal */
+				break;
+			} else if (!resp && !_retry()) {
+				break;
+			}
+		}
+		job_desc_msg_destroy(j);
+		_copy_resp_struct(pack_job_env[group_number].resp, resp);
+
+		return resp;
+	}
+
+	while (!resp) {
+		resp = slurm_allocate_resources_blocking(j, opt.immediate,
+							 _set_pending_job_id);
+		if (destroy_job) {
+			/* cancelled by signal */
+			break;
+		} else if (!resp && !_retry()) {
+			break;
+		}
+	}
+	pack_job_env[0].job_id = resp->job_id;
+	_copy_resp_struct(pack_job_env[group_number].resp, resp);
+	for (job_index = 0; job_index < pack_desc_count; job_index++) {
+		_copy_opt_struct(&opt, pack_job_env[job_index].opt);
+
+			_copy_resp_struct(resp, pack_job_env[job_index].resp);
+			opt.jobid = pack_job_env[job_index].job_id;
+			resp = existing_allocation();
+			/* save response message for pack-member */
+			_copy_resp_struct(pack_job_env[job_index].resp, resp);
+
+		if (resp && !destroy_job) {
+			/*
+			* Allocation granted!
+			*/
+			pending_job_id = resp->job_id;
+
+			/*
+			* These values could be changed while the job was
+			* pending so overwrite the request with what was
+			* allocated so we don't have issues when we use them
+			* in the step creation.
+			*/
+			if (opt.pn_min_memory != NO_VAL)
+				opt.pn_min_memory = (resp->pn_min_memory &
+						     (~MEM_PER_CPU));
+			else if (opt.mem_per_cpu != NO_VAL)
+				opt.mem_per_cpu = (resp->pn_min_memory &
+						   (~MEM_PER_CPU));
+			/*
+			* FIXME: timelimit should probably also be updated
+			* here since it could also change.
+			*/
+
+#ifdef HAVE_BG
+			uint32_t node_cnt = 0;
+			select_g_select_jobinfo_get(resp->select_jobinfo,
+						    SELECT_JOBDATA_NODE_CNT,
+						    &node_cnt);
+			if ((node_cnt == 0) || (node_cnt == NO_VAL)) {
+				opt.min_nodes = node_cnt;
+				opt.max_nodes = node_cnt;
+			} /* else we just use the original request */
+
+			if (!_wait_bluegene_block_ready(resp)) {
+				if (!destroy_job)
+					error("Something is wrong with the "
+					       "boot of the block.");
+				goto relinquish;
+			}
+#else
+			opt.min_nodes = resp->node_cnt;
+			opt.max_nodes = resp->node_cnt;
+
+			if (!_wait_nodes_ready(resp)) {
+				if (!destroy_job)
+					error("Something is wrong with the "
+					      "boot of the nodes.");
+				goto relinquish;
+			}
+			/* save updated opt for pack-member */
+			_copy_opt_struct(pack_job_env[job_index].opt, &opt);
+#endif
+		} else if (destroy_job) {
+				goto relinquish;
+		}
+
+		if (handle_signals)
+			xsignal_block(sig_array);
+
+	}
+	job_desc_msg_destroy(j);
+
 
 	return resp;
 

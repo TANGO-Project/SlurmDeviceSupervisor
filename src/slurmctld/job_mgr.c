@@ -5083,6 +5083,7 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 		}
 		info("JPCK: Completing job pack leader=%d", job_id);
 	}
+	*/
 	return _job_complete(job_id, uid, false, false, job_return_code);
 }
 
