@@ -268,7 +268,11 @@ enum {
 
 	/* plugin and custom errors */
 	ESLURM_MISSING_TIME_LIMIT       = 8000,
-	ESLURM_INVALID_KNL
+	ESLURM_INVALID_KNL,
+
+	/* job_pack errors */
+	ESLURM_JOB_PACK_NEVER_RUN = 9000,
+	ESLURM_JOB_PACK_BAD_MEMBER = 9001
 };
 
 /* look up an errno value */

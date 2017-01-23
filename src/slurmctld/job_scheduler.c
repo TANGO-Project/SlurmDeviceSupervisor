@@ -127,6 +127,8 @@ static void *	_wait_boot(void *arg);
 #endif
 static int	build_queue_timeout = BUILD_TIMEOUT;
 static int	save_last_part_update = 0;
+static uint32_t lpackldr = 0; /* Job_id of last pack leader logged */
+static uint32_t lpackmbr = 0; /* Job_id of last pack member logged */
 
 static pthread_mutex_t sched_mutex = PTHREAD_MUTEX_INITIALIZER;
 static int sched_pend_thread = 0;
@@ -1206,6 +1208,7 @@ static int _schedule(uint32_t job_limit)
 	char *unavail_node_str = NULL;
 	bool fail_by_part;
 	uint32_t deadline_time_limit, save_time_limit;
+	char *jpckerr;
 #if HAVE_SYS_PRCTL_H
 	char get_name[16];
 #endif
@@ -1951,13 +1954,22 @@ next_task:
 			if (assoc_limit_stop)
 				fail_by_part = true;
 		} else if (error_code ==
-			    ESLURM_REQUESTED_NODE_CONFIG_UNAVAILABLE) {
+			    ESLURM_REQUESTED_NODE_CONFIG_UNAVAILABLE)
+			   || (error_code == ESLURM_JOB_PACK_BAD_MEMBER)
+			   || (error_code == ESLURM_JOB_PACK_NEVER_RUN)) {
 			if (job_ptr->part_ptr_list) {
-				debug("JobId=%u non-runnable in partition %s: %s",
-				         job_ptr->job_id, job_ptr->part_ptr->name,
+				debug("JobId=%u non-runnable in partition %s: "
+					 "%s", job_ptr->job_id,
+				         job_ptr->part_ptr->name,
 			                 slurm_strerror(error_code));
 			} else {
-
+				jpckerr = xstrdup_printf("JPCK: Leader=%d "
+					   "Requested node config unavailable",
+					   job_ptr->job_id);
+				srun_user_message(job_ptr, jpckerr);
+				xfree(jpckerr);
+				(void) job_signal(job_ptr->job_id, SIGKILL,
+						0, 0, false);
 				if (slurm_get_debug_flags()
 						   & DEBUG_FLAG_JOB_PACK) {
 					info("JPCK: PackLeader=%d fails with"
@@ -2753,26 +2765,39 @@ extern int test_job_dependency(struct job_record *job_ptr)
 			 * member.
 			 */
 			if (dep_ptr->pack_leader == 0) {
+				dep_ptr->pack_leader = NO_VAL;
+			} else if ((dep_ptr->pack_leader != 0) &&
+				   (dep_ptr->pack_leader != NO_VAL) &&
+				   (job_ptr->job_id > lpackmbr)) {
 				if (debug_flags & DEBUG_FLAG_JOB_PACK) {
 					info("JPCK: Jobid=%d (%s) is a pack "
 					      "member. Leader=%d",
 					      job_ptr->job_id, job_ptr->name,
 					      dep_ptr->pack_leader);
 				}
-				dep_ptr->pack_leader = NO_VAL;
+				lpackmbr = job_ptr->job_id;
 			} else if (dep_ptr->pack_leader == NO_VAL) {
 				if (debug_flags & DEBUG_FLAG_JOB_PACK) {
-				info("JPCK: Jobid=%d (%s) is a pack leader "
-				     "for %d", job_ptr->job_id, job_ptr->name,
-				     dep_ptr->job_id);
+					info("JPCK: Pack Jobid=%d doesn't know "
+					     "its leader. Assume it's orphaned "
+					     "and cancel job", job_ptr->job_id);
 				}
 				failure = true;
 				break;
 			}
 		} else if (dep_ptr->depend_type == SLURM_DEPEND_PACKLEADER) {
-				info("JPCK: Jobid=%d is a pack leader for %d",
-				     job_ptr->job_id, dep_ptr->job_id);
-			} //nlk this seems strange
+			depends = false;
+			if ((debug_flags & DEBUG_FLAG_JOB_PACK)
+			     && ( job_ptr->job_id >= lpackldr)) {
+				info("JPCK: Jobid=%d (%s) is a pack leader "
+				     "for %d", job_ptr->job_id, job_ptr->name,
+				     dep_ptr->job_id);
+			}
+			/* lpackldr is not a perfect filter for logging pack
+			 * leaders. It will log the last pack leader submitted
+			 * until it is complete. */
+			if (job_ptr->job_id >= lpackldr)
+				lpackldr = job_ptr->job_id;
 		} else if ((djob_ptr == NULL) ||
 			   (djob_ptr->magic != JOB_MAGIC) ||
 			   ((djob_ptr->job_id != dep_ptr->job_id) &&
@@ -3008,6 +3033,34 @@ static char *_xlate_array_dep(char *new_depend)
 	}
 
 	return new_array_dep;
+
+static void _xref_packleader(struct job_record *job_ptr, List depend_list)
+{
+	/* Add cross-reference to packleader to its pack jobs */
+	ListIterator depend_iter, pack_iter;
+	struct depend_spec *dep_ptr, *ldr_dep_ptr;
+	struct job_record *dep_job_ptr;
+	List pack_depend;
+
+	depend_iter = list_iterator_create(depend_list);
+	while ((ldr_dep_ptr = (struct depend_spec *) list_next(depend_iter))) {
+		dep_job_ptr = ldr_dep_ptr->job_ptr;
+		if (dep_job_ptr == NULL)
+			break;
+		pack_depend = dep_job_ptr->details->depend_list;
+		if (pack_depend == NULL)
+			break;
+		pack_iter = list_iterator_create(pack_depend);
+		dep_ptr = (struct depend_spec *) list_next(pack_iter);
+		if (dep_ptr != NULL)
+			dep_ptr->pack_leader = job_ptr->job_id;
+		xfree(dep_job_ptr->details->dependency);
+		dep_job_ptr->details->dependency = xstrdup("pack");
+		xstrfmtcat(dep_job_ptr->details->dependency, " packleader=%d",
+				dep_ptr->pack_leader);
+		list_iterator_destroy(pack_iter);
+	}
+	list_iterator_destroy(depend_iter);
 }
 
 /*
@@ -3175,16 +3228,14 @@ info("Hit ESLURM_DEPENDENCY 1");					/* wjb */
 			depend_type = SLURM_DEPEND_AFTER_OK;
 		else if (strncasecmp(tok, "after", 5) == 0)
 			depend_type = SLURM_DEPEND_AFTER;
-		else if (strncasecmp(tok,"packleader",10) == 0) {
-			depend_type = SLURM_DEPEND_PACKLEADER;
-			info("JPCK: update_job, b4 test for leader, jobid=%d type=%d ldrtype=%d",job_ptr->job_id, depend_type, SLURM_DEPEND_PACKLEADER);
-		}
 		else if (strncasecmp(tok, "expand", 6) == 0) {
 			if (!select_g_job_expand_allow()) {
 				rc = ESLURM_DEPENDENCY;
 				break;
 			}
 			depend_type = SLURM_DEPEND_EXPAND;
+		} else if (strncasecmp(tok,"packleader",10) == 0) {
+			depend_type = SLURM_DEPEND_PACKLEADER;
 		} else {
 			rc = ESLURM_DEPENDENCY;
 			break;
@@ -3192,7 +3243,6 @@ info("Hit ESLURM_DEPENDENCY 1");					/* wjb */
 		sep_ptr++;	/* skip over ":" */
 		while (rc == SLURM_SUCCESS) {
 			job_id = strtol(sep_ptr, &sep_ptr2, 10);
-			info("JPCK: found jobid=%d",job_id);
 			if ((sep_ptr2 != NULL) && (sep_ptr2[0] == '_')) {
 				if (sep_ptr2[1] == '*') {
 					array_task_id = INFINITE;
@@ -3291,6 +3341,8 @@ info("Hit ESLURM_DEPENDENCY 1");					/* wjb */
 			break;
 		}
 	}
+	if (depend_type == SLURM_DEPEND_PACKLEADER)
+		_xref_packleader(job_ptr, new_depend_list);
 
 	if (rc == SLURM_SUCCESS) {
 		/* test for circular dependencies (e.g. A -> B -> A) */

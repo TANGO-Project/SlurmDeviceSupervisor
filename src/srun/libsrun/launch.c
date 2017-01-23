@@ -46,6 +46,8 @@
 #include "src/common/plugin.h"
 #include "src/common/plugrack.h"
 #include "src/common/xsignal.h"
+#include "src/api/step_ctx.h" // MNP PMI
+
 
 typedef struct {
 	int (*setup_srun_opt)      (char **rest);
@@ -162,10 +164,11 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 					 sig_atomic_t *destroy_job)
 {
 	int i, j, rc;
+	int j,k; // MNP PMI
 	unsigned long step_wait = 0;
 	uint16_t base_dist, slurmctld_timeout;
 
-//	info("******** MNP entering launch_common_create_job_step"); // MNP debug
+	debug("******** MNP entering launch_common_create_job_step"); // MNP debug
 	if (!job) {
 		error("launch_common_create_job_step: no job given");
 		return SLURM_ERROR;
@@ -199,6 +202,8 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 
 	if (!opt.ntasks_set && (opt.ntasks_per_node != NO_VAL))
 		job->ntasks = opt.ntasks = job->nhosts * opt.ntasks_per_node;
+	opt.mpi_stepftaskid = mpi_curtaskid; // MNP PMI
+	mpi_curtaskid += opt.ntasks; // MNP PMI
 	job->ctx_params.task_count = opt.ntasks;
 
 	if (opt.mem_per_cpu != NO_VAL64)
@@ -297,6 +302,7 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 	else
 		job->ctx_params.name = opt.cmd_name;
 	job->ctx_params.features = opt.constraints;
+	job->ctx_params.mpi_jobid = opt.mpi_jobid; // MNP PMI
 
 	debug("requesting job %u, user %u, nodes %u including (%s)",
 	      job->ctx_params.job_id, job->ctx_params.uid,
@@ -327,18 +333,20 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 		if (job->step_ctx != NULL) {
 			if (i > 0)
 				info("Job step created");
+
 			// MNP PMI start
 			job->step_ctx->mpi_jobid = opt.mpi_jobid; // MNP PMI
 			debug("******** MNP, in launch_common_create_job_step, job->step_ctx->mpi_jobid = opt.mpi_jobid=%d", opt.mpi_jobid);
 			slurm_step_ctx_t *step_ctx = job->step_ctx;
 			job_step_create_response_msg_t *step_resp = step_ctx->step_resp;
 			slurm_step_layout_t *layout = step_resp->step_layout;
-	//		layout->mpi_tids = xmalloc(layout->task_cnt * sizeof(uint32_t));
+//			layout->mpi_tids = xmalloc(layout->task_cnt * sizeof(uint32_t));
 			debug("******** MNP pid=%d, in launch_common_create_job_step", getpid());
 			for (j=0; j<layout->node_cnt; j++) {
+				debug("******** MNP pid=%d, in launch_common_create_job_step 1, j=%d", getpid(), j);
 				for(k=0; k<layout->tasks[j]; k++) {
 					layout->mpi_tids[j][k] = layout->tids[j][k] + opt.mpi_stepftaskid;
-					debug("******** MNP pid=%d, tids[%d][%d]=%d, mpi_tids[%d][%d]=%d", getpid(),j,k,layout->tids[j][k],j,k,layout->mpi_tids[j][k]);
+					debug("******** MNP pid=%d, layout->tids[%d][%d]=%d, mpi_tids[%d][%d]=%d", getpid(),j,k,layout->tids[j][k],j,k,layout->mpi_tids[j][k]);
 				}
 			} // MNP PMI end
 			break;
@@ -355,6 +363,7 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 		     (rc != ESLURM_INTERCONNECT_BUSY) &&
 		     (rc != ESLURM_DISABLED))) {
 			error ("Unable to create job step: %m");
+			debug("******** MNP opt.immediate = %d opt.no_alloc=%d , rc = %d", opt.immediate, opt.no_alloc, rc); // MNP debug
 			return SLURM_ERROR;
 		}
 
@@ -400,7 +409,7 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 	 */
 	job_update_io_fnames(job);
 
-//	info("******** MNP exiting launch_common_create_job_step"); // MNP debug
+	debug("******** MNP exiting launch_common_create_job_step"); // MNP debug
 	return SLURM_SUCCESS;
 }
 

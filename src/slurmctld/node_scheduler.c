@@ -115,6 +115,7 @@ static void _filter_nodes_in_set(struct node_set *node_set_ptr,
 				 char **err_msg);
 
 static bool _first_array_task(struct job_record *job_ptr);
+static int _is_cluster_idle();
 static void _launch_prolog(struct job_record *job_ptr);
 static void _log_node_set(uint32_t job_id, struct node_set *node_set_ptr,
 			  int node_set_size);
@@ -129,6 +130,7 @@ static int _nodes_in_sets(bitstr_t *req_bitmap,
 			  struct node_set * node_set_ptr,
 			  int node_set_size);
 static int _sort_node_set(const void *x, const void *y);
+static void _orphan_members(struct job_record *job_ptr);
 static int _pick_best_nodes(struct node_set *node_set_ptr,
 			    int node_set_size, bitstr_t ** select_bitmap,
 			    struct job_record *job_ptr,
@@ -145,6 +147,12 @@ static bool _valid_feature_counts(struct job_record *job_ptr,
 static bitstr_t *_valid_features(struct job_record *job_ptr,
 				 struct config_record *config_ptr,
 				 bool can_reboot);
+static int _will_jpck_ldr_run(struct job_record *job_ptr, bitstr_t *bitmap,
+				uint32_t min_nodes, uint32_t max_nodes,
+				uint32_t req_nodes,
+				List preemptee_candidates,
+				bitstr_t *exc_core_bitmap);
+
 
 /*
  * _get_ntasks_per_core - Retrieve the value of ntasks_per_core from
@@ -1512,109 +1520,6 @@ _get_req_features(struct node_set *node_set_ptr, int node_set_size,
 	return error_code;
 }
 
-static int _runnable_ever(struct job_record *job_ptr, bitstr_t *bitmap,
-			     uint32_t min_nodes, uint32_t max_nodes,
-			     uint32_t req_nodes,
-			     List preemptee_candidates,
-			     bitstr_t *exc_core_bitmap)
-{
-	List pack_depend;
-	ListIterator depend_iter;
-	struct depend_spec *ldr_dep_ptr;
-	struct job_record *mbr_ptr;
-	ListIterator mbr_iter;
-	List mbr_depend;
-	struct depend_spec *mbr_dep_ptr;
-	int rc;
-	bitstr_t *avail_node_bitmap = NULL;
-	bitstr_t *member_bitmap = NULL;
-	if (job_ptr->details == NULL)
-		goto legacy;
-	pack_depend = job_ptr->details->depend_list;
-	if (pack_depend == NULL)
-		goto legacy;
-	depend_iter = list_iterator_create(pack_depend);
-	avail_node_bitmap = bit_copy(bitmap);
-	while ((ldr_dep_ptr = (struct depend_spec *) list_next(depend_iter))) {
-		if (ldr_dep_ptr->depend_type == SLURM_DEPEND_PACK) {
-			rc = SLURM_SUCCESS;
-			goto cleanup;
-		}
-		if (ldr_dep_ptr->depend_type != SLURM_DEPEND_PACKLEADER)
-			goto legacy;
-		if (slurm_get_debug_flags() & DEBUG_FLAG_JOB_PACK) {
-			info("JPCK: runnable ever for pack leader %d",
-				job_ptr->job_id);
-		}
-		/* We are testing the packleader. If we've gotten here,
-		 * the members have already been allocated.
-		 */
-		if (ldr_dep_ptr->job_ptr->node_bitmap) {
-			FREE_NULL_BITMAP(member_bitmap);
-			member_bitmap = bit_copy(ldr_dep_ptr->job_ptr->node_bitmap);
-			bit_not(member_bitmap);
-			bit_and(avail_node_bitmap, member_bitmap);
-		} else {
-			if (slurm_get_debug_flags() & DEBUG_FLAG_JOB_PACK) {
-				info("JPCK: runnable ever -- member=%d has no "
-					"allocated nodes",ldr_dep_ptr->job_id);
-			}
-		}
-	}
-	rc = select_g_job_test(job_ptr, avail_node_bitmap,
-			       min_nodes, max_nodes, req_nodes,
-			       SELECT_MODE_TEST_ONLY,
-			       preemptee_candidates, NULL,
-			       exc_core_bitmap);
-
-	if (avail_node_bitmap != NULL) {
-		bitmap = bit_copy(avail_node_bitmap);
-	}
-
-cleanup:
-	list_iterator_destroy(depend_iter);
-	FREE_NULL_BITMAP(avail_node_bitmap);
-	FREE_NULL_BITMAP(member_bitmap);
-
-	if (rc != SLURM_SUCCESS) {
-		/* Pack job will never run, kill all the members.
-		 * This is done by setting their dependency such that
-		 * there is no leader, hence invalid depedency
-		 * RBS -- tried _kill_depedent and it didn't work */
-		depend_iter = list_iterator_create(pack_depend);
-		while ((ldr_dep_ptr =
-			       (struct depend_spec *) list_next(depend_iter))) {
-			if (slurm_get_debug_flags() & DEBUG_FLAG_JOB_PACK) {
-				info("JPCK: job_pack (leader=%d) never runs, "
-				      "kill member %d", job_ptr->job_id,
-				      ldr_dep_ptr->job_ptr->job_id);
-			}
-			mbr_ptr = ldr_dep_ptr->job_ptr;
-			mbr_depend = mbr_ptr->details->depend_list;
-			if (mbr_depend == NULL)
-				continue;
-			mbr_iter = list_iterator_create(mbr_depend);
-			while ((mbr_dep_ptr =
-				  (struct depend_spec *) list_next(mbr_iter))) {
-				if (mbr_dep_ptr->depend_type
-						     != SLURM_DEPEND_PACK)
-					continue;
-				mbr_dep_ptr->pack_leader = NO_VAL;
-			}
-			list_iterator_destroy(mbr_iter);
-		}
-		list_iterator_destroy(depend_iter);
-		if (slurm_get_debug_flags() & DEBUG_FLAG_JOB_PACK) {
-			info("JPCK: job_pack with leader=%d, can never run. "
-					"Reason=%d", job_ptr->job_id, rc);
-		}
-	}
-	return rc;
-legacy:
-	return select_g_job_test(job_ptr, bitmap, min_nodes, max_nodes,
-				   req_nodes, SELECT_MODE_TEST_ONLY,
-				   preemptee_candidates, NULL, exc_core_bitmap);
-}
 
 /*
  * _pick_best_nodes - from a weight order list of all nodes satisfying a
@@ -2079,7 +1984,7 @@ _pick_best_nodes(struct node_set *node_set_ptr, int node_set_size,
 				     job_ptr->job_id,RBSnodes1);
 				xfree(RBSnodes1);
 				// RBS: Debug <<<<<
-				pick_code = _runnable_ever(job_ptr,
+				pick_code = _will_jpck_ldr_run(job_ptr,
 						avail_bitmap,
 						min_nodes, max_nodes, req_nodes,
 						preemptee_candidates,
@@ -2117,7 +2022,7 @@ _pick_best_nodes(struct node_set *node_set_ptr, int node_set_size,
 				     job_ptr->job_id,RBSnodes2);
 				xfree(RBSnodes2);
 				// RBS: Debug <<<<<
-				pick_code = _runnable_ever(job_ptr,
+				pick_code = _will_jpck_ldr_run(job_ptr,
 						total_bitmap,
 						min_nodes, max_nodes, req_nodes,
 						preemptee_candidates,
@@ -2295,7 +2200,8 @@ static bool _first_array_task(struct job_record *job_ptr)
 }
 
 /*
- * select_nodes - select and allocate nodes to a specific job
+ * select_nodes_pack - select and allocate nodes to a specific job
+ * (was select_nodes before job_packs were introduced)
  * IN job_ptr - pointer to the job record
  * IN test_only - if set do not allocate nodes, just confirm they
  *	could be allocated now
@@ -2810,131 +2716,9 @@ extern int select_nodes_pack(struct job_record *job_ptr, bool test_only,
 
 	return error_code;
 }
-
 /*
- * deallocate resources for one job_pack member
- */
-static void _deallocate_jpck(struct job_record *job_ptr)
-{
-	int i, first, last;
-
-	job_ptr->job_state = JOB_PENDING;
-	job_ptr->state_reason = WAIT_DEPENDENCY;
-	if (job_ptr->node_bitmap == NULL)
-		return;
-
-	first = bit_ffs(job_ptr->node_bitmap);
-	if (first == -1)
-		return;
-
-	last  = bit_fls(job_ptr->node_bitmap);
-	for (i = first; i <= last; i++) {
-		if (bit_test(job_ptr->node_bitmap, i) == 0)
-			continue;
-		make_node_comp(&node_record_table_ptr[i], job_ptr, false, true);
-	}
-
-	select_g_job_fini(job_ptr);
-	xfree(job_ptr->nodes);
-	job_ptr->job_state = JOB_PENDING;
-	job_ptr->state_reason = WAIT_DEPENDENCY;
-}
-
-
-/*
- * deallocate resources for all_pack members
- * (usually called when the pack leader can not be scheduled.)
- */
-static void _deallocate_packmbrs(struct job_record *job_ptr)
-{
-	ListIterator depend_iter;
-	struct depend_spec *dep_ptr;
-	struct job_record *dep_job_ptr;
-
-	depend_iter = list_iterator_create(job_ptr->details->depend_list);
-	while ((dep_ptr = (struct depend_spec *) list_next(depend_iter))) {
-		dep_job_ptr = dep_ptr->job_ptr;
-		debug("JPCK: _deallocate_packmbrs -- packjob=%d",
-				dep_job_ptr->job_id);
-		if (dep_ptr->alloc != 0) {
-			_deallocate_jpck(dep_job_ptr);
-			dep_ptr->alloc = 0;
-		}
-	}
-	list_iterator_destroy(depend_iter);
-}
-
-/* Allocate resources for all pack members.
- * They are allocated as if the job will run.
- * If the resources for any member,
- * the allocated resources of previous members are deallocatd
- */
-static int _allocate_packmbrs(struct job_record *job_ptr,
-		bitstr_t **select_node_bitmap, char *unavail_node_str)
-{
-	ListIterator depend_iter;
-	bitstr_t *alloc_node_bitmap = NULL;
-	struct depend_spec *dep_ptr;
-	struct job_record *dep_job_ptr;
-	int rc, ipj;
-	char* err_msg = NULL;
-	char* RBSnodes;
-
-	ipj = 0;
-	depend_iter = list_iterator_create(job_ptr->details->depend_list);
-	while ((dep_ptr = (struct depend_spec *) list_next(depend_iter))) {
-		dep_job_ptr = dep_ptr->job_ptr;
-		/* Remove the -dpack from the pack job,
-		 * so it can be allocated */
-		rc = select_nodes_pack(dep_job_ptr, false, select_node_bitmap,
-				unavail_node_str, &err_msg);
-		/* Make this pack job pending again */
-		if (rc == SLURM_SUCCESS) {
-			dep_ptr->alloc = 1;
-			// RBS: Debug >>>>>
-			RBSnodes = bitmap2node_name_sortable(dep_job_ptr->node_bitmap, true);
-			debug("JPCK: allocat_packmbrs -- result of allocate "
-			     "pack#%d jobid=%d is %d, RBSnodes=%s",ipj,
-			     dep_job_ptr->job_id,rc,RBSnodes);
-			xfree(RBSnodes);
-			// RBS: Debug <<<<<
-			if (select_node_bitmap != NULL) {
-				if (ipj == 0) {
-					alloc_node_bitmap = *select_node_bitmap;
-				} else {
-					bit_or(alloc_node_bitmap,
-						*select_node_bitmap);
-					FREE_NULL_BITMAP(*select_node_bitmap);
-				}
-			}
-			ipj++;
-		} else {
-			if (err_msg) {
-				error("JPCK: Failed to allocate pack#%d "
-				      "jobid=%d %s",ipj, dep_job_ptr->job_id,
-				      err_msg);
-			} else {
-				if (slurm_get_debug_flags() &
-						          DEBUG_FLAG_JOB_PACK) {
-					info("JPCK: Failed to allocate pack#%d "
-					     "jobid=%d Reason=%d "
-					     "(backing out previous members)",
-				             ipj, dep_job_ptr->job_id, rc);
-				}
-			}
-			if (alloc_node_bitmap) {
-				FREE_NULL_BITMAP(alloc_node_bitmap);
-			}
-			_deallocate_packmbrs(job_ptr);
-			break;
-		}
-	}
-	if (alloc_node_bitmap)
-		*select_node_bitmap = alloc_node_bitmap;
-	list_iterator_destroy(depend_iter);
-	return rc;
-}
-/*
+ * 	Wrapper for select_nodes_pack to also handle job_packs
+ *
  *	All the callers (and their callers) of select_nodes pass NULL for
  *	select_node_bitmap. However, we will remain faithful and handle
  *	a real pointer. For an job pack member, the bitmap will be the OR of
@@ -2949,7 +2733,9 @@ extern int select_nodes(struct job_record *job_ptr, bool test_only,
 	bitstr_t *alloc_node_bitmap = NULL;
 	struct depend_spec *dep_ptr;
 	int rc;
-	char* RBSnodes;
+	char* jpck_nodes;
+	int debug_flags;
+
 
 	if (job_ptr->details == NULL) {
 		rc = select_nodes_pack(job_ptr, test_only, select_node_bitmap,
@@ -2962,6 +2748,7 @@ extern int select_nodes(struct job_record *job_ptr, bool test_only,
 		return rc;
 	}
 
+	debug_flags = slurm_get_debug_flags();
 	/* This is an Job-Pack job */
 	depend_iter = list_iterator_create(job_ptr->details->depend_list);
 	dep_ptr = (struct depend_spec *) list_next(depend_iter);
@@ -2984,15 +2771,20 @@ extern int select_nodes(struct job_record *job_ptr, bool test_only,
 	 * so the allocation tables will be set. On any error with pack jobs,
 	 * deallocate previous packs, and return failure. */
 	rc = _allocate_packmbrs(job_ptr, select_node_bitmap, unavail_node_str);
-	if (rc != SLURM_SUCCESS)
+	if (rc != SLURM_SUCCESS) {
+		if (rc != ESLURM_JOB_PACK_BAD_MEMBER)
+			goto cleanup;
+		debug("JPCK: RBS -- bad_member -- allocate_packmembers returned%d for job %d", rc,job_ptr->job_id);
+		_deallocate_packmbrs(job_ptr);
 		goto cleanup;
+	}
 	if (select_node_bitmap != NULL) {
 		alloc_node_bitmap = *select_node_bitmap;
 	}
 	rc = select_nodes_pack(job_ptr, test_only, select_node_bitmap,
 			       unavail_node_str, err_msg);
 	if (rc != SLURM_SUCCESS) {
-		if (slurm_get_debug_flags() & DEBUG_FLAG_JOB_PACK) {
+		if (debug_flags & DEBUG_FLAG_JOB_PACK) {
 			info("JPCK: Can't allocate leader, deallocate members");
 		}
 		_deallocate_packmbrs(job_ptr);
@@ -3001,13 +2793,19 @@ extern int select_nodes(struct job_record *job_ptr, bool test_only,
 	if (select_node_bitmap) {
 		bit_or(*select_node_bitmap, alloc_node_bitmap);
 	}
-	/* RBS: debug >>>>>> */
-	RBSnodes = bitmap2node_name_sortable(job_ptr->node_bitmap, true);
-	debug("JPCK: select_nodes -- alloc packleader jobid=%d test_only=%d rc=%d, nodes=%s", job_ptr->job_id, test_only, rc, RBSnodes);
-	xfree(RBSnodes);
-	/* <<<<<<< RBS: debug */
+	if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+		jpck_nodes = bitmap2node_name_sortable(job_ptr->node_bitmap,
+				true);
+		info("JPCK: select_nodes -- alloc packleader jobid=%d "
+		     "test_only=%d rc=%d, nodes=%s", job_ptr->job_id,
+		     test_only, rc, jpck_nodes);
+		xfree(jpck_nodes);
+	}
 	if (test_only) {
-		debug("JPCK: select_nodes, test only, deallocate pack members");
+		if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+			info("JPCK: select_nodes, test only, deallocate "
+			     "pack members");
+		}
 		_deallocate_packmbrs(job_ptr);
 	}
 cleanup:
@@ -4213,4 +4011,299 @@ extern void re_kill_job(struct job_record *job_ptr)
 	agent_args->msg_args = kill_job;
 	agent_queue_request(agent_args);
 	return;
+}
+
+/*
+ * A job_pack job will never run, kill all the members.
+ * This is done by setting their dependency such that
+ * there is no leader, hence invalid dependency
+ * RBS -- tried _kill_dependent and it didn't work
+ */
+static void _orphan_members(struct job_record *job_ptr)
+{
+	ListIterator depend_iter;
+	ListIterator mbr_iter;
+	List mbr_depend;
+	List pack_depend;
+
+	struct depend_spec *ldr_dep_ptr;
+	struct job_record *mbr_ptr;
+	struct depend_spec *mbr_dep_ptr;
+
+	pack_depend = job_ptr->details->depend_list;
+	depend_iter = list_iterator_create(pack_depend);
+	while ((ldr_dep_ptr =
+		       (struct depend_spec *) list_next(depend_iter))) {
+		if (slurm_get_debug_flags() & DEBUG_FLAG_JOB_PACK) {
+			info("JPCK: job_pack (leader=%d) never runs, "
+			      "kill member %d", job_ptr->job_id,
+			      ldr_dep_ptr->job_ptr->job_id);
+		}
+		mbr_ptr = ldr_dep_ptr->job_ptr;
+		mbr_depend = mbr_ptr->details->depend_list;
+		if (mbr_depend == NULL)
+			continue;
+		mbr_iter = list_iterator_create(mbr_depend);
+		while ((mbr_dep_ptr =
+			  (struct depend_spec *) list_next(mbr_iter))) {
+			if (mbr_dep_ptr->depend_type
+					     != SLURM_DEPEND_PACK)
+				continue;
+			mbr_dep_ptr->pack_leader = NO_VAL;
+		}
+		list_iterator_destroy(mbr_iter);
+	}
+	list_iterator_destroy(depend_iter);
+
+}
+
+/*
+ * Tests to see if a job_pack leader will ever run.
+ * This is a weak test as it remove nodes already allocated for job_pack
+ * members from the available nodes bitmap. It is possible that jobs that
+ * theoretically could run will fail this test. This is a restriction
+ * imposed by treating members of a job_pack as separate jobs.
+ */
+static int _will_jpck_ldr_run(struct job_record *job_ptr, bitstr_t *bitmap,
+			     uint32_t min_nodes, uint32_t max_nodes,
+			     uint32_t req_nodes,
+			     List preemptee_candidates,
+			     bitstr_t *exc_core_bitmap)
+{
+	List pack_depend;
+	ListIterator depend_iter;
+	struct depend_spec *ldr_dep_ptr;
+	int rc;
+	bitstr_t *avail_node_bitmap = NULL;
+	bitstr_t *member_bitmap = NULL;
+	if (job_ptr->details == NULL)
+		goto legacy;
+	pack_depend = job_ptr->details->depend_list;
+	if (pack_depend == NULL)
+		goto legacy;
+	depend_iter = list_iterator_create(pack_depend);
+	avail_node_bitmap = bit_copy(bitmap);
+	while ((ldr_dep_ptr = (struct depend_spec *) list_next(depend_iter))) {
+		if (ldr_dep_ptr->depend_type == SLURM_DEPEND_PACK) {
+			rc = SLURM_SUCCESS;
+			goto cleanup;
+		}
+		if (ldr_dep_ptr->depend_type != SLURM_DEPEND_PACKLEADER)
+			goto legacy;
+		if (slurm_get_debug_flags() & DEBUG_FLAG_JOB_PACK) {
+			info("JPCK: _will_jpck_ldr_run for pack leader %d",
+				job_ptr->job_id);
+		}
+		/* We are testing the packleader. If we've gotten here,
+		 * the members have already been allocated.
+		 */
+		if (ldr_dep_ptr->job_ptr->node_bitmap) {
+			FREE_NULL_BITMAP(member_bitmap);
+			member_bitmap = bit_copy(ldr_dep_ptr->job_ptr->node_bitmap);
+			bit_not(member_bitmap);
+			bit_and(avail_node_bitmap, member_bitmap);
+		} else {
+			if (slurm_get_debug_flags() & DEBUG_FLAG_JOB_PACK) {
+				info("JPCK: _will_jpck_ldr_run -- member=%d has"
+					" no allocated nodes",
+					ldr_dep_ptr->job_id);
+			}
+		}
+	}
+	rc = select_g_job_test(job_ptr, avail_node_bitmap,
+			       min_nodes, max_nodes, req_nodes,
+			       SELECT_MODE_TEST_ONLY,
+			       preemptee_candidates, NULL,
+			       exc_core_bitmap);
+
+	if (avail_node_bitmap != NULL) {
+		bitmap = bit_copy(avail_node_bitmap);
+	}
+
+cleanup:
+	list_iterator_destroy(depend_iter);
+	FREE_NULL_BITMAP(avail_node_bitmap);
+	FREE_NULL_BITMAP(member_bitmap);
+
+	if (rc != SLURM_SUCCESS) {
+		_orphan_members(job_ptr);
+		if (slurm_get_debug_flags() & DEBUG_FLAG_JOB_PACK) {
+			info("JPCK: job_pack with leader=%d, can never run. "
+					"Reason=%d", job_ptr->job_id, rc);
+		}
+		rc = ESLURM_JOB_PACK_NEVER_RUN;
+	}
+	return rc;
+legacy:
+	return select_g_job_test(job_ptr, bitmap, min_nodes, max_nodes,
+				   req_nodes, SELECT_MODE_TEST_ONLY,
+				   preemptee_candidates, NULL, exc_core_bitmap);
+}
+
+/*
+ * Check to see if any nodes are allocated, or completing
+ * If not, the cluster is idle.
+ * This function is called whenever a job_pack member cannot be allocated.
+ * If the cluster is idle and the member cannot be allocated, it will be
+ * assumed that that member can never run.
+ */
+static int _is_cluster_idle()
+{
+	struct node_record *node_ptr;
+	int i;
+	for (i=0, node_ptr=node_record_table_ptr;
+	     i<node_record_count; i++, node_ptr++) {
+
+		if (IS_NODE_ALLOCATED(node_ptr) ||
+		    IS_NODE_MIXED(node_ptr) ||
+		    IS_NODE_COMPLETING(node_ptr))
+			return false;
+	}
+	return true;
+}
+
+/*
+ * deallocate resources for one job_pack member
+ */
+static void _deallocate_jpck(struct job_record *job_ptr)
+{
+	int i, first, last;
+
+	job_ptr->job_state = JOB_PENDING;
+	job_ptr->state_reason = WAIT_DEPENDENCY;
+	if (job_ptr->node_bitmap == NULL)
+		return;
+
+	first = bit_ffs(job_ptr->node_bitmap);
+	if (first == -1)
+		return;
+
+	last  = bit_fls(job_ptr->node_bitmap);
+	for (i = first; i <= last; i++) {
+		if (bit_test(job_ptr->node_bitmap, i) == 0)
+			continue;
+		make_node_comp(&node_record_table_ptr[i], job_ptr, false, true);
+	}
+
+	select_g_job_fini(job_ptr);
+	xfree(job_ptr->nodes);
+	job_ptr->job_state = JOB_PENDING;
+	job_ptr->state_reason = WAIT_DEPENDENCY;
+}
+
+/*
+ * deallocate resources for all_pack members
+ * (usually called when the pack leader can not be scheduled.)
+ */
+static void _deallocate_packmbrs(struct job_record *job_ptr)
+{
+	ListIterator depend_iter;
+	struct depend_spec *dep_ptr;
+	struct job_record *dep_job_ptr;
+	int debug_flags;
+
+	debug_flags = slurm_get_debug_flags();
+	depend_iter = list_iterator_create(job_ptr->details->depend_list);
+	while ((dep_ptr = (struct depend_spec *) list_next(depend_iter))) {
+		dep_job_ptr = dep_ptr->job_ptr;
+		if (debug_flags &  DEBUG_FLAG_JOB_PACK) {
+			info("JPCK: _deallocate_packmbrs -- packjob=%d",
+				dep_job_ptr->job_id);
+		}
+		if (dep_ptr->alloc != 0) {
+			_deallocate_jpck(dep_job_ptr);
+			dep_ptr->alloc = 0;
+		}
+	}
+	list_iterator_destroy(depend_iter);
+}
+
+/*
+ * Allocate resources for all pack members.
+ * They are allocated as if the job will run.
+ * If the resource request for any member cannot be satisfied,
+ * the allocated resources of previous members are deallocated
+ */
+static int _allocate_packmbrs(struct job_record *job_ptr,
+		bitstr_t **select_node_bitmap, char *unavail_node_str)
+{
+	ListIterator depend_iter;
+	bitstr_t *alloc_node_bitmap = NULL;
+	struct depend_spec *dep_ptr;
+	struct job_record *dep_job_ptr;
+	int rc, ipj;
+	int debug_flags;
+	char* err_msg = NULL;
+	char* jpck_nodes;
+
+	debug_flags = slurm_get_debug_flags();
+	ipj = 0;
+	depend_iter = list_iterator_create(job_ptr->details->depend_list);
+	while ((dep_ptr = (struct depend_spec *) list_next(depend_iter))) {
+		dep_job_ptr = dep_ptr->job_ptr;
+		if (dep_job_ptr == NULL) {
+			error("JPCK: job_ptr for member=%d in job_pack "
+			      "leader=%d is NULL", dep_ptr->job_id,
+			      job_ptr->job_id);
+			_deallocate_packmbrs(job_ptr);
+			_orphan_members(job_ptr);
+			rc = ESLURM_JOB_PACK_BAD_MEMBER;
+			/* RBS --- complete this in call tree ?????????? */
+			goto cleanup;
+		}
+		rc = select_nodes_pack(dep_job_ptr, false, select_node_bitmap,
+				unavail_node_str, &err_msg);
+		if (rc == SLURM_SUCCESS) {
+			dep_ptr->alloc = 1;
+			if (debug_flags &  DEBUG_FLAG_JOB_PACK) {
+				jpck_nodes = bitmap2node_name_sortable(
+						dep_job_ptr->node_bitmap, true);
+				info("JPCK: allocat_packmbrs -- result of "
+				    "allocate pack#%d jobid=%d is %d, nodes=%s",
+				    ipj, dep_job_ptr->job_id, rc, jpck_nodes);
+				xfree(jpck_nodes);
+			}
+			if (select_node_bitmap != NULL) {
+				if (ipj == 0) {
+					alloc_node_bitmap = *select_node_bitmap;
+				} else {
+					bit_or(alloc_node_bitmap,
+						*select_node_bitmap);
+					FREE_NULL_BITMAP(*select_node_bitmap);
+				}
+			}
+			ipj++;
+		} else {
+			if (err_msg) {
+				error("JPCK: Failed to allocate pack#%d "
+				      "jobid=%d %s",ipj, dep_job_ptr->job_id,
+				      err_msg);
+			} else {
+				if (debug_flags &  DEBUG_FLAG_JOB_PACK) {
+					info("JPCK: Failed to allocate pack#%d "
+					     "jobid=%d Reason=%d "
+					     "(backing out previous members)",
+				             ipj, dep_job_ptr->job_id, rc);
+				}
+			}
+			if (alloc_node_bitmap) {
+				FREE_NULL_BITMAP(alloc_node_bitmap);
+			}
+			_deallocate_packmbrs(job_ptr);
+			if (_is_cluster_idle()) {
+				rc = ESLURM_JOB_PACK_NEVER_RUN;
+				_orphan_members(job_ptr);
+				if (debug_flags &  DEBUG_FLAG_JOB_PACK) {
+					info("JPCK: member %d can never run",
+							dep_job_ptr->job_id);
+				}
+			}
+			break;
+		}
+	}
+	if (alloc_node_bitmap)
+		*select_node_bitmap = alloc_node_bitmap;
+cleanup:
+	list_iterator_destroy(depend_iter);
+	return rc;
 }

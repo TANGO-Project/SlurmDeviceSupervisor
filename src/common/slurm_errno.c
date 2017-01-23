@@ -452,6 +452,12 @@ static slurm_errtab_t slurm_errtab[] = {
 	  "Time limit specification required, but not provided"	},
 	{ ESLURM_INVALID_KNL,
 	  "Invalid KNL configuration (MCDRAM or NUMA option)"	}
+
+	  /* job_pack errors */
+	{ ESLURM_JOB_PACK_NEVER_RUN,
+	  "Job_Pack will never run"  },
+	{ ESLURM_JOB_PACK_BAD_MEMBER,
+	  "Pointer to pack member is NULL"  }
 };
 
 /*

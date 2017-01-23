@@ -4201,6 +4201,7 @@ extern int job_allocate(job_desc_msg_t * job_specs, int immediate,
 	}
 
 	if (error_code) {	/* fundamental flaw in job request */
+		debug("JPCK: BAD_CONSTRAINTS=%d", error_code);
 		job_ptr->job_state  = JOB_FAILED;
 		job_ptr->exit_code  = 1;
 		job_ptr->state_reason = FAIL_BAD_CONSTRAINTS;
@@ -5127,7 +5128,6 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 			}
 		}
 	}
-	*/
 	return _job_complete(job_id, uid, false, false, job_return_code);
 }
 
@@ -11469,9 +11469,9 @@ static int _update_job(struct job_record *job_ptr, job_desc_msg_t * job_specs,
 	if (error_code != SLURM_SUCCESS)
 		goto fini;
 
-	if (job_specs->pack_group) {
+/*	if (job_specs->pack_group) {
 		job_ptr->details->pack_group = job_specs->pack_group;
-	}
+	} */
 	if (job_specs->begin_time) {
 		if (IS_JOB_PENDING(job_ptr) && detail_ptr) {
 			char time_str[32];

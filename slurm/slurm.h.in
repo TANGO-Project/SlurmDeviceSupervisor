@@ -1463,8 +1463,8 @@ typedef struct job_descriptor {	/* For submit, allocate, and update requests */
 	char **spank_job_env;	/* environment variables for job prolog/epilog
 				 * scripts as set by SPANK plugins */
 	uint32_t spank_job_env_size; /* element count in spank_env */
-	uint32_t task_dist;	/* see enum task_dist_state */
 	char *pack_group;	/* pack-members of job-group to use for step */
+	uint32_t task_dist;	/* see enum task_dist_state */
 	uint32_t time_limit;	/* maximum run time in minutes, default is
 				 * partition limit */
 	uint32_t time_min;	/* minimum run time in minutes, default is
@@ -1723,6 +1723,7 @@ typedef struct slurm_step_layout {
 	 * of each subarray is designated by the corresponding value in
 	 * the tasks array. */
 	uint32_t **tids;	/* host id => task id mapping */
+	uint32_t **mpi_tids;	/* host id => mpi task id mapping */
 } slurm_step_layout_t;
 
 typedef struct slurm_step_io_fds {
@@ -1818,6 +1819,7 @@ typedef struct {
 				 * 0 if to be queued awaiting resources */
 	uint32_t job_id;	/* job ID */
 	uint64_t pn_min_memory; /* minimum real memory per node OR
+	uint32_t mpi_jobid;	/* MPI jobid */
 				 * real memory per CPU | MEM_PER_CPU,
 				 * default=0 (use job limit) */
 	char *ckpt_dir;		/* directory to store checkpoint image files */
@@ -1873,6 +1875,10 @@ typedef struct {
 
 	uint32_t gid;
 	bool multi_prog;
+	uint32_t mpi_jobid;	/* MPI jobid (same for all steps) */
+	uint32_t mpi_ntasks;	/* number of MPI tasks for all steps */
+	uint32_t mpi_stepftaskid; /* first MPI taskid for this step */
+	uint32_t num_tasks;	/* number of tasks in this step */
 	uint32_t slurmd_debug;  /* remote slurmd debug level */
 	bool parallel_debug;
 	uint32_t profile;	/* Level of acct_gather_profile {all | none} */

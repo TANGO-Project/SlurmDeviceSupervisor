@@ -2018,6 +2018,15 @@ static void _slurm_rpc_complete_job_allocation(slurm_msg_t * msg)
 	       "uid=%u, JobId=%u rc=%d",
 	       uid, comp_msg->job_id, comp_msg->job_rc);
 
+	job_ptr = find_job_record(comp_msg->job_id);
+	if (job_ptr == NULL) {
+		info("_slurm_rpc_complete_job_allocation: invalid job_id=%d",
+				comp_msg->job_id);
+		error_code = ESLURM_INVALID_JOB_ID;
+		slurm_send_rc_msg(msg, error_code);
+		return; /* can't go to normal return as job_ptr is used */
+	}
+	trace_job(job_ptr, __func__, "enter");
 	_throttle_start(&active_rpc_cnt);
 	lock_slurmctld(job_write_lock);
 	job_ptr = find_job_record(comp_msg->job_id);
