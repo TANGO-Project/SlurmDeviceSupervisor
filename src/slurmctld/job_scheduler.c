@@ -2465,6 +2465,10 @@ extern void print_job_dependency(struct job_record *job_ptr)
 			dep_str = "packleader";
 		else if (dep_ptr->depend_type == SLURM_DEPEND_EXPAND)
 			dep_str = "expand";
+		else if (dep_ptr->depend_type == SLURM_DEPEND_PACK)
+			dep_str = "pack";
+		else if (dep_ptr->depend_type == SLURM_DEPEND_PACKLEADER)
+			dep_str = "packleader";
 		else
 			dep_str = "unknown";
 
@@ -2523,6 +2527,10 @@ static void _depend_list2str(struct job_record *job_ptr, bool set_or_flag)
 			dep_str = "packleader";
 		else if (dep_ptr->depend_type == SLURM_DEPEND_EXPAND)
 			dep_str = "expand";
+		else if (dep_ptr->depend_type == SLURM_DEPEND_PACK)
+			dep_str = "pack";
+		else if (dep_ptr->depend_type == SLURM_DEPEND_PACKLEADER)
+			dep_str = "packleader";
 		else
 			dep_str = "unknown";
 
@@ -2894,6 +2902,7 @@ extern int update_job_dependency(struct job_record *job_ptr, char *new_depend)
 
 	}
 
+info("entered update_job_dependency with new_depend of %s", new_depend);		/* wjb */
 	new_depend_list = list_create(_depend_list_del);
 	if ((new_array_dep = _xlate_array_dep(new_depend)))
 		tok = new_array_dep;
@@ -2913,10 +2922,33 @@ extern int update_job_dependency(struct job_record *job_ptr, char *new_depend)
 				tok += 10;
 				continue;
 			}
-			if (tok[9] != '\0')
+			if (tok[9] != '\0') {				/* wjb */
 				rc = ESLURM_DEPENDENCY;
+info("Hit ESLURM_DEPENDENCY 1");					/* wjb */
+			}						/* wjb */
 			break;
- 		}
+		}
+		/* Test for ARRM pack type (no list) */			/* rod */
+ //		if (strcasecmp(tok,"pack") == 0) {
+ //			depend_type = SLURM_DEPEND_PACK;
+ //			info("RBS: todo job=%d --dependency=pack",job_ptr->job_id);
+ //			break;
+ //		}
+/* Temporary code to accept pack & packleader			*/	/* wjb */
+		if ( strncasecmp(tok, "packl", 5) == 0 ) {
+			depend_type = SLURM_DEPEND_PACKLEADER;
+			dep_ptr = xmalloc(sizeof(struct depend_spec));
+			dep_ptr->depend_type = depend_type;
+			(void) list_append(new_depend_list, dep_ptr);
+			break;
+		}
+		if ( strncasecmp(tok, "pack", 4) == 0 ) {
+			depend_type = SLURM_DEPEND_PACK;
+			dep_ptr = xmalloc(sizeof(struct depend_spec));
+			dep_ptr->depend_type = depend_type;
+			(void) list_append(new_depend_list, dep_ptr);
+			break;
+		}
 
 			/* Test for job pack type */
 		if (strcasecmp(tok,"pack") == 0) {

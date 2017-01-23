@@ -4738,9 +4738,6 @@ extern char * debug_flags2str(uint64_t debug_flags)
 			xstrcat(rc, ",");
 		xstrcat(rc, "Triggers");
 	}
-<<<<<<< HEAD
-
-=======
 	if (debug_flags & DEBUG_FLAG_WIKI) {
 		if (rc)
 			xstrcat(rc, ",");
@@ -4752,7 +4749,6 @@ extern char * debug_flags2str(uint64_t debug_flags)
 			xstrcat(rc, ",");
 		xstrcat(rc, "JobPack");
 	}
->>>>>>> 5ff6b63... Initial Implementation job pack
 	return rc;
 }
 

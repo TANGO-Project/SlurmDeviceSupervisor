@@ -87,6 +87,11 @@ allocation_msg_thread_t *msg_thr = NULL;
 struct pollfd global_fds[1];
 
 extern char **environ;
+extern uint32_t pack_desc_count;
+extern char *pack_job_id;
+extern bool packleader;
+extern bool packjob;
+extern uint32_t group_number;
 
 static uint32_t pending_job_id = 0;
 
@@ -106,11 +111,100 @@ static int _wait_nodes_ready(resource_allocation_response_msg_t *alloc);
 
 static sig_atomic_t destroy_job = 0;
 
-static void _set_pending_job_id(uint32_t job_id)
+static int _continue_task_groups_alloc(bool handle_signals)
 {
+	int rc = 0;
+	int job_index;
+	resource_allocation_response_msg_t *resp = NULL;
+
+	/* save opt for pack-leader */
+	_copy_opt_struct(pack_job_env[0].opt, &opt);
+	for (job_index = 1; job_index < pack_desc_count; job_index++) {
+
+		/* load opt for pack-member */
+		_copy_opt_struct(&opt, pack_job_env[job_index].opt);
+		opt.jobid = pack_job_env[job_index].job_id;
+		resp = existing_allocation();
+
+		/* save response message for pack-member */
+		_copy_resp_struct(pack_job_env[job_index].resp, resp);
+		if (resp && !destroy_job) {
+			/*
+			* Allocation granted!
+			*/
+			pending_job_id = resp->job_id;
+
+			/*
+			* These values could be changed while the job was
+			* pending so overwrite the request with what was
+			* allocated so we don't have issues when we use them
+			* in the step creation.
+			*/
+			if (opt.pn_min_memory != NO_VAL)
+				opt.pn_min_memory = (resp->pn_min_memory &
+						     (~MEM_PER_CPU));
+			else if (opt.mem_per_cpu != NO_VAL)
+				opt.mem_per_cpu = (resp->pn_min_memory &
+						   (~MEM_PER_CPU));
+			/*
+			* FIXME: timelimit should probably also be updated
+			* here since it could also change.
+			*/
+
+#ifdef HAVE_BG
+			uint32_t node_cnt = 0;
+			select_g_select_jobinfo_get(resp->select_jobinfo,
+						SELECT_JOBDATA_NODE_CNT,
+						&node_cnt);
+			if ((node_cnt == 0) || (node_cnt == NO_VAL)) {
+				opt.min_nodes = node_cnt;
+				opt.max_nodes = node_cnt;
+			} /* else we just use the original request */
+
+			if (!_wait_bluegene_block_ready(resp)) {
+				if (!destroy_job)
+					error("Something is wrong with the "
+					"boot of the block.");
+				rc = SLURM_ERROR;
+				return rc;
+			}
+#else
+			opt.min_nodes = resp->node_cnt;
+			opt.max_nodes = resp->node_cnt;
+
+			if (!_wait_nodes_ready(resp)) {
+				if (!destroy_job)
+					error("Something is wrong with the "
+					"boot of the nodes.");
+				rc = SLURM_ERROR;
+				return rc;
+			}
+#endif
+		} else if (destroy_job) {
+			rc = SLURM_ERROR;
+			return rc;
+		}
+		if (handle_signals)
+			xsignal_block(sig_array);
+
+		/* save updated opt for pack-member */
+		_copy_opt_struct(pack_job_env[job_index].opt, &opt);
+	}
+	/* reload opt for pack-leader */
+	_copy_opt_struct(&opt, pack_job_env[0].opt);
+	return rc;
+}
+
+ static void _set_pending_job_id(uint32_t job_id)
+ {
 	debug2("Pending job allocation %u", job_id);
 	pending_job_id = job_id;
-}
+	if (packjob) {
+		pack_job_env[group_number].job_id = job_id;
+		xstrfmtcat(pack_job_id,":%u", job_id);
+	}
+ }
+
 
 static void *_safe_signal_while_allocating(void *in_data)
 {
@@ -478,6 +572,36 @@ allocate_nodes(bool handle_signals)
 			xsignal(sig_array[i], _signal_while_allocating);
 	}
 
+	if (packjob == true) {
+		while (!resp) {
+			resp = slurm_allocate_pack_resources(j, opt.immediate,
+							     _set_pending_job_id);
+			if (destroy_job) {
+				/* cancelled by signal */
+				break;
+			} else if (!resp && !_retry()) {
+				break;
+			}
+		}
+		job_desc_msg_destroy(j);
+		return resp;
+	}
+
+	if (packjob == true) {
+		while (!resp) {
+			resp = slurm_allocate_pack_resources(j, opt.immediate,
+							     _set_pending_job_id);
+			if (destroy_job) {
+				/* cancelled by signal */
+				break;
+			} else if (!resp && !_retry()) {
+				break;
+			}
+		}
+		job_desc_msg_destroy(j);
+		return resp;
+	}
+
 	while (!resp) {
 		resp = slurm_allocate_resources_blocking(j, opt.immediate,
 							 _set_pending_job_id);
@@ -551,11 +675,21 @@ allocate_nodes(bool handle_signals)
 
 	job_desc_msg_destroy(j);
 
+	int rc = 0;
+	if (packleader) {
+		/* save response message for pack-leader */
+		_copy_resp_struct(pack_job_env[0].resp, resp);
+		rc = _continue_task_groups_alloc(handle_signals);
+		if (rc == SLURM_ERROR)
+			goto relinquish;
+	}
+
 	return resp;
 
 relinquish:
 	if (resp) {
 		if (!destroy_job)
+info("## probably need to check for packleader & loop for all pack jobs here ##");
 			slurm_complete_job(resp->job_id, 1);
 		slurm_free_resource_allocation_response_msg(resp);
 	}

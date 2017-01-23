@@ -102,6 +102,12 @@ typedef struct allocation_info {
 } allocation_info_t;
 
 static int shepherd_fd = -1;
+
+extern uint32_t pack_desc_count;					/* wjb */
+extern uint32_t group_number;						/* wjb */
+extern bool packjob;							/* wjb */
+extern bool packleader;							/* wjb */
+
 static pthread_t signal_thread = (pthread_t) 0;
 static int pty_sigarray[] = { SIGWINCH, 0 };
 
@@ -133,6 +139,57 @@ static void *_srun_signal_mgr(void *no_data);
 static void _step_opt_exclusive(void);
 static int _validate_relative(resource_allocation_response_msg_t *resp);
 
+int _complete_group_job_creation(void)
+{
+	int rc = 0;
+	int job_index = 0;
+	resource_allocation_response_msg_t *resp = NULL;
+
+	resp = xmalloc(sizeof(resource_allocation_response_msg_t));
+
+	/* save opt for pack-leader */
+	_copy_opt_struct(pack_job_env[0].opt, &opt);
+	for (job_index = 1; job_index < pack_desc_count; job_index++) {
+
+		/* load opt for pack-member */
+		_copy_opt_struct(&opt, pack_job_env[job_index].opt);
+
+		/* restore response message for pack-member */
+		_copy_resp_struct(resp, pack_job_env[job_index].resp);
+//		global_resp = resp;
+//		*got_alloc = true;
+		_print_job_information(resp);
+		_set_env_vars(resp);
+		if (_validate_relative(resp)) {
+			slurm_complete_job(resp->job_id, 1);
+			exit(error_exit);
+		}
+
+		/* save job for pack-member */
+		pack_job_env[job_index].job = job_create_allocation(resp);
+
+		opt.time_limit = NO_VAL;/* not applicable for step, only job */
+		xfree(opt.constraints);	/* not applicable for this step */
+		if (!opt.job_name_set_cmd && opt.job_name_set_env) {
+			/* use SLURM_JOB_NAME env var */
+			opt.job_name_set_cmd = true;
+		}
+		if ((opt.core_spec_set || opt.exclusive) && opt.cpus_set) {
+			/* Step gets specified CPU count, which may only part
+			 * of the job allocation. */
+			opt.exclusive = true;
+		} else {
+			/* Step gets all CPUs in the job allocation. */
+			opt.exclusive = false;
+		}
+		/* save updated opt information for pack-member */
+		_copy_opt_struct(pack_job_env[job_index].opt, &opt);
+	}
+	xfree(resp);
+	/* reload opt for pack-leader */
+	_copy_opt_struct(&opt, pack_job_env[0].opt);
+	return rc;
+}
 
 /*
  * Create an srun job structure w/out an allocation response msg.
@@ -441,6 +498,13 @@ extern void init_srun(int ac, char **av,
 			error("Unable to block signals");
 	}
 	xsignal_block(pty_sigarray);
+/*
+int index1;
+info(" init_srun ac contains %u", ac);
+for (index1 = 0; index1 < ac; index1++) {
+	info ("av[%u] is %s", index1, av[index1]);
+}
+*/
 
 	/* Initialize plugin stack, read options from plugins, etc.
 	 */
@@ -452,8 +516,10 @@ extern void init_srun(int ac, char **av,
 
 	/* Be sure to call spank_fini when srun exits.
 	 */
+if (packjob == false) {
 	if (atexit(_call_spank_fini) < 0)
 		error("Failed to register atexit handler for plugins: %m");
+}
 
 	/* set default options, process commandline arguments, and
 	 * verify some basic values
@@ -500,10 +566,12 @@ extern void create_srun_job(srun_job_t **p_job, bool *got_alloc,
 {
 	resource_allocation_response_msg_t *resp;
 	srun_job_t *job = NULL;
+	int rc;
 
 	/* now global "opt" should be filled in and available,
 	 * create a job from opt
 	 */
+
 	if (opt.test_only) {
 		int rc = allocate_test();
 		if (rc) {
@@ -604,6 +672,9 @@ extern void create_srun_job(srun_job_t **p_job, bool *got_alloc,
 
 		if ( !(resp = allocate_nodes(handle_signals)) )
 			exit(error_exit);
+
+		if (packjob == true)
+			return;
 		global_resp = resp;
 		*got_alloc = true;
 		_print_job_information(resp);
@@ -628,7 +699,17 @@ extern void create_srun_job(srun_job_t **p_job, bool *got_alloc,
 			/* Step gets all CPUs in the job allocation. */
 			opt.exclusive = false;
 		}
+		if (packleader == true) {
 
+			/* save response message for pack-leader */
+			_copy_resp_struct(pack_job_env[0].resp, resp);
+
+			/* save job for pack-leader */
+			_copy_srun_job_struct(pack_job_env[0].job, job);
+			rc = _complete_group_job_creation();
+		}
+
+/* ############ Martin's changes start below this point ################ */
 		/*
 		 *  Become --uid user
 		 */
@@ -749,6 +830,57 @@ job_state(srun_job_t *job)
 	return state;
 }
 
+int _complete_group_job_creation(void)
+{
+	int rc = 0;
+	int job_index = 0;
+	resource_allocation_response_msg_t *resp = NULL;
+
+	resp = xmalloc(sizeof(resource_allocation_response_msg_t));
+
+	/* save opt for pack-leader */
+	_copy_opt_struct(pack_job_env[0].opt, &opt);
+	for (job_index = 1; job_index < pack_desc_count; job_index++) {
+
+		/* load opt for pack-member */
+		_copy_opt_struct(&opt, pack_job_env[job_index].opt);
+
+		/* restore response message for pack-member */
+		_copy_resp_struct(resp, pack_job_env[job_index].resp);
+//		global_resp = resp;
+//		*got_alloc = true;
+		_print_job_information(resp);
+		_set_env_vars(resp);
+		if (_validate_relative(resp)) {
+			slurm_complete_job(resp->job_id, 1);
+			exit(error_exit);
+		}
+
+		/* save job for pack-member */
+		pack_job_env[job_index].job = job_create_allocation(resp);
+
+		opt.time_limit = NO_VAL;/* not applicable for step, only job */
+		xfree(opt.constraints);	/* not applicable for this step */
+		if (!opt.job_name_set_cmd && opt.job_name_set_env) {
+			/* use SLURM_JOB_NAME env var */
+			opt.job_name_set_cmd = true;
+		}
+		if ((opt.core_spec_set || opt.exclusive) && opt.cpus_set) {
+			/* Step gets specified CPU count, which may only part
+			 * of the job allocation. */
+			opt.exclusive = true;
+		} else {
+			/* Step gets all CPUs in the job allocation. */
+			opt.exclusive = false;
+		}
+		/* save updated opt information for pack-member */
+		_copy_opt_struct(pack_job_env[job_index].opt, &opt);
+	}
+	xfree(resp);
+	/* reload opt for pack-leader */
+	_copy_opt_struct(&opt, pack_job_env[0].opt);
+	return rc;
+}
 
 void
 job_force_termination(srun_job_t *job)

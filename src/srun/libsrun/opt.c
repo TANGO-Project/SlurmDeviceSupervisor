@@ -257,6 +257,28 @@ static bool  _valid_node_list(char **node_list_pptr);
 /*---[ end forward declarations of static functions ]---------------------*/
 
 int initialize_and_process_args(int argc, char **argv)
+extern void _copy_opt_struct(opt_t *to, opt_t *from)
+{
+	memcpy(to, from, sizeof(opt_t));
+}
+
+extern void _copy_env_struct(env_t *to, env_t *from)
+{
+	memcpy(to, from, sizeof(env_t));
+}
+
+extern void _copy_srun_job_struct(srun_job_t *to, srun_job_t *from)
+{
+	memcpy(to, from, sizeof(srun_job_t));
+}
+
+extern void _copy_resp_struct(resource_allocation_response_msg_t *to,
+			      resource_allocation_response_msg_t *from)
+{
+	memcpy(to, from, sizeof(resource_allocation_response_msg_t));
+}
+
+int initialize_and_process_args(int argc, char *argv[])
 {
 	/* initialize option defaults */
 	_opt_default();

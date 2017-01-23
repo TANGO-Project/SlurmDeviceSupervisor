@@ -283,6 +283,25 @@ void _copy_srun_job_struct(srun_job_t *to, srun_job_t *from);
 void _copy_resp_struct(resource_allocation_response_msg_t *to,
 		       resource_allocation_response_msg_t *from);
 
+typedef struct {
+	bool packleader;
+	bool pack_job;
+	uint32_t job_id;
+	opt_t *opt;
+	env_t *env;
+	srun_job_t *job;
+	resource_allocation_response_msg_t *resp;
+	uint32_t ac;
+	char **av;
+} pack_job_env_t;
+
+extern pack_job_env_t *pack_job_env;
+void _copy_opt_struct(opt_t *to, opt_t *from);
+void _copy_env_struct(env_t *to, env_t *from);
+void _copy_srun_job_struct(srun_job_t *to, srun_job_t *from);
+void _copy_resp_struct(resource_allocation_response_msg_t *to,
+		       resource_allocation_response_msg_t *from);
+
 extern int error_exit;		/* exit code for slurm errors */
 extern int immediate_exit;	/* exit code for --imediate option & busy */
 extern bool srun_max_timer;
