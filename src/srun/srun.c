@@ -150,7 +150,6 @@ static void  _setup_env_working_cluster();
 static int   _slurm_debug_env_val (void);
 static char *_uint16_array_to_str(int count, const uint16_t *array);
 
-static resource_allocation_response_msg_t  *_get_resp(int desc_idx, int job_idx);
 static opt_t *_get_opt(int desc_idx, int job_idx);
 static srun_job_t *_get_srun_job(int desc_idx, int job_idx);
 static env_t *_get_env(int desc_idx, int job_idx);
@@ -1051,7 +1050,6 @@ static void _create_srun_steps_jobpack(bool got_alloc)
 	uint32_t mpi_jobid;
 	bool mpi_combine;
 	opt_t *opt_ptr = NULL;
-	resource_allocation_response_msg_t *resp = NULL;
 
 	/* For each step to be launched, propagate opt.mpi_combine from first
 	 * step. If opt.mpi_combine=true, set MPI jobid to jobid of step#0.
@@ -1081,7 +1079,6 @@ static void _create_srun_steps_jobpack(bool got_alloc)
 			opt_ptr = _get_opt(i, j);
 			memcpy(&opt, opt_ptr, sizeof(opt_t));
 			job = _get_srun_job(i, j);
-			resp = _get_resp(i, j);
 			if (!job || create_job_step(job, true) < 0)
 				step_failed = true;
 			if (step_failed)

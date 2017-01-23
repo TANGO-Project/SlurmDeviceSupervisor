@@ -110,13 +110,12 @@ void _replace(char *s, char *old, char *new)
  */
 void _adjust_vect_nodeidx(char *vecstr, char *newvecstr, int curnodeidx)
 {
-	char *sub, *sub1, *last;
+	char *sub, *sub1;
 	char *numstr = xmalloc(50 * sizeof(char));
 	char *newnumstr = xmalloc(50 * sizeof(char));
 	int num;
 
 	strcpy(newvecstr, vecstr);
-	last = newvecstr;
 	sub = newvecstr;
 	numstr[0]='\0';
 	while ((sub = strstr(sub, ",(")) != NULL) {
