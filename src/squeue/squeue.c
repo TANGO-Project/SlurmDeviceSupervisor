@@ -232,7 +232,9 @@ _print_job ( bool clear_old )
 				"%.18i %.9P %.8j %.8u %.8T %.10M %.9l %.6D %R");
 		} else if (params.dependency) {
 			xstrcat(params.format,
-				"%.18i %.9P %.10E %.8j %.8u %.2t %.10M %.6D %R");
+				"%.18i %.10E %.9P %.8j %.8u %.2t %.10M %.6D %R");
+			/* Partition,state,dependency */
+			params.sort = xstrdup("P,t,k");
 		} else {
 			xstrcat(params.format,
 				"%.18i %.9P %.8j %.8u %.2t %.10M %.6D %R");
@@ -293,8 +295,15 @@ _print_job_steps( bool clear_old )
 			new_step_ptr->job_step_count);
 	}
 
-	if (!params.format && !params.format_long)
-		params.format = "%.15i %.8j %.9P %.8u %.9M %N";
+	if (!params.format && !params.format_long) {
+		if (params.dependency) {
+		        params.format = "%.15i %.10E %.8j %.9P %.8u %.9M %N";
+			/* dependency sort */
+			params.sort = xstrdup("k");
+		}
+		else
+		        params.format = "%.15i %.8j %.9P %.8u %.9M %N";
+	}
 
 	if (!params.format_list) {
 		if (params.format)

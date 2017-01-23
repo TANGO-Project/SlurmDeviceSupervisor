@@ -1474,6 +1474,7 @@ _rpc_launch_tasks(slurm_msg_t *msg)
 		job_env.spank_job_env_size = req->spank_job_env_size;
 		job_env.uid = req->uid;
 		job_env.user_name = req->user_name;
+
 		/* fetch & append some JOBPACK related envs from req
 		   so they will be available to prolog */
 		if ((val = getenvp(req->env, "SLURM_NUMPACK")) != NULL) {
@@ -1484,7 +1485,7 @@ _rpc_launch_tasks(slurm_msg_t *msg)
 
 		        int numpack = atoi(val);
 			for (i=0; i<numpack; i++) {
-			        tmp = xmalloc(30);
+			        tmp = xmalloc(40);
 				sprintf(tmp, "SLURM_NODELIST_PACK_GROUP_%d", i);
 				if ((val = getenvp(req->env, tmp)) != NULL) {
 				        env_array_append(&job_env.supp_job_env,
@@ -1500,7 +1501,7 @@ _rpc_launch_tasks(slurm_msg_t *msg)
 				        env_array_append(&job_env.supp_job_env,
 							 tmp, val);
 					job_env.supp_job_env_size =
-					        envcount(job_env.supp_job_env);
+					  envcount(job_env.supp_job_env);
 				}
 				xfree(tmp);
 			}
@@ -2264,6 +2265,9 @@ _rpc_batch_job(slurm_msg_t *msg, bool new_msg)
 	 */
 	if (first_job_run) {
 		job_env_t job_env;
+		char *tmp, *val;
+		int i, gn;
+
 		slurm_cred_insert_jobid(conf->vctx, req->job_id);
 		_add_job_running_prolog(req->job_id);
 		slurm_mutex_unlock(&prolog_mutex);
@@ -2278,6 +2282,59 @@ _rpc_batch_job(slurm_msg_t *msg, bool new_msg)
 		job_env.spank_job_env_size = req->spank_job_env_size;
 		job_env.uid = req->uid;
 		job_env.user_name = req->user_name;
+
+		/* generate the SLURM_*_PACK_GROUP envs for the job in the
+		   sbatch allocation even though this will be called again
+		   later (in mgr.c) because we need this for info now for
+		   the prolog environment */
+		env_array_for_batch_job(&req->environment, req, NULL);
+
+		/* fetch & append some JOBPACK related envs from req
+		   so they will be available to prolog */
+		if ((val = getenvp(req->environment,
+				   "SLURM_NUMPACK")) != NULL) {
+			env_array_append(&job_env.supp_job_env,
+					 "SLURM_NUMPACK", val);
+			job_env.supp_job_env_size =
+			        envcount(job_env.supp_job_env);
+
+		        int numpack = atoi(val);
+			for (i=0; i<numpack; i++) {
+			        tmp = xmalloc(30);
+				sprintf(tmp, "SLURM_NODELIST_PACK_GROUP_%d", i);
+				if ((val = getenvp(req->environment,
+						   tmp)) != NULL) {
+				        env_array_append(&job_env.supp_job_env,
+							 tmp, val);
+					job_env.supp_job_env_size =
+					        envcount(job_env.supp_job_env);
+					if (strcmp(val, job_env.node_list) == 0)
+					        gn = i;
+				}
+				sprintf(tmp, "SLURM_RESV_PORTS_PACK_GROUP_%d",
+					i);
+				if ((val = getenvp(req->environment,
+						   tmp)) != NULL) {
+				        env_array_append(&job_env.supp_job_env,
+							 tmp, val);
+					job_env.supp_job_env_size =
+					  envcount(job_env.supp_job_env);
+				}
+				xfree(tmp);
+			}
+
+			env_array_append_fmt(&job_env.supp_job_env,
+					     "SLURM_GROUP_NUMBER", "%d", gn);
+			job_env.supp_job_env_size =
+			        envcount(job_env.supp_job_env);
+		}
+		if ((val = getenvp(req->environment,
+				   "SLURM_STEP_RESV_PORTS")) != NULL) {
+			env_array_append(&job_env.supp_job_env,
+					 "SLURM_STEP_RESV_PORTS", val);
+			job_env.supp_job_env_size =
+			        envcount(job_env.supp_job_env);
+		}
 		/*
 	 	 * Run job prolog on this node
 	 	 */

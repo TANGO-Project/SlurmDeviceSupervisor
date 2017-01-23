@@ -567,6 +567,11 @@ extern int parse_format( char* format )
 				step_format_add_gres( params.format_list,
 						      field_size,
 						      right_justify, suffix );
+			else if (field[0] == 'E') /* support for jobpacks */
+				step_format_add_dependency( params.format_list,
+							   field_size,
+							   right_justify,
+							   suffix );
 			else if (field[0] == 'i')
 				step_format_add_id( params.format_list,
 						    field_size,

@@ -771,23 +771,17 @@ static void _opt_env_pack(uint32_t group_number)
 {
 	char       *val = NULL;
 	env_vars_t *e   = env_vars;
-	char *name, *batch;
+	char *name;
 
 	debug("_opt_env_pack: group_number = %d", group_number);
 
-	batch = getenv("SLURM_BATCH_RESV_PORTS");
 	while (e->var) {
 	        name = xmalloc(strlen(e->var) + 16);
 	        sprintf(name, "%s_PACK_GROUP_%d", e->var, group_number);
-		if ((val = getenv(name)) != NULL) {
-		        /* prevent a bug where sbatch had set SLURM_RESV_PORTS;
-			   we do not want srun to know about it */
-		        if (batch && strcmp(e->var, "SLURM_RESV_PORTS")==0) {
-			        xfree(name);
-				e++;
-			        continue;
-			}
-		        debug("_opt_env_pack: name = %s, value = %s", name, val);
+		if ((val = getenv(name)) != NULL &&
+		    strstr(name, "SLURM_RESV_PORTS_PACK_GROUP_") == NULL) {
+		        debug("_opt_env_pack: name = %s, value = %s", name,
+			      val);
 		        _process_env_var(e, val);
 		}
 		xfree(name);

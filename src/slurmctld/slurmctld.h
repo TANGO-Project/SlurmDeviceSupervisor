@@ -795,6 +795,7 @@ struct job_record {
 	int *resv_port_array;		/* reserved port indexes */
 	uint16_t resv_port_cnt;		/* count of ports reserved per node */
 	char *resv_ports;		/* ports reserved for job */
+        uint32_t group_number;          /* jobpack group number index */
 };
 
 /* Job dependency specification, used in "depend_list" within job_record */

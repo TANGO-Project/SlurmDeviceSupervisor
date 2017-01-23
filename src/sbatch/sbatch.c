@@ -1100,6 +1100,7 @@ static void  _set_prio_process_env(void)
 /* Set SLURM_GROUP_NUMBER environment variable with current jobpack index */
 static void _set_group_number_env(uint32_t group_number)
 {
+        unsetenv("SLURM_GROUP_NUMBER");
 	if (setenvf(NULL, "SLURM_GROUP_NUMBER", "%d", group_number) < 0) {
 		error ("unable to set SLURM_GROUP_NUMBER in environment");
 		return;

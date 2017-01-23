@@ -172,6 +172,7 @@
 #define LONG_OPT_MCS_LABEL       0x165
 #define LONG_OPT_DEADLINE        0x166
 #define LONG_OPT_DELAY_BOOT      0x167
+#define LONG_OPT_RESV_PORT       0x168
 
 /*---- global variables, defined in opt.h ----*/
 opt_t opt;
@@ -409,6 +410,7 @@ static void _opt_default()
 
 	opt.nice = NO_VAL;
 	opt.priority = 0;
+	opt.resv_port_flag  = false;
 }
 
 /*---[ env var processing ]-----------------------------------------------*/
@@ -791,6 +793,7 @@ void set_options(const int argc, char **argv)
 		{"use-min-nodes", no_argument,       0, LONG_OPT_USE_MIN_NODES},
 		{"wait-all-nodes",required_argument, 0, LONG_OPT_WAIT_ALL_NODES},
 		{"wckey",         required_argument, 0, LONG_OPT_WCKEY},
+		{"resv-port",     no_argument, 0, LONG_OPT_RESV_PORT},
 		{NULL,            0,                 0, 0}
 	};
 	char *opt_string =
@@ -1380,6 +1383,9 @@ void set_options(const int argc, char **argv)
 			break;
 		case LONG_OPT_SPREAD_JOB:
 			opt.job_flags |= SPREAD_JOB;
+
+		case LONG_OPT_RESV_PORT:
+			opt.resv_port_flag = true;
 			break;
 		case LONG_OPT_USE_MIN_NODES:
 			opt.job_flags |= USE_MIN_NODES;

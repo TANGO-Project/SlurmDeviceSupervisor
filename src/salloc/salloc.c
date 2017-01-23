@@ -808,6 +808,9 @@ int main_jobpack(int argc, char *argv[])
 	char *aggr_nodelistptr = NULL;
 	char *aggregate_hosts = NULL;
 	hostlist_t hostlist = NULL;
+	List rports = list_create(NULL);
+	ListIterator it;
+	char *val, *key1, *key2, *delim, *tmp;
 
 	slurm_conf_init(NULL);
 	log_init(xbasename(argv[0]), logopt, 0, NULL);
@@ -824,7 +827,7 @@ int main_jobpack(int argc, char *argv[])
 		error("Failed to register atexit handler for plugins: %m");
 
 	_build_env_structs(argc, argv);
-	 _identify_job_descriptions(argc, argv);
+	_identify_job_descriptions(argc, argv);
 
 	for (job_index = pack_desc_count; job_index > 0; job_index--) {
 		group_number = job_index - 1;
@@ -859,6 +862,7 @@ int main_jobpack(int argc, char *argv[])
 
 		_set_spank_env();
 		_set_submit_dir_env();
+
 		if (opt.cwd && chdir(opt.cwd)) {
 		        error("chdir(%s): %m", opt.cwd);
 			exit(error_exit);
@@ -943,6 +947,8 @@ int main_jobpack(int argc, char *argv[])
 		if (_fill_job_desc_from_opts(&desc) == -1) {
 		        exit(error_exit);
 		}
+		desc.group_number = group_number;
+
 		if (opt.gid != (gid_t) -1) {
 			if (setgid(opt.gid) < 0) {
 				error("setgid: %m");
@@ -999,7 +1005,6 @@ int main_jobpack(int argc, char *argv[])
 			}
 			if (!alloc)
 			        fatal("JPCK: failed to allocate packleader");
-
 			pack_job_env[group_number].job_id = alloc->job_id;
 		}
 		_copy_opt_struct(pack_job_env[group_number].opt, &opt);
@@ -1081,6 +1086,20 @@ int main_jobpack(int argc, char *argv[])
 		}
 		opt.jobid = pack_job_env[group_number].job_id;
 		alloc = existing_allocation();
+
+		if (alloc->env_size) {
+		        tmp = xmalloc(40);
+			sprintf(tmp, "SLURM_RESV_PORTS_PACK_GROUP_%d",
+				group_number);
+			val = getenvp(alloc->environment, tmp);
+			if (val) {
+			        char *tmp2 = xmalloc(strlen(val) + 6);
+				sprintf(tmp2, "%d=%s", group_number,
+					val);
+				list_append(rports, tmp2);
+			}
+			xfree(tmp);
+		}
 
 		env_array_overwrite_fmt(&env, "SLURM_GROUP_NUMBER",
 					"%d", group_number);
@@ -1179,6 +1198,25 @@ int main_jobpack(int argc, char *argv[])
         setenv("SLURM_PACK_GROUP", aggr_nodelistptr, 1);
         xfree(aggr_nodelistptr);
         hostlist_destroy(hostlist);
+
+        it = list_iterator_create(rports);
+        while ((val = list_next(it))) {
+	        key1 = xstrdup(val);
+		delim = strchr(key1, '=');
+		if (delim) {
+		        delim[0] = '\0';
+			key2 = xstrdup(delim+1);
+			tmp = xmalloc(100);
+			sprintf (tmp, "SLURM_RESV_PORTS_PACK_GROUP_%d",
+				 atoi(key1));
+			setenv(tmp, key2, 1);
+			xfree(tmp);
+			xfree(key2);
+		}
+		xfree(key1);
+	}
+        list_iterator_destroy(it);
+	FREE_NULL_LIST(rports);
 
         /* End new ENVs for jobpack */
 
@@ -1541,6 +1579,9 @@ static int _fill_job_desc_from_opts(job_desc_msg_t *desc)
 		desc->mcs_label = xstrdup(opt.mcs_label);
 	if (opt.delay_boot != NO_VAL)
 		desc->delay_boot = opt.delay_boot;
+
+	if (opt.resv_port_flag)
+	        desc->resv_port = 1;
 
 	return 0;
 }

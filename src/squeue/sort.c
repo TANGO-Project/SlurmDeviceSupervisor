@@ -59,6 +59,7 @@ static int _sort_job_by_group_id(void *void1, void *void2);
 static int _sort_job_by_group_name(void *void1, void *void2);
 static int _sort_job_by_id(void *void1, void *void2);
 static int _sort_job_by_name(void *void1, void *void2);
+static int _sort_job_by_dependency_jobpack(void *void1, void *void2);
 static int _sort_job_by_state(void *void1, void *void2);
 static int _sort_job_by_state_compact(void *void1, void *void2);
 static int _sort_job_by_time_end(void *void1, void *void2);
@@ -84,6 +85,7 @@ static int _sort_job_by_reservation(void *void1, void *void2);
 static int _sort_step_by_gres(void *void1, void *void2);
 static int _sort_step_by_id(void *void1, void *void2);
 static int _sort_step_by_node_list(void *void1, void *void2);
+static int _sort_step_by_dependency_jobpack(void *void1, void *void2);
 static int _sort_step_by_partition(void *void1, void *void2);
 static int _sort_step_by_time_start(void *void1, void *void2);
 static int _sort_step_by_time_limit(void *void1, void *void2);
@@ -145,6 +147,8 @@ void sort_job_list(List job_list)
 			list_sort(job_list, _sort_job_by_name);
 		else if (params.sort[i] == 'J')
 			list_sort(job_list, _sort_job_by_threads);
+		else if (params.sort[i] == 'k')
+			list_sort(job_list, _sort_job_by_dependency_jobpack);
 		else if (params.sort[i] == 'l')
 			list_sort(job_list, _sort_job_by_time_limit);
 		else if (params.sort[i] == 'L')
@@ -217,6 +221,8 @@ void sort_step_list(List step_list)
 			list_sort(step_list, _sort_step_by_node_list);
 		else if (params.sort[i] == 'P')
 			list_sort(step_list, _sort_step_by_partition);
+		else if (params.sort[i] == 'k')
+			list_sort(step_list, _sort_step_by_dependency_jobpack);
 		else if (params.sort[i] == 'l')
 			list_sort(step_list, _sort_step_by_time_limit);
 		else if (params.sort[i] == 'S')
@@ -411,6 +417,96 @@ static int _sort_job_by_name(void *void1, void *void2)
 
 	if (reverse_order)
 		diff = -diff;
+	return diff;
+}
+
+static int _sort_job_by_dependency_jobpack(void *void1, void *void2)
+{
+	int diff;
+	job_info_t *job1;
+	job_info_t *job2;
+	char packldr[12];
+	char *packmbr_ldr = "";
+
+	_get_job_info_from_void(&job1, &job2, void1, void2);
+
+	if (job1->dependency == NULL || job2->dependency == NULL)
+	        return 0;
+
+	packldr[0] = '\0';
+	if (!strncmp(job1->dependency,
+		     "packleader:", 11)) // jobpack leader
+	        sprintf(packldr, "%u", job1->job_id);
+	else if (!strncmp(job1->dependency,
+		     "pack packleader=", 16)) // jobpack member
+	        packmbr_ldr = &job1->dependency[16];
+
+	if (!strncmp(job2->dependency,
+		     "packleader:", 11)) // jobpack leader
+	        sprintf(packldr, "%u", job2->job_id);
+	else if (!strncmp(job2->dependency,
+			  "pack packleader=", 16)) // jobpack member
+	        packmbr_ldr = &job2->dependency[16];
+
+        if (strlen(packldr) == 0 || strlen(packmbr_ldr) == 0)
+	        return 0;
+
+	diff = (strcmp(packldr, packmbr_ldr) == 0);
+
+	return diff;
+}
+
+static int _sort_step_by_dependency_jobpack(void *void1, void *void2)
+{
+	int diff;
+	job_step_info_t *step1;
+	job_step_info_t *step2;
+	char packldr[12];
+	char *packmbr_ldr = "";
+        job_info_msg_t * job_info_ptr1, * job_info_ptr2;
+	job_info_t * job_ptr1, * job_ptr2;
+	int error_code, i1, i2;
+
+	_get_step_info_from_void(&step1, &step2, void1, void2);
+
+	error_code = slurm_load_job(&job_info_ptr1, step1->job_id, 0);
+	if (error_code)
+	        return 0;
+	error_code = slurm_load_job(&job_info_ptr2, step2->job_id, 0);
+	if (error_code)
+	        return 0;
+
+	job_ptr1 = job_info_ptr1->job_array;
+	job_ptr2 = job_info_ptr2->job_array;
+	for (i1=0; i1<job_info_ptr1->record_count; i1++)
+	        if (job_ptr1[i1].job_id == step1->job_id) break;
+	for (i2=0; i2<job_info_ptr2->record_count; i2++)
+	        if (job_ptr2[i2].job_id == step2->job_id) break;
+
+	if (job_ptr1[i1].dependency == NULL ||
+	    job_ptr2[i2].dependency == NULL)
+	        return 0;
+
+	packldr[0] = '\0';
+	if (!strncmp(job_ptr1[i1].dependency,
+		     "packleader:", 11)) // jobpack leader
+	        sprintf(packldr, "%u", job_ptr1[i1].job_id);
+	else if (!strncmp(job_ptr1[i1].dependency,
+		     "pack packleader=", 16)) // jobpack member
+	        packmbr_ldr = &job_ptr1[i1].dependency[16];
+
+	if (!strncmp(job_ptr2[i2].dependency,
+		     "packleader:", 11)) // jobpack leader
+	        sprintf(packldr, "%u", job_ptr2[i2].job_id);
+	else if (!strncmp(job_ptr2[i2].dependency,
+			  "pack packleader=", 16)) // jobpack member
+	        packmbr_ldr = &job_ptr2[i2].dependency[16];
+
+        if (strlen(packldr) == 0 || strlen(packmbr_ldr) == 0)
+	        return 0;
+
+	diff = (strcmp(packldr, packmbr_ldr) == 0);
+
 	return diff;
 }
 
