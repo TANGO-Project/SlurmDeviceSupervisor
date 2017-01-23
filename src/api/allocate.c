@@ -260,7 +260,6 @@ slurm_allocate_pack_resources (const job_desc_msg_t *user_req,
 			   the time desired, so just free the job id */
 			if ((resp == NULL) && (errno != ESLURM_ALREADY_DONE)) {
 				errnum = errno;
-				error("JPCK: RBS: p34-0 slurm_allocate_pack_resources jobid=%d errno=%d", job_id, errnum);
 				slurm_complete_job(job_id, -1);
 			}
 		}
@@ -397,7 +396,6 @@ slurm_allocate_resources_blocking (const job_desc_msg_t *user_req,
 			   the time desired, so just free the job id */
 			if ((resp == NULL) && (errno != ESLURM_ALREADY_DONE)) {
 				errnum = errno;
-				error("JPCK: RBS: p34-1 slurm_allocate_resources_blocking jobid=%d errno=%d", job_id, errnum);
 				slurm_complete_job(job_id, -1);
 			}
 		}

@@ -129,6 +129,7 @@ extern void srun_allocate (uint32_t job_id)
 				job_ptr->select_jobinfo);
 		msg_arg->error_code	= SLURM_SUCCESS;
 
+<<<<<<< HEAD
 		if (!(fed_mgr_is_origin_job(job_ptr))) {
 			/* msg->working_cluster_rec is NULL'ed out before being
 			 * free'd in _purge_agent_args() */
@@ -141,6 +142,8 @@ extern void srun_allocate (uint32_t job_id)
 		}
 
 		info("RBS: srun_allocate. (b4 agent_launch) RESPONSE_RESOURCE_ALLOCATION %d",job_ptr->job_id);
+=======
+>>>>>>> 278b9b0... Add-the-job_id-of-the-pack_leader-to-the-job_record-
 		_srun_agent_launch(addr, job_ptr->alloc_node,
 				   RESPONSE_RESOURCE_ALLOCATION, msg_arg,
 				   job_ptr->start_protocol_ver);

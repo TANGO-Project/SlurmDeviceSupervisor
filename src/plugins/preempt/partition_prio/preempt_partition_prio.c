@@ -122,7 +122,7 @@ extern List find_preemptable_jobs(struct job_record *job_ptr)
 		    (job_ptr->details->expanding_jobid == job_p->job_id))
 			continue;
 
-		if (slurm_preempt_skip_pack(job_p))
+		if (job_p->pack_leader != 0)
 			continue; /* Members of job_pack, can't be preempted */
 
 		/* This job is a preemption candidate */

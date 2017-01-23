@@ -169,6 +169,16 @@ static void _job_complete_handler(srun_job_complete_msg_t *msg)
 {
 	//debug("******** MNP pid=%d: entering _job_complete_handler", getpid());
 	if (pending_job_id && (pending_job_id != msg->job_id)) {
+		if (packjob || packleader) {
+			if (msg->step_id == NO_VAL)
+				info("JPCK: Force Terminated member job %u of "
+				     "packjob %u", msg->job_id, pending_job_id);
+			else
+				info("JPCK: Force Terminated member job %u.%u "
+				      "of packjob %u", msg->job_id,
+				      msg->step_id, pending_job_id);
+			return;
+		}
 		error("Ignoring bogus job_complete call: job %u is not "
 		      "job %u", pending_job_id, msg->job_id);
 		return;

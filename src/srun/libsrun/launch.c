@@ -565,6 +565,5 @@ extern void launch_g_fwd_signal(int signal)
 {
 	if (launch_init() < 0)
 		return;
-
 	(*(ops.fwd_signal))(signal);
 }

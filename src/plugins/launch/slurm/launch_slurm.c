@@ -689,7 +689,6 @@ extern int launch_p_step_launch(
 		else
 			mpir_set_executable_names(launch_params.argv[0]);
 		MPIR_debug_state = MPIR_DEBUG_SPAWNED;
-
 		if (opt.debugger_test)
 			mpir_dump_proctable();
 		else

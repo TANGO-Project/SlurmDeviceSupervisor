@@ -65,12 +65,6 @@ extern int slurm_preempt_fini(void);
  */
 
 /*
- * slurm_preempt_skip_pack - Given a pointer to a preemptable candidate job,
- * 	return true if job is a member of a job pack.
- * 	(they cannot be preempted.)
- */
-extern bool slurm_preempt_skip_pack(struct job_record *job_ptr);
-/*
  * slurm_find_preemptable_jobs - Given a pointer to a pending job, return list
  *	of pointers to preemptable jobs. The jobs should be sorted in order
  *	from most desirable to to least desirable to preempt.

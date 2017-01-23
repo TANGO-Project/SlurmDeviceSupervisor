@@ -819,7 +819,7 @@ extern List find_preemptable_jobs(struct job_record *job_ptr)
 		    !_account_preemptable(preemptor_job_ptr, preemptee_job_ptr))
 			continue;
 
-		if (slurm_preempt_skip_pack(preemptee_job_ptr))
+		if (preemptee_job_ptr->pack_leader != 0)
 			continue; /* Members of job_pack, can't be preempted */
 
 		/* This job is a valid preemption candidate and should be added
