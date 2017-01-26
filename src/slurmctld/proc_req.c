@@ -6288,7 +6288,6 @@ end_it:
 	//slurm_persist_conn_destroy(persist_conn);
 }
 
-<<<<<<< HEAD
 static void _slurm_rpc_sib_job_start(uint32_t uid, slurm_msg_t *msg)
 {
 

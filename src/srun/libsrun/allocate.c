@@ -466,7 +466,7 @@ allocate_nodes(bool handle_signals)
 	resource_allocation_response_msg_t *resp = NULL;
 	job_desc_msg_t *j = job_desc_msg_create_from_opts();
 	slurm_allocation_callbacks_t callbacks;
-	int i, desc_index;
+	int i;
 
 	if (!j)
 		return NULL;

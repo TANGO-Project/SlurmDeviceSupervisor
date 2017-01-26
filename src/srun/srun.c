@@ -563,44 +563,9 @@ int srun(int ac, char **av)
 
 	_setup_env_working_cluster();
 
-	init_srun(ac, av, &logopt, debug_level, 1);
-	create_srun_job(&job, &got_alloc, 0, 1);
+	/* Make sure SLURM_NUMPACK exists for free-standing srun */
+	setenv("SLURM_NUMPACK", "1", 1);
 
-	xstrfmtcat(tmp, "%d", job->jobid);      //dhp
-	setenv("SLURM_LISTJOBIDS", tmp, 0);     //dhp
-	setenv("SLURM_NUMPACK", "0", 0);        //dhp
-
-
-		/* For each job description, create a job step */
-		for (i = 0; i < pack_desc_count; i++) {
-			info("******** MNP creating step for pack desc# %d", i); // MNP debug
-			opt_ptr = _get_opt(i);
-			memcpy(&opt, opt_ptr, sizeof(opt_t));
-			job = _get_srun_job(i);
-			resp = _get_resp(i);
-//			info("******** MNP calling create_job_step for pack desc# %d", i); // MNP debug
-			if (!job || create_job_step(job, true) < 0) {
-				info("******** MNP error from create_job_step for pack desc# %d", i); // MNP debug
-				slurm_complete_job(resp->job_id, 1);
-				exit(error_exit);
-			}
-//			info("******** MNP returned from create_job_step for pack desc# %d", i); // MNP debug
-			slurm_free_resource_allocation_response_msg(resp);
-			/* What about code at lines 625-638 in srun_job.c? */
-			memcpy(opt_ptr, &opt, sizeof(opt_t));
-		}
-		//info("******** MNP all job steps now created"); // MNP debug
-		/* For each job description, enhance environment for job */
-		for (i = 0; i < pack_desc_count; i++) {
-			//info("******** MNP enhancing environment for pack desc# %d", i); // MNP debug
-			opt_ptr = _get_opt(i);
-			memcpy(&opt, opt_ptr, sizeof(opt_t));
-			job = _get_srun_job(i);
-			env = _get_env(i);
-
-	xstrfmtcat(tmp, "%d", job->jobid);      //dhp
-	setenv("SLURM_LISTJOBIDS", tmp, 0);     //dhp
-	setenv("SLURM_NUMPACK", "0", 0);        //dhp
 	init_srun(ac, av, &logopt, debug_level, 1);
 	create_srun_job(&job, &got_alloc, 0, 1);
 
@@ -1014,17 +979,7 @@ static void _setup_env_working_cluster()
 		xfree(cluster_name);
 	}
 }
-/*
-static resource_allocation_response_msg_t  *_get_resp(int job_idx)
-{
-	return pack_job_env[job_idx].resp;
-}
-*/
 
-static resource_allocation_response_msg_t  *_get_resp(int desc_idx, int job_idx)
-{
-	return desc[desc_idx].pack_job_env[job_idx].resp;
-}
 
 static opt_t *_get_opt(int desc_idx, int job_idx)
 {
