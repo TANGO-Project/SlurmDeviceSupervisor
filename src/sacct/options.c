@@ -346,7 +346,7 @@ sacct [<OPTION>]                                                            \n \
                              maxdiskread,maxdiskreadnode,maxdiskreadtask,   \n\
                              avediskread,maxdiskwrite,maxdiskwritenode,     \n\
                              maxdiskwritetask,avediskread,allocgres,reqgres,\n\
-                             packid,packjobid,packstepid                    \n\
+                             packjobid,packstepid                           \n\
      -L, --allclusters:                                                     \n\
 	           Display jobs ran on all clusters. By default, only jobs  \n\
                    ran on the cluster from where sacct is called are        \n\

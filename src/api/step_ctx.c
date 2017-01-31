@@ -206,7 +206,6 @@ slurm_step_ctx_create (const slurm_step_ctx_params_t *step_params)
 	ctx->step_req   = step_req;
 	ctx->step_resp	= step_resp;
 	ctx->verbose_level = step_params->verbose_level;
-	ctx->mpi_jobid = step_params->mpi_jobid;
 
 	ctx->launch_state = step_launch_state_create(ctx);
 	ctx->launch_state->slurmctld_socket_fd = sock;
@@ -325,7 +324,6 @@ slurm_step_ctx_create_timeout (const slurm_step_ctx_params_t *step_params,
 	ctx->step_req   = step_req;
 	ctx->step_resp	= step_resp;
 	ctx->verbose_level = step_params->verbose_level;
-	ctx->mpi_jobid = step_params->mpi_jobid;
 
 	ctx->launch_state = step_launch_state_create(ctx);
 	ctx->launch_state->slurmctld_socket_fd = sock;
@@ -406,7 +404,6 @@ slurm_step_ctx_create_no_alloc (const slurm_step_ctx_params_t *step_params,
 	ctx->step_req   = step_req;
 	ctx->step_resp	= step_resp;
 	ctx->verbose_level = step_params->verbose_level;
-	ctx->mpi_jobid = step_params->mpi_jobid;
 
 	ctx->launch_state = step_launch_state_create(ctx);
 	ctx->launch_state->slurmctld_socket_fd = sock;
@@ -604,12 +601,10 @@ slurm_step_ctx_daemon_per_node_hack(
 
 		layout->tasks = xmalloc(sizeof(uint16_t) * node_cnt);
 		layout->tids = xmalloc(sizeof(uint32_t *) * node_cnt);
-		layout->mpi_tids = xmalloc(sizeof(uint32_t *) * node_cnt);
 	} else {
 		layout = ctx->step_resp->step_layout;
 		xrealloc(layout->tasks, sizeof(uint16_t) * node_cnt);
 		xrealloc(layout->tids, sizeof(uint32_t *) * node_cnt);
-		xrealloc(layout->mpi_tids, sizeof(uint32_t *) * node_cnt);
 	}
 
 	ctx->step_req->num_tasks = layout->task_cnt = layout->node_cnt
@@ -620,9 +615,7 @@ slurm_step_ctx_daemon_per_node_hack(
 	for (i = orig_task_num; i < layout->node_cnt; i++) {
 		layout->tasks[i] = 1;
 		layout->tids[i] = (uint32_t *)xmalloc(sizeof(uint32_t));
-		layout->mpi_tids[i] = (uint32_t *)xmalloc(sizeof(uint32_t));
 		layout->tids[i][0] = (*curr_task_num)++;
-		layout->mpi_tids[i][0] = layout->tids[i][0];
 	}
 
 	/* Alter the launch state structure now that the settings

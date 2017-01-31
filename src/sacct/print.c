@@ -1538,25 +1538,6 @@ void print_fields(type_t type, void *object)
 					     tmp_int,
 					     (curr_inx == field_count));
 			break;
-		case PRINT_PACKID:
-			switch(type) {
-			case JOB:
-				tmp_uint32 = job->packid;
-				break;
-			case JOBSTEP:
-				tmp_uint32 = job->packid;
-				break;
-			case JOBCOMP:
-
-				break;
-			default:
-
-				break;
-			}
-			field->print_routine(field,
-					     tmp_uint32,
-					     (curr_inx == field_count));
-			break;
 		case PRINT_PACKJOBID:
 			switch(type) {
 			case JOB:

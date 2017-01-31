@@ -345,17 +345,6 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 
 			job->step_ctx->mpi_jobid = opt.mpi_jobid;
 			job->step_ctx->mpi_stepid = opt.mpi_stepid;
-			slurm_step_ctx_t *step_ctx = job->step_ctx;
-			job_step_create_response_msg_t *step_resp =
-					step_ctx->step_resp;
-			slurm_step_layout_t *layout = step_resp->step_layout;
-			for (j=0; j<layout->node_cnt; j++) {
-				for(k=0; k<layout->tasks[j]; k++) {
-					layout->mpi_tids[j][k] =
-						layout->tids[j][k] +
-						opt.mpi_stepftaskid;
-				}
-			}
 			break;
 		}
 		rc = slurm_get_errno();

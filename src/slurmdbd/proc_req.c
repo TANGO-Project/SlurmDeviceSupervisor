@@ -2546,7 +2546,6 @@ static void _process_job_start(slurmdbd_conn_t *slurmdbd_conn,
 	job.name = _replace_double_quotes(job_start_msg->name);
 	job.nodes = job_start_msg->nodes;
 	job.network = job_start_msg->node_inx;
-	job.pack_leader = job_start_msg->pack_leader;
 	job.partition = job_start_msg->partition;
 	details.min_cpus = job_start_msg->req_cpus;
 	details.pn_min_memory = job_start_msg->req_mem;

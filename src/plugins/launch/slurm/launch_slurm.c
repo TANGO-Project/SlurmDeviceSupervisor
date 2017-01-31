@@ -602,7 +602,6 @@ extern int launch_p_step_launch(
 	launch_params.cpu_freq_max      = opt.cpu_freq_max;
 	launch_params.cpu_freq_gov      = opt.cpu_freq_gov;
 	launch_params.task_dist         = opt.distribution;
-	launch_params.num_tasks         = opt.ntasks;
 	launch_params.mpi_jobid         = opt.mpi_jobid;
 	launch_params.mpi_stepid        = opt.mpi_stepid;
 	launch_params.mpi_ntasks        = opt.mpi_ntasks;

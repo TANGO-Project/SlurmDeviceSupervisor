@@ -80,7 +80,6 @@ char *job_req_inx[] = {
 	"t1.node_inx",
 	"t1.nodelist",
 	"t1.nodes_alloc",
-	"t1.packid",
 	"t1.partition",
 	"t1.priority",
 	"t1.state",
@@ -129,7 +128,6 @@ enum {
 	JOB_REQ_NODE_INX,
 	JOB_REQ_NODELIST,
 	JOB_REQ_ALLOC_NODES,
-	JOB_REQ_PACKID,
 	JOB_REQ_PARTITION,
 	JOB_REQ_PRIORITY,
 	JOB_REQ_STATE,
@@ -705,10 +703,6 @@ static int _cluster_get_jobs(mysql_conn_t *mysql_conn,
 		job->derived_ec = slurm_atoul(row[JOB_REQ_DERIVED_EC]);
 		job->derived_es = xstrdup(row[JOB_REQ_DERIVED_ES]);
 		job->admin_comment = xstrdup(row[JOB_REQ_ADMIN_COMMENT]);
-
-		if (row[JOB_REQ_PACKID]) {
-			job->packid = slurm_atoul(row[JOB_REQ_PACKID]);
-		}
 
 		if (row[JOB_REQ_PARTITION])
 			job->partition = xstrdup(row[JOB_REQ_PARTITION]);

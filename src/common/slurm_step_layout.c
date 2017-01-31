@@ -160,7 +160,6 @@ slurm_step_layout_t *fake_slurm_step_layout_create(
 	step_layout->node_cnt = node_cnt;
 	step_layout->tasks = xmalloc(sizeof(uint16_t) * node_cnt);
 	step_layout->tids  = xmalloc(sizeof(uint32_t *) * node_cnt);
-	step_layout->mpi_tids  = xmalloc(sizeof(uint32_t *) * node_cnt);
 
 	step_layout->task_cnt = 0;
 	for (i = 0; i < step_layout->node_cnt; i++) {
@@ -168,13 +167,9 @@ slurm_step_layout_t *fake_slurm_step_layout_create(
 			step_layout->tasks[i] = cpus_per_node[cpu_inx];
 			step_layout->tids[i] = xmalloc(sizeof(uint32_t) *
 						       step_layout->tasks[i]);
-			step_layout->mpi_tids[i] = xmalloc(sizeof(uint32_t) *
-						       step_layout->tasks[i]);
 			for (j = 0; j < step_layout->tasks[i]; j++) {
 				step_layout->tids[i][j] =
 					step_layout->task_cnt++;
-				step_layout->mpi_tids[i][j] =
-					step_layout->tids[i][j];
 			}
 			if ((++cpu_cnt) >= cpu_count_reps[cpu_inx]) {
 				/* move to next record */
@@ -187,19 +182,14 @@ slurm_step_layout_t *fake_slurm_step_layout_create(
 			if (step_layout->task_cnt >= task_cnt) {
 				step_layout->tasks[i] = 0;
 				step_layout->tids[i] = NULL;
-				step_layout->mpi_tids[i] = NULL;
 			} else {
 				step_layout->tasks[i] = cpn;
 				step_layout->tids[i] =
-					xmalloc(sizeof(uint32_t) * cpn);
-				step_layout->mpi_tids[i] =
 					xmalloc(sizeof(uint32_t) * cpn);
 
 				for (j = 0; j < cpn; j++) {
 					step_layout->tids[i][j] =
 						step_layout->task_cnt++;
-					step_layout->mpi_tids[i][j] =
-						step_layout->tids[i][j];
 					if (step_layout->task_cnt >= task_cnt) {
 						step_layout->tasks[i] = j + 1;
 						break;
@@ -233,13 +223,9 @@ extern slurm_step_layout_t *slurm_step_layout_copy(
 	       (sizeof(uint16_t) * layout->node_cnt));
 
 	layout->tids  = xmalloc(sizeof(uint32_t *) * layout->node_cnt);
-	layout->mpi_tids  = xmalloc(sizeof(uint32_t *) * layout->node_cnt);
 	for (i = 0; i < layout->node_cnt; i++) {
 		layout->tids[i] = xmalloc(sizeof(uint32_t) * layout->tasks[i]);
-		layout->mpi_tids[i] = xmalloc(sizeof(uint32_t) * layout->tasks[i]);
 		memcpy(layout->tids[i], step_layout->tids[i],
-		       (sizeof(uint32_t) * layout->tasks[i]));
-		memcpy(layout->mpi_tids[i], step_layout->mpi_tids[i],
 		       (sizeof(uint32_t) * layout->tasks[i]));
 	}
 	return layout;
@@ -251,73 +237,12 @@ extern void pack_slurm_step_layout(slurm_step_layout_t *step_layout,
 	uint32_t i = 0;
 
 	if (protocol_version >= SLURM_MIN_PROTOCOL_VERSION) {
-		if (step_layout)
-			i = 1;
-
-		pack16(i, buffer);
-		if (!i)
-			return;
-		packstr(step_layout->front_end, buffer);
-		packstr(step_layout->node_list, buffer);
-		pack32(step_layout->node_cnt, buffer);
-		pack16(step_layout->start_protocol_ver, buffer);
-		pack32(step_layout->task_cnt, buffer);
-		pack32(step_layout->task_dist, buffer);
-
 		for (i = 0; i < step_layout->node_cnt; i++) {
 			pack32_array(step_layout->tids[i],
 				     step_layout->tasks[i],
 				     buffer);
-			pack32_array(step_layout->mpi_tids[i],
-				     step_layout->tasks[i],
-				     buffer);
 		}
-	} else {
-		error("pack_slurm_step_layout: protocol_version "
-		      "%hu not supported", protocol_version);
-	}
-}
-
-extern int unpack_slurm_step_layout(slurm_step_layout_t **layout, Buf buffer,
-				    uint16_t protocol_version)
-{
-	uint16_t uint16_tmp;
-	uint32_t num_tids, uint32_tmp;
-	slurm_step_layout_t *step_layout = NULL;
-	int i;
-
-	if (protocol_version >= SLURM_MIN_PROTOCOL_VERSION) {
-		safe_unpack16(&uint16_tmp, buffer);
-		if (!uint16_tmp)
-			return SLURM_SUCCESS;
-
-		step_layout = xmalloc(sizeof(slurm_step_layout_t));
-		*layout = step_layout;
-
-		safe_unpackstr_xmalloc(&step_layout->front_end,
-				       &uint32_tmp, buffer);
-		safe_unpackstr_xmalloc(&step_layout->node_list,
-				       &uint32_tmp, buffer);
-		safe_unpack32(&step_layout->node_cnt, buffer);
-		safe_unpack16(&step_layout->start_protocol_ver, buffer);
-		safe_unpack32(&step_layout->task_cnt, buffer);
-		safe_unpack32(&step_layout->task_dist, buffer);
-
-		step_layout->tasks =
-			xmalloc(sizeof(uint32_t) * step_layout->node_cnt);
-		step_layout->tids = xmalloc(sizeof(uint32_t *)
-					    * step_layout->node_cnt);
-		step_layout->mpi_tids = xmalloc(sizeof(uint32_t *)
-					    * step_layout->node_cnt);
-		for (i = 0; i < step_layout->node_cnt; i++) {
-			safe_unpack32_array(&(step_layout->tids[i]),
-					    &num_tids,
-					    buffer);
-			safe_unpack32_array(&(step_layout->mpi_tids[i]),
-					    &num_tids,
-					    buffer);
-			step_layout->tasks[i] = num_tids;
-		}
+	} else if (protocol_version >= SLURM_16_05_PROTOCOL_VERSION) {
 	} else {
 		error("unpack_slurm_step_layout: protocol_version "
 		      "%hu not supported", protocol_version);
@@ -341,10 +266,8 @@ extern int slurm_step_layout_destroy(slurm_step_layout_t *step_layout)
 		xfree(step_layout->tasks);
 		for (i = 0; i < step_layout->node_cnt; i++) {
 			xfree(step_layout->tids[i]);
-			xfree(step_layout->mpi_tids[i]);
 		}
 		xfree(step_layout->tids);
-		xfree(step_layout->mpi_tids);
 
 		xfree(step_layout);
 	}
@@ -409,8 +332,6 @@ static int _init_task_layout(slurm_step_layout_req_t *step_layout_req,
 	step_layout->tasks = xmalloc(sizeof(uint16_t)
 				     * step_layout->node_cnt);
 	step_layout->tids  = xmalloc(sizeof(uint32_t *)
-				     * step_layout->node_cnt);
-	step_layout->mpi_tids  = xmalloc(sizeof(uint32_t *)
 				     * step_layout->node_cnt);
 	if (!(cluster_flags & CLUSTER_FLAG_BG)) {
 		hostlist_t hl = hostlist_create(step_layout->node_list);
@@ -541,15 +462,12 @@ static int _task_layout_hostfile(slurm_step_layout_t *step_layout,
 			goto reset_hosts;
 		step_layout->tids[i] = xmalloc(sizeof(uint32_t)
 					       * step_layout->tasks[i]);
-		step_layout->mpi_tids[i] = xmalloc(sizeof(uint32_t)
-					       * step_layout->tasks[i]);
 		taskid = 0;
 		j = 0;
 		hostlist_iterator_reset(itr_task);
 		while((host_task = hostlist_next(itr_task))) {
 			if (!xstrcmp(host, host_task)) {
 				step_layout->tids[i][j] = taskid;
-				step_layout->mpi_tids[i][j] = taskid;
 				j++;
 			}
 			taskid++;
@@ -649,11 +567,8 @@ static int _task_layout_block(slurm_step_layout_t *step_layout, uint16_t *cpus)
 	for (i = 0; i < step_layout->node_cnt; i++) {
 		step_layout->tids[i] = xmalloc(sizeof(uint32_t)
 					       * step_layout->tasks[i]);
-		step_layout->mpi_tids[i] = xmalloc(sizeof(uint32_t)
-					       * step_layout->tasks[i]);
 		for (j = 0; j < step_layout->tasks[i]; j++) {
 			step_layout->tids[i][j] = task_id;
-			step_layout->mpi_tids[i][j] = task_id;
 			task_id++;
 		}
 	}
@@ -685,11 +600,7 @@ static int _task_layout_cyclic(slurm_step_layout_t *step_layout,
 			if ((j<cpus[i]) || over_subscribe) {
 				xrealloc(step_layout->tids[i], sizeof(uint32_t)
 					 * (step_layout->tasks[i] + 1));
-				xrealloc(step_layout->mpi_tids[i], sizeof(uint32_t)
-					 * (step_layout->tasks[i] + 1));
 				step_layout->tids[i][step_layout->tasks[i]] =
-					taskid;
-				step_layout->mpi_tids[i][step_layout->tasks[i]] =
 					taskid;
 				taskid++;
 				step_layout->tasks[i]++;
@@ -778,8 +689,6 @@ static int _task_layout_plane(slurm_step_layout_t *step_layout,
 	for (i=0; i < step_layout->node_cnt; i++) {
 	    step_layout->tids[i] = xmalloc(sizeof(uint32_t)
 				           * step_layout->tasks[i]);
-	    step_layout->mpi_tids[i] = xmalloc(sizeof(uint32_t)
-				           * step_layout->tasks[i]);
 	    cur_task[i] = 0;
 	}
 	for (j=0; taskid<step_layout->task_cnt; j++) {   /* cycle counter */
@@ -790,7 +699,6 @@ static int _task_layout_plane(slurm_step_layout_t *step_layout,
 				   && (cur_task[i] < step_layout->tasks[i])
 				   && (taskid < step_layout->task_cnt)); k++) {
 				step_layout->tids[i][cur_task[i]] = taskid;
-				step_layout->mpi_tids[i][cur_task[i]] = taskid;
 				taskid++;
 				cur_task[i]++;
 			}

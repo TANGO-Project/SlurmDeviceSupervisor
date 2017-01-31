@@ -572,7 +572,6 @@ extern slurmdb_job_rec_t *slurmdb_create_job_rec()
 	job->steps = list_create(slurmdb_destroy_step_rec);
 	job->requid = -1;
 	job->lft = (uint32_t)NO_VAL;
-	job->packid = (uint32_t)NO_VAL;
 	job->resvid = (uint32_t)NO_VAL;
 
       	return job;

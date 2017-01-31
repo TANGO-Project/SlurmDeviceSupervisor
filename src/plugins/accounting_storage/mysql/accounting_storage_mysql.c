@@ -1219,7 +1219,6 @@ extern int create_cluster_tables(mysql_conn_t *mysql_conn, char *cluster_name)
 		{ "nodelist", "text" },
 		{ "nodes_alloc", "int unsigned not null" },
 		{ "node_inx", "text" },
-		{ "packid", "int unsigned default 0 not null"},
 		{ "partition", "tinytext not null" },
 		{ "priority", "int unsigned not null" },
 		{ "state", "int unsigned not null" },
