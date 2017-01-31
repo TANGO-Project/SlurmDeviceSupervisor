@@ -282,6 +282,8 @@ stepd_step_rec_create(launch_tasks_request_msg_t *msg, uint16_t protocol_version
 	job->mpi_jobid	= msg->mpi_jobid; // MNP PMI
 	job->mpi_ntasks	= msg->mpi_ntasks; // MNP PMI
 	debug("******** MNP pid=%d, in stepd_step_rec_create, job->mpi_ntasks=%d", getpid(), job->mpi_ntasks);
+	job->mpi_nnodes	= msg->mpi_nnodes; // MNP PMI
+	debug("******** MNP pid=%d, in stepd_step_rec_create, job->mpi_nnodes=%d", getpid(), job->mpi_nnodes);
 	job->mpi_stepftaskid = msg->mpi_stepftaskid; // MNP PMI
 
 	job->uid	= (uid_t) msg->uid;
@@ -460,6 +462,7 @@ batch_stepd_step_rec_create(batch_job_launch_msg_t *msg)
 		job->cpus    = msg->cpus_per_node[0];
 //	job->mpi_jobid  = msg->mpi_jobid; // MNP PMI TODO: need to uncomment these lines to support batch launch?
 //	job->mpi_ntasks = msg->mpi_ntasks; // MNP PMI
+//	job->mpi_nnodes = msg->mpi_nnodes; // MNP PMI
 //	job->mpi_stepftaskid = msg->mpi_stepftaskid; // MNP PMI
 	job->node_tasks  = 1;
 	job->ntasks  = msg->ntasks;

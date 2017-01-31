@@ -43,6 +43,7 @@
 #endif
 
 #include <dlfcn.h>
+#include <ctype.h>
 #include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
@@ -51,6 +52,9 @@
 #include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "src/common/slurm_xlator.h"
 #include "src/common/net.h"
@@ -80,6 +84,90 @@ char tree_sock_addr[128];
 pmi2_job_info_t job_info;
 pmi2_tree_info_t tree_info;
 int testpipe[2]; // MNP PMI pipe test
+
+// MNP PMI start
+void _replace(char *s, char *old, char *new)
+{
+	char *p, *p1;
+	size_t newlen = strlen(new);
+	size_t oldlen = strlen(old);
+	char buf[50];
+
+	p = strstr(s, old); 	// p  = ptr to first char in old substring
+	printf("p = %s\n", p);
+	p1 = p + oldlen;	// p1 = ptr to first char after old substring
+	printf("p1 = %s\n", p1);
+	strcpy(buf, p1);	// copy rest of orig string to buffer
+	strncpy(s, new, newlen);// insert new substring into orig string
+	printf("s = %s\n", s);
+	strcpy(buf, s + newlen);// copy rest of orig string back
+	printf("buf = %s\n", buf);
+}
+
+void _append(char* s, char c)
+{
+        int len = strlen(s);
+        s[len] = c;
+ }
+
+void _adjust_vect_nodeidx(char *vectstr, char *newvecstr, int curnodeidx)
+{
+	char *sub, *sub1, *last;
+	char *numstr = xmalloc(50 * sizeof(char));
+	int num;
+	char newnumstr[50];
+
+	strcpy(newvecstr, vectstr);
+	last=newvecstr;
+	printf("newvecstr = '%s'\n", newvecstr);
+	sub = newvecstr;
+	numstr[0]='\0';
+	while ((sub = strstr(sub, ",(")) != NULL) {
+		sub+=2;
+		sub1=sub;
+		printf("sub = '%s'\n", sub);
+		printf("last = '%s'\n", last);
+		printf("numstr = '%s'\n", numstr);
+		while(1) {
+			if (isdigit(*sub)) {
+				printf("Found digit = '%c' \n", *sub);
+//				_append(numstr, *sub);
+				xstrcatchar(numstr, *sub);
+				sub++;
+			} else
+				break;
+		}
+		sub=sub1;
+//		_append(numstr, '\0');
+		xstrcatchar(numstr, '\0');
+		printf("numstr = '%s'\n", numstr);
+		num = atoi(numstr);
+		printf("num = %d\n", num);
+		num+=curnodeidx;
+		printf("num = %d\n", num);
+		sprintf(newnumstr, "%d", num);
+		printf("newnumstr = '%s'\n", newnumstr);
+//		xstrsubstitute(&sub, numstr, newnumstr);
+		_replace(sub, numstr, newnumstr); // should use xstrsubstitute in Slurm code
+		printf("after _replace, newvecstr = '%s'\n", newvecstr);
+		numstr[0]= '\0';
+	}
+}
+
+// combine vector lists vect_list1 and vect_list2. Return combined lists in vect_list1
+void _combine_vect_lists(char *vect_list1, char *vect_list2)
+{
+	char *p, *p1;
+	// point after "(vector" in vect_list2
+	p = strstr(vect_list2, "(vector");
+	p+=7;
+	// point before final ")" in vect_list1
+	p1 = strstr(vect_list1, "))");
+	p1[1]='\0';;
+	// insert rest of vect_list2 into vect_list1
+	strcat(p1, p);
+	// remove extraneous ")" from combined vectors
+}
 
 extern bool
 in_stepd(void)
@@ -597,103 +685,127 @@ _get_proc_mapping(const mpi_plugin_client_info_t *job)
 	return mapping;
 }
 
-static int
-_setup_srun_job_info(const mpi_plugin_client_info_t *job)
-{
-	char *p;
-	void *handle = NULL, *sym = NULL;
+ static int
+ _setup_srun_job_info_combined(const mpi_plugin_client_info_t *job)
+ {
+	char adj_vect_list[100];	// MNP PMI array for testing
+	char comb_vect_list[100];	// MNP PMI array for testing
+	int curnodeidx = 0;
+	int ntasks = 0;
+	int nnodes = 0;
 
-	debug("******** MNP pid=%d, entering _setup_srun_job_info", getpid());
-	memset(&job_info, 0, sizeof(job_info));
+	if (job_info.jobid == job_info.orig_jobid) {
+		info("******** MNP pid=%d in pmi2 plugin _setup_srun_job_info_combined, THIS IS THE PACK LEADER", getpid());
+		char readbuffer[80]; 		/* MNP PMI pipe test */
 
-	job_info.jobid  = job->jobid;
-	job_info.stepid = job->stepid;
-	job_info.nnodes = job->step_layout->node_cnt;
-	job_info.nodeid = -1;	/* id in tree. not used. */
-	job_info.ntasks = job->step_layout->task_cnt;
-	job_info.ltasks = 0;	/* not used */
-	job_info.gtids = NULL;	/* not used */
-	job_info.switch_job = NULL; /* not used */
+		// Read vector list from pack member and create combined vector list for pack leader
+		read(vector_pipe[0], readbuffer, sizeof(readbuffer)); /* MNP PMI pipe test */
+		info("******** MNP pid=%d, pack leader received vector string: %s\n", getpid(), readbuffer);	/* MNP PMI pipe test */
+		strcpy(comb_vect_list, job_info.proc_mapping);
+		curnodeidx+=job_info.nnodes;
+		_adjust_vect_nodeidx(readbuffer, adj_vect_list, curnodeidx);
+		_combine_vect_lists(comb_vect_list, adj_vect_list);
+		job_info.proc_mapping = xstrdup(comb_vect_list);
+		info("******** MNP pid=%d, in pmi2 plugin _setup_srun_job_info_combined, combined vectors: job_info.proc_mapping=%s", getpid(), job_info.proc_mapping);
 
+		// Read nodelist from pack member and create combined nodelist for pack leader
+		read(nodelist_pipe[0], readbuffer, sizeof(readbuffer)); /* MNP PMI pipe test */
+		printf("******** MNP pid=%d, pack leader received nodelist string: %s\n", getpid(), readbuffer);	/* MNP PMI pipe test */
+		xstrfmtcat(job_info.step_nodelist, ",%s", readbuffer);
+		info("******** MNP pid=%d, in pmi2 plugin _setup_srun_job_info_combined, combined step_nodelist: %s\n", getpid(), job_info.step_nodelist);	/* MNP PMI pipe test */
 
-	p = getenv(PMI2_PMI_DEBUGGED_ENV);
-	if (p) {
-		job_info.pmi_debugged = atoi(p);
-	} else {
-		job_info.pmi_debugged = 0;
-	}
-	p = getenv(PMI2_SPAWN_SEQ_ENV);
-	if (p) { 		/* spawned */
-		job_info.spawn_seq = atoi(p);
-		p = getenv(PMI2_SPAWNER_JOBID_ENV);
-		job_info.spawner_jobid = xstrdup(p);
-		/* env unset in stepd */
-	} else {
-		job_info.spawn_seq = 0;
-		job_info.spawner_jobid = NULL;
-	}
-	debug("******** MNP pid=%d, in _setup_srun_job_info 1", getpid());
-	job_info.step_nodelist = xstrdup(job->step_layout->node_list);
-	job_info.proc_mapping = _get_proc_mapping(job);
-	if (job_info.proc_mapping == NULL) {
-		return SLURM_ERROR;
-	}
-	debug("******** MNP pid=%d, in _setup_srun_job_info 2", getpid());
-	p = getenv(PMI2_PMI_JOBID_ENV);
-	if (p) {		/* spawned */
-		job_info.pmi_jobid = xstrdup(p);
-	} else {
-		xstrfmtcat(job_info.pmi_jobid, "%u.%u", job->jobid,
-			   job->stepid);
-	}
-	job_info.job_env = env_array_copy((const char **)environ);
+		// Read ntasks from pack member and create combined ntasks for pack leader
+		read(ntasks_pipe[0], &ntasks, sizeof(ntasks)); /* MNP PMI pipe test */
+		printf("******** MNP pid=%d, pack leader received ntasks int: %d\n", getpid(), ntasks);	/* MNP PMI pipe test */
+		job_info.ntasks+=ntasks;
+		info("******** MNP pid=%d, in pmi2 plugin _setup_srun_job_info_combined, combined job_info.ntasks: %d\n", getpid(), job_info.ntasks);	/* MNP PMI pipe test */
 
-	debug("******** MNP pid=%d, in _setup_srun_job_info 3", getpid());
-	// MNP PMI start experimental code only to test process mapping
-	// MNP PMI enable this code only to test following command line
-	// srun -N1 -n1 -w trek2 --mpi=pmi2 -m block ... : -N1 -n1 -w trek2 --mpi=pmi2 -m block ...
-//	job_info.nnodes=1;
-//	job_info.ntasks=2;
-//	job_info.ltasks=0;
-//	job_info.step_nodelist="trek2";
-//	job_info.proc_mapping="(vector,(0,1,2)";
-	// MNP PMI end experimental code only to test process mapping
+		// Read nnodes from pack member and create combined nnodes for pack leader
+		read(nnodes_pipe[0], &nnodes, sizeof(nnodes)); /* MNP PMI pipe test */
+		printf("******** MNP pid=%d, pack leader received nnodes int: %d\n", getpid(), nnodes);	/* MNP PMI pipe test */
+		job_info.nnodes+=nnodes;
+		info("******** MNP pid=%d, in pmi2 plugin _setup_srun_job_info_combined, combined job_info.nnodes: %d\n", getpid(), job_info.nnodes);	/* MNP PMI pipe test */
 
-	debug("******** MNP pid=%d, in _setup_srun_job_info 4", getpid());
-	/* hjcao: this is really dirty.
-	   But writing a new launcher is not desirable. */
-	handle = dlopen(NULL, RTLD_LAZY);
-	if (handle == NULL) {
-		error("mpi/pmi2: failed to dlopen()");
-		return SLURM_ERROR;
-	}
-	sym = dlsym(handle, "MPIR_proctable");
-	if (sym == NULL) {
-		/* if called directly in API, there may be no symbol available */
-		verbose ("mpi/pmi2: failed to find symbol 'MPIR_proctable'");
-		job_info.MPIR_proctable = NULL;
-	} else {
-		job_info.MPIR_proctable = *(MPIR_PROCDESC **)sym;
-	}
-	debug("******** MNP pid=%d, in _setup_srun_job_info 5", getpid());
-	sym = dlsym(handle, "opt");
-	if (sym == NULL) {
-		verbose("mpi/pmi2: failed to find symbol 'opt'");
-		job_info.srun_opt = NULL;
-	} else {
-		job_info.srun_opt = (opt_t *)sym;
-	}
-	dlclose(handle);
+		// Close read end of pipes
+		close(vector_pipe[0]);		/* MNP PMI pipe test */
+		close(nodelist_pipe[0]);	/* MNP PMI pipe test */
+		close(ntasks_pipe[0]);		/* MNP PMI pipe test */
+		close(nnodes_pipe[0]);		/* MNP PMI pipe test */
 
-	debug("******** MNP pid=%d, in _setup_srun_job_info, job_info.jobid=%d", getpid(), job_info.jobid);
-	debug("******** MNP pid=%d, in _setup_srun_job_info, job_info.stepid=%d", getpid(), job_info.stepid);
-	debug("******** MNP pid=%d, in _setup_srun_job_info, job_info.nnodes=%d", getpid(), job_info.nnodes);
-	debug("******** MNP pid=%d, in _setup_srun_job_info, job_info.ntasks=%d", getpid(), job_info.ntasks);
-	debug("******** MNP pid=%d, in _setup_srun_job_info, job_info.ltasks=%d", getpid(), job_info.ltasks);
-	debug("******** MNP pid=%d, in _setup_srun_job_info, job_info.step_nodelist=%s", getpid(), job_info.step_nodelist);
-	debug("******** MNP pid=%d, in _setup_srun_job_info, job_info.proc_mapping=%s", getpid(), job_info.proc_mapping);
-	debug("******** MNP pid=%d, in _setup_srun_job_info, job_info.pmi_jobid=%s", getpid(), job_info.pmi_jobid);
-	debug("******** MNP pid=%d, exiting _setup_srun_job_info", getpid());
+		// Write combined values into pipe for reading by pack member
+//		char *nnodes = getenv("SLURM_NNODES");
+//		info("******** MNP pid=%d, in pmi2 plugin _setup_srun_job_info_combined, SLURM_NNODES=%s", getpid(), nnodes);
+//		job_info.ntasks=6; // MNP PMI TEMP CODE FOR TESTING ONLY
+//		job_info.nnodes=4; // MNP PMI TEMP CODE FOR TESTING ONLY
+		write(vector_pipe[1], job_info.proc_mapping, strlen(job_info.proc_mapping)+1);		/* MNP PMI pipe test */
+		write(nodelist_pipe[1], job_info.step_nodelist, strlen(job_info.step_nodelist)+1);	/* MNP PMI pipe test */
+		write(ntasks_pipe[1], &job_info.ntasks, sizeof(job_info.ntasks));			/* MNP PMI pipe test */
+		write(nnodes_pipe[1], &job_info.nnodes, sizeof(job_info.nnodes));			/* MNP PMI pipe test */
+
+		// Close write end of pipes
+		close(vector_pipe[1]);		/* MNP PMI pipe test */
+		close(nodelist_pipe[1]);	/* MNP PMI pipe test */
+		close(ntasks_pipe[1]);		/* MNP PMI pipe test */
+		close(nnodes_pipe[1]);		/* MNP PMI pipe test */
+
+		debug("******** MNP pid=%d, in _setup_srun_job_info_combined, job_info.jobid=%d", getpid(), job_info.jobid);
+		debug("******** MNP pid=%d, in _setup_srun_job_info_combined, job_info.orig_jobid=%d", getpid(), job_info.orig_jobid);
+		debug("******** MNP pid=%d, in _setup_srun_job_info_combined, job_info.stepid=%d", getpid(), job_info.stepid);
+		debug("******** MNP pid=%d, in _setup_srun_job_info_combined, job_info.nnodes=%d", getpid(), job_info.nnodes);
+		debug("******** MNP pid=%d, in _setup_srun_job_info_combined, job_info.ntasks=%d", getpid(), job_info.ntasks);
+		debug("******** MNP pid=%d, in _setup_srun_job_info_combined, job_info.ltasks=%d", getpid(), job_info.ltasks);
+		debug("******** MNP pid=%d, in _setup_srun_job_info_combined, job_info.step_nodelist=%s", getpid(), job_info.step_nodelist);
+		debug("******** MNP pid=%d, in _setup_srun_job_info_combined, job_info.proc_mapping=%s", getpid(), job_info.proc_mapping);
+		debug("******** MNP pid=%d, in _setup_srun_job_info_combined, job_info.pmi_jobid=%s", getpid(), job_info.pmi_jobid);
+	}
+	else {
+		char readbuffer[80]; 		/* MNP PMI pipe test */
+
+//		char *nnodes = getenv("SLURM_NNODES");
+//		info("******** MNP pid=%d, in pmi2 plugin _setup_srun_job_info_combined, SLURM_NNODES=%s", getpid(), nnodes);
+		info("******** MNP pid=%d in pmi2 plugin _setup_srun_job_info_combined, THIS IS A PACK MEMBER", getpid());
+
+		// Write pack member values into pipes for reading/combining by pack leader
+		write(vector_pipe[1], job_info.proc_mapping, strlen(job_info.proc_mapping)+1);		/* MNP PMI pipe test */
+		write(nodelist_pipe[1], job_info.step_nodelist, strlen(job_info.step_nodelist)+1);	/* MNP PMI pipe test */
+		write(ntasks_pipe[1], &job_info.ntasks, sizeof(job_info.ntasks));			/* MNP PMI pipe test */
+		write(nnodes_pipe[1], &job_info.nnodes, sizeof(job_info.nnodes));			/* MNP PMI pipe test */
+
+		// Close write end of pipes
+		close(vector_pipe[1]);		/* MNP PMI pipe test */
+		close(nodelist_pipe[1]);	/* MNP PMI pipe test */
+		close(ntasks_pipe[1]);		/* MNP PMI pipe test */
+		close(nnodes_pipe[1]);		/* MNP PMI pipe test */
+
+//		info("******** MNP pid=%d in pmi2 plugin _setup_srun_job_info_combined, finished writing to pipe", getpid());/* MNP PMI pipe test */
+		// Read combined values from pipes and store into job_info struct
+		read(vector_pipe[0], readbuffer, sizeof(readbuffer)); /* MNP PMI pipe test */
+		info("******** MNP pid=%d, pack member received combined vector string: %s\n", getpid(), readbuffer);	/* MNP PMI pipe test */
+		job_info.proc_mapping = xstrdup(readbuffer);
+		read(nodelist_pipe[0], readbuffer, sizeof(readbuffer)); /* MNP PMI pipe test */
+		info("******** MNP pid=%d, pack member received combined nodelist string: %s\n", getpid(), readbuffer);	/* MNP PMI pipe test */
+		job_info.step_nodelist = xstrdup(readbuffer);
+		read(ntasks_pipe[0], &job_info.ntasks, sizeof(job_info.ntasks)); /* MNP PMI pipe test */
+		info("******** MNP pid=%d, pack member received combined ntasks int: %d\n", getpid(), job_info.ntasks);	/* MNP PMI pipe test */
+		read(nnodes_pipe[0], &job_info.nnodes, sizeof(job_info.nnodes)); /* MNP PMI pipe test */
+		info("******** MNP pid=%d, pack member received combined nnodes int: %d\n", getpid(), job_info.nnodes);	/* MNP PMI pipe test */
+
+		// Close read end of pipes
+		close(vector_pipe[0]);		/* MNP PMI pipe test */
+		close(nodelist_pipe[0]);	/* MNP PMI pipe test */
+		close(ntasks_pipe[0]);	/* MNP PMI pipe test */
+		close(nnodes_pipe[0]);	/* MNP PMI pipe test */
+
+		debug("******** MNP pid=%d, in _setup_srun_job_info_combined, job_info.jobid=%d", getpid(), job_info.jobid);
+		debug("******** MNP pid=%d, in _setup_srun_job_info_combined, job_info.orig_jobid=%d", getpid(), job_info.orig_jobid);
+		debug("******** MNP pid=%d, in _setup_srun_job_info_combined, job_info.stepid=%d", getpid(), job_info.stepid);
+		debug("******** MNP pid=%d, in _setup_srun_job_info_combined, job_info.nnodes=%d", getpid(), job_info.nnodes);
+		debug("******** MNP pid=%d, in _setup_srun_job_info_combined, job_info.ntasks=%d", getpid(), job_info.ntasks);
+		debug("******** MNP pid=%d, in _setup_srun_job_info_combined, job_info.ltasks=%d", getpid(), job_info.ltasks);
+		debug("******** MNP pid=%d, in _setup_srun_job_info_combined, job_info.step_nodelist=%s", getpid(), job_info.step_nodelist);
+		debug("******** MNP pid=%d, in _setup_srun_job_info_combined, job_info.proc_mapping=%s", getpid(), job_info.proc_mapping);
+		debug("******** MNP pid=%d, in _setup_srun_job_info_combined, job_info.pmi_jobid=%s", getpid(), job_info.pmi_jobid);
+	}
 	return SLURM_SUCCESS;
 }
 
@@ -777,6 +889,7 @@ _setup_srun_job_info_combined(const mpi_plugin_client_info_t *job)
 	return SLURM_SUCCESS;
 }
 // MNP PMI end
+*/
 
 static int
 _setup_srun_kvs(const mpi_plugin_client_info_t *job)

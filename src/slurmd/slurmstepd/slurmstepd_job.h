@@ -134,6 +134,7 @@ typedef struct {
 	uint32_t       array_task_id; /* job array ID                       */
 	uint32_t       mpi_jobid;  /* MPI jobid (same for all steps)        */ // MNP PMI
 	uint32_t       mpi_ntasks; /* number of MPI tasks for all steps     */ // MNP PMI
+	uint32_t       mpi_nnodes; /* number of MPI nodes for all steps     */ // MNP PMI
 	uint32_t       mpi_stepftaskid; /* first MPI taskid for this step   */ // MNP PMI
 	uint32_t       nnodes; /* number of nodes in current job            */
 	uint32_t       ntasks; /* total number of tasks in current job      */

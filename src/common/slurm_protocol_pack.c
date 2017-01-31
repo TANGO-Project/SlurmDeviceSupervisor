@@ -5536,6 +5536,7 @@ _unpack_job_info_members(job_info_t * job, Buf buffer,
 			 uint16_t protocol_version)
 {
 	uint32_t uint32_tmp = 0;
+	uint8_t uint8_tmp = 0;
 	multi_core_data_t *mc_ptr;
 
 	job->ntasks_per_node = (uint16_t)NO_VAL;
@@ -8335,6 +8336,7 @@ _unpack_job_desc_msg(job_desc_msg_t ** job_desc_buffer_ptr, Buf buffer,
 		     uint16_t protocol_version)
 {
 	uint32_t uint32_tmp;
+	uint8_t uint8_tmp;
 	job_desc_msg_t *job_desc_ptr = NULL;
 
 	/* alloc memory for structure */

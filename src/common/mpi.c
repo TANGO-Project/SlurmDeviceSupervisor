@@ -79,7 +79,11 @@ static const char *syms[] = {
 	"p_mpi_hook_client_fini"
 };
 
-int vector_pipe[2]; // MNP PMI pipe test
+int vector_pipe[2];	// MNP PMI pipe test
+int nodelist_pipe[2];	// MNP PMI pipe test
+int ntasks_pipe[2];	// MNP PMI pipe test
+int nnodes_pipe[2];	// MNP PMI pipe test
+
 static slurm_mpi_ops_t ops;
 static plugin_context_t *g_context = NULL;
 static pthread_mutex_t      context_lock = PTHREAD_MUTEX_INITIALIZER;

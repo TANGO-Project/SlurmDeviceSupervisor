@@ -48,7 +48,10 @@
 typedef struct slurm_mpi_context *slurm_mpi_context_t;
 typedef void mpi_plugin_client_state_t;
 
-extern int vector_pipe[]; // MNP PMI pipe test
+extern int vector_pipe[];	// MNP PMI pipe test
+extern int nodelist_pipe[];	// MNP PMI pipe test
+extern int ntasks_pipe[];	// MNP PMI pipe test
+extern int nnodes_pipe[];	// MNP PMI pipe test
 
 typedef struct {
 	uint32_t jobid;

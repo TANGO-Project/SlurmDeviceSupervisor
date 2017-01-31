@@ -216,6 +216,7 @@ extern char **environ;
 int _verbose;
 opt_t opt;
 int mpi_curtaskid; // MNP PMI
+int mpi_curnodecnt; // MNP PMI
 int error_exit = 1;
 int immediate_exit = 1;
 char *mpi_type = NULL;

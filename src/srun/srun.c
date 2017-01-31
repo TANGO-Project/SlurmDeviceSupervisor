@@ -1071,12 +1071,14 @@ static void _create_srun_steps_jobpack(void)
 		}
 	}
 
-	/* For each job description, set MPI task count */ // MNP PMI
+	/* For each job description, set MPI task count and MPI node count */ // MNP PMI
 	for (i = 0; i < pack_desc_count; i++) { // MNP PMI
 		opt_ptr = _get_opt(i, 0); // MNP PMI
 		opt_ptr->mpi_jobid = mpi_jobid; // MNP PMI
 		opt_ptr->mpi_ntasks = mpi_curtaskid; // MNP PMI
 		debug("******** MNP in _create_srun_steps_jobpack, i=%d, opt_ptr->mpi_ntasks=%d", i, opt_ptr->mpi_ntasks);
+		opt_ptr->mpi_nnodes = mpi_curnodecnt; // MNP PMI
+		debug("******** MNP in _create_srun_steps_jobpack, i=%d, opt_ptr->mpi_nnodes=%d", i, opt_ptr->mpi_nnodes);
 	} // MNP PMI
 }
 
@@ -1244,6 +1246,9 @@ static int _launch_srun_steps_jobpack(bool got_alloc)
 	forkpids = xmalloc(total_jobs * sizeof(int));
 	pid_idx = 0;
 	pipe(vector_pipe);	// MNP PMI pipe test
+	pipe(nodelist_pipe);	// MNP PMI pipe test
+	pipe(ntasks_pipe);	// MNP PMI pipe test
+	pipe(nnodes_pipe);	// MNP PMI pipe test
 	for (i = 0; i < pack_desc_count; i++) {
 		job_index = desc[i].pack_group_count;
 		if (job_index == 0) job_index++;

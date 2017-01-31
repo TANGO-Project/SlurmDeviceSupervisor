@@ -610,6 +610,8 @@ extern int launch_p_step_launch(
 	debug("!!!!!!!! MNP pid=%d, in launch_p_step_launch, launch_params.mpi_jobid=%d", getpid(), launch_params.mpi_jobid);
 	launch_params.mpi_ntasks        = opt.mpi_ntasks; // MNP PMI
 	debug("!!!!!!!! MNP pid=%d, in launch_p_step_launch, launch_params.mpi_ntasks=%d", getpid(), launch_params.mpi_ntasks);
+	launch_params.mpi_nnodes        = opt.mpi_nnodes; // MNP PMI
+	debug("!!!!!!!! MNP pid=%d, in launch_p_step_launch, launch_params.mpi_nnodes=%d", getpid(), launch_params.mpi_nnodes);
 	launch_params.mpi_stepftaskid   = opt.mpi_stepftaskid; // MNP PMI
 	debug("!!!!!!!! MNP pid=%d, in launch_p_step_launch, launch_params.num_tasks=%d", getpid(), launch_params.num_tasks);
 	debug("!!!!!!!! MNP pid=%d, in launch_p_step_launch, launch_params.mpi_stepftaskid=%d", getpid(), launch_params.mpi_stepftaskid);

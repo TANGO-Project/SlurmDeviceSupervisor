@@ -204,6 +204,7 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 		job->ntasks = opt.ntasks = job->nhosts * opt.ntasks_per_node;
 	opt.mpi_stepftaskid = mpi_curtaskid; // MNP PMI
 	mpi_curtaskid += opt.ntasks; // MNP PMI
+	mpi_curnodecnt += job->nhosts; // MNP PMI
 	job->ctx_params.task_count = opt.ntasks;
 
 	if (opt.mem_per_cpu != NO_VAL64)

@@ -273,6 +273,7 @@ int slurm_step_launch (slurm_step_ctx_t *ctx,
 	launch.mpi_jobid	= params->mpi_jobid; // MNP PMI
 	debug("!!!!!!!! MNP pid=%d, in slurm_step_launch, launch.mpi_jobid=%d", getpid(), launch.mpi_jobid);
 	launch.mpi_ntasks	= params->mpi_ntasks; // MNP PMI
+	launch.mpi_nnodes	= params->mpi_nnodes; // MNP PMI
 	launch.mpi_stepftaskid	= params->mpi_stepftaskid; // MNP PMI
 	launch.slurmd_debug	= params->slurmd_debug;
 	launch.switch_job	= ctx->step_resp->switch_job;

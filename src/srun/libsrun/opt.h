@@ -251,42 +251,13 @@ typedef struct srun_options {
 	int shepard_fd;
 	uint32_t mpi_jobid;	/* MPI jobid (same for all steps) */ // MNP PMI
 	int mpi_ntasks;		/* number of MPI tasks for all steps */ // MNP PMI
+	int mpi_nnodes;		/* number of MPI tasks for all steps */ // MNP PMI
 	int mpi_stepftaskid;	/* first MPI taskid for this step */ // MNP PMI
 } opt_t;
 
 extern opt_t opt;
 extern int mpi_curtaskid; // MNP PMI
 extern int mpi_curnodecnt; // MNP PMI
-
-typedef struct {
-	bool packleader;
-	bool pack_job;
-	uint32_t group_number;
-	uint32_t job_id;
-	opt_t *opt;
-	env_t *env;
-	srun_job_t *job;
-	resource_allocation_response_msg_t *resp;
-	uint32_t ac;
-	char **av;
-} pack_job_env_t;
-
-extern pack_job_env_t *pack_job_env;
-
-typedef struct {
-	bool groupjob;			/* indicates group numbers designated */
-	uint16_t pack_group_count;	/* count of pack groups for this desc */
-	pack_job_env_t *pack_job_env;	/* array of pack_job_env_t */
-} pack_group_struct_t;
-
-extern pack_group_struct_t *desc;
-
-void _copy_opt_struct(opt_t *to, opt_t *from);
-void _copy_env_struct(env_t *to, env_t *from);
-void _copy_srun_job_struct(srun_job_t *to, srun_job_t *from);
-void _copy_resp_struct(resource_allocation_response_msg_t *to,
-		       resource_allocation_response_msg_t *from);
-
 
 typedef struct {
 	bool packleader;
