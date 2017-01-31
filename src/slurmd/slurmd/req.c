@@ -2070,8 +2070,8 @@ static void _rpc_prolog(slurm_msg_t *msg)
 	int rc = SLURM_SUCCESS;
 	prolog_launch_msg_t *req = (prolog_launch_msg_t *)msg->data;
 	job_env_t job_env;
-	bool first_job_run;
-	uid_t req_uid;
+	bool     first_job_run;
+	uid_t    req_uid;
 
 	if (req == NULL)
 		return;
@@ -2228,7 +2228,6 @@ _rpc_batch_job(slurm_msg_t *msg, bool new_msg)
 	 */
 	if (first_job_run) {
 		job_env_t job_env;
-
 		slurm_cred_insert_jobid(conf->vctx, req->job_id);
 		_add_job_running_prolog(req->job_id);
 		slurm_mutex_unlock(&prolog_mutex);
@@ -5832,7 +5831,6 @@ _build_env(job_env_t *job_env)
 
 	setenvf(&env, "SLURM_JOBID", "%u", job_env->jobid);
 	setenvf(&env, "SLURM_UID",   "%u", job_env->uid);
-
 	if (job_env->node_list)
 		setenvf(&env, "SLURM_NODELIST", "%s", job_env->node_list);
 
