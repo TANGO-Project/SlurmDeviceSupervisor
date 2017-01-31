@@ -780,6 +780,13 @@ int setup_env(env_t *env, bool preserve_env)
 		rc = SLURM_FAILURE;
 	}
 
+	if (env->comm_port
+	    && setenvf (&env->env, "SLURM_SRUN_COMM_PORT", "%u",
+			env->comm_port)) {
+		error ("Can't set SLURM_SRUN_COMM_PORT env variable");
+		rc = SLURM_FAILURE;
+	}
+
 	if (env->cli) {
 
 		slurm_print_slurm_addr (env->cli, addrbuf, INET_ADDRSTRLEN);
@@ -1171,6 +1178,7 @@ env_array_for_batch_job(char ***dest, const batch_job_launch_msg_t *batch,
 	uint32_t num_cpus = 0;
 	int i;
 	slurm_step_layout_t *step_layout = NULL;
+	uint32_t num_tasks = batch->ntasks;
 	uint16_t cpus_per_task;
 	uint32_t task_dist;
 	uint32_t cluster_flags = slurmdb_setup_cluster_flags();

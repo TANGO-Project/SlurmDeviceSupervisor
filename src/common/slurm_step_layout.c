@@ -167,10 +167,11 @@ slurm_step_layout_t *fake_slurm_step_layout_create(
 			step_layout->tasks[i] = cpus_per_node[cpu_inx];
 			step_layout->tids[i] = xmalloc(sizeof(uint32_t) *
 						       step_layout->tasks[i]);
-			for (j = 0; j < step_layout->tasks[i]; j++) {
+
+			for (j = 0; j < step_layout->tasks[i]; j++)
 				step_layout->tids[i][j] =
 					step_layout->task_cnt++;
-			}
+
 			if ((++cpu_cnt) >= cpu_count_reps[cpu_inx]) {
 				/* move to next record */
 				cpu_inx++;
@@ -198,6 +199,7 @@ slurm_step_layout_t *fake_slurm_step_layout_create(
 			}
 		}
 	}
+
 	return step_layout;
 }
 
@@ -211,6 +213,7 @@ extern slurm_step_layout_t *slurm_step_layout_copy(
 	int i = 0;
 	if (!step_layout)
 		return NULL;
+
 	layout = xmalloc(sizeof(slurm_step_layout_t));
 	layout->node_list = xstrdup(step_layout->node_list);
 	layout->node_cnt = step_layout->node_cnt;
@@ -228,6 +231,7 @@ extern slurm_step_layout_t *slurm_step_layout_copy(
 		memcpy(layout->tids[i], step_layout->tids[i],
 		       (sizeof(uint32_t) * layout->tasks[i]));
 	}
+
 	return layout;
 }
 
@@ -243,7 +247,7 @@ extern void pack_slurm_step_layout(slurm_step_layout_t *step_layout,
 				     buffer);
 		}
 	} else if (protocol_version >= SLURM_16_05_PROTOCOL_VERSION) {
-	} else {
+} else {
 		error("unpack_slurm_step_layout: protocol_version "
 		      "%hu not supported", protocol_version);
 		goto unpack_error;
@@ -305,6 +309,7 @@ static int _init_task_layout(slurm_step_layout_req_t *step_layout_req,
 {
 	int cpu_cnt = 0, cpu_inx = 0, cpu_task_cnt = 0, cpu_task_inx = 0, i;
 	uint32_t cluster_flags = slurmdb_setup_cluster_flags();
+
 	uint16_t cpus[step_layout->node_cnt];
 	uint16_t cpus_per_task[1];
 	uint32_t cpus_task_reps[1];
@@ -500,6 +505,7 @@ static int _task_layout_block(slurm_step_layout_t *step_layout, uint16_t *cpus)
 	static uint16_t select_params = (uint16_t) NO_VAL;
 	int i, j, task_id = 0;
 	bool pack_nodes;
+
 	if (select_params == (uint16_t) NO_VAL)
 		select_params = slurm_get_select_type_param();
 	if (step_layout->task_dist & SLURM_DIST_PACK_NODES)
@@ -593,6 +599,7 @@ static int _task_layout_cyclic(slurm_step_layout_t *step_layout,
 {
 	int i, j, taskid = 0;
 	bool over_subscribe = false;
+
 	for (j=0; taskid<step_layout->task_cnt; j++) {   /* cycle counter */
 		bool space_remaining = false;
 		for (i=0; ((i<step_layout->node_cnt)
@@ -600,6 +607,7 @@ static int _task_layout_cyclic(slurm_step_layout_t *step_layout,
 			if ((j<cpus[i]) || over_subscribe) {
 				xrealloc(step_layout->tids[i], sizeof(uint32_t)
 					 * (step_layout->tasks[i] + 1));
+
 				step_layout->tids[i][step_layout->tasks[i]] =
 					taskid;
 				taskid++;
@@ -687,9 +695,9 @@ static int _task_layout_plane(slurm_step_layout_t *step_layout,
 	/* now distribute the tasks */
 	taskid = 0;
 	for (i=0; i < step_layout->node_cnt; i++) {
-	    step_layout->tids[i] = xmalloc(sizeof(uint32_t)
-				           * step_layout->tasks[i]);
-	    cur_task[i] = 0;
+		step_layout->tids[i] = xmalloc(sizeof(uint32_t)
+					       * step_layout->tasks[i]);
+		cur_task[i] = 0;
 	}
 	for (j=0; taskid<step_layout->task_cnt; j++) {   /* cycle counter */
 		for (i=0; ((i<step_layout->node_cnt)

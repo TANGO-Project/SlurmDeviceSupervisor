@@ -1093,14 +1093,14 @@ extern int as_mysql_step_start(mysql_conn_t *mysql_conn,
 		"step_name, state, tres_alloc, "
 		"nodes_alloc, task_cnt, nodelist, node_inx, "
 		"task_dist, req_cpufreq, req_cpufreq_min, req_cpufreq_gov, "
-		"packjobid, packstepid) "
+		"id_packjob, id_packstep) "
 		"values (%"PRIu64", %d, %d, '%s', %d, '%s', %d, %d, "
 		"'%s', '%s', %d, %u, %u, %u, %u, %u) "
 		"on duplicate key update "
 		"nodes_alloc=%d, task_cnt=%d, time_end=0, state=%d, "
 		"nodelist='%s', node_inx='%s', task_dist=%d, "
 		"req_cpufreq=%u, req_cpufreq_min=%u, req_cpufreq_gov=%u,"
-		"tres_alloc='%s', packjobid=%u, packstepid=%u;",
+		"tres_alloc='%s', id_packjob=%u, id_packstep=%u;",
 		mysql_conn->cluster_name, step_table,
 		step_ptr->job_ptr->db_index,
 		step_ptr->step_id,
@@ -1262,8 +1262,7 @@ extern int as_mysql_step_complete(mysql_conn_t *mysql_conn,
 			   "max_pages_node=%u, ave_pages=%f, "
 			   "min_cpu=%u, min_cpu_task=%u, "
 			   "min_cpu_node=%u, ave_cpu=%f, "
-			   "act_cpufreq=%u, consumed_energy=%"PRIu64", "
-			   "packjobid=%u, packstepid=%u",
+			   "act_cpufreq=%u, consumed_energy=%"PRIu64"",
 			   /* user seconds */
 			   jobacct->user_cpu_sec,
 			   /* user microseconds */
@@ -1305,9 +1304,7 @@ extern int as_mysql_step_complete(mysql_conn_t *mysql_conn,
 			   jobacct->min_cpu_id.nodeid,	/* min cpu node */
 			   ave_cpu,	/* ave cpu */
 			   jobacct->act_cpufreq,
-			   jobacct->energy.consumed_energy,
-			   step_ptr->packjobid,
-			   step_ptr->packstepid);
+			   jobacct->energy.consumed_energy);
 	}
 
 	/* id_step has to be %d here to handle the -2 -1 for the batch and
