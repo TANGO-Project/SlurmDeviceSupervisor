@@ -114,6 +114,12 @@ typedef struct hostset * hostset_t;
  */
 typedef struct hostlist_iterator * hostlist_iterator_t;
 
+typedef struct _range {
+	unsigned long lo, hi;
+	int width;
+} range_t;
+
+
 /* ----[ hostlist_t functions: ]---- */
 
 /* ----[ hostlist creation and destruction ]---- */
@@ -553,5 +559,15 @@ char * hostset_nth(hostset_t set, int n);
  * hostset equivalent to hostlist_ranged_string();
  */
 ssize_t hostset_ranged_string(hostset_t set, size_t n, char *buf);
+
+/*
+ * Convert 'str' containing comma separated digits and ranges into an array
+ *  of range_t types (dynamically allocated and resized).
+ *
+ * Return number of ranges created, or -1 on error.
+ */
+int parse_range_list(char *str,
+		     range_t * *ranges, int *capacity,
+		     int max_capacity, int dims);
 
 #endif /* !_HOSTLIST_H */

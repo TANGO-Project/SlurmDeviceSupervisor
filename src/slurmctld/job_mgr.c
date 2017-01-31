@@ -505,6 +505,7 @@ void delete_job_details(struct job_record *job_entry)
 	FREE_NULL_LIST(job_entry->details->depend_list);
 	xfree(job_entry->details->dependency);
 	xfree(job_entry->details->orig_dependency);
+	xfree(job_entry->details->pack_group);
 	for (i=0; i<job_entry->details->env_cnt; i++)
 		xfree(job_entry->details->env_sup[i]);
 	xfree(job_entry->details->env_sup);
@@ -2128,6 +2129,7 @@ void _dump_job_details(struct job_details *detail_ptr, Buf buffer)
 	packstr(detail_ptr->features,   buffer);
 	packstr(detail_ptr->dependency, buffer);
 	packstr(detail_ptr->orig_dependency, buffer);
+	packstr(detail_ptr->pack_group, buffer);
 
 	packstr(detail_ptr->std_err,       buffer);
 	packstr(detail_ptr->std_in,        buffer);
@@ -2148,7 +2150,7 @@ static int _load_job_details(struct job_record *job_ptr, Buf buffer,
 {
 	char *acctg_freq = NULL, *req_nodes = NULL, *exc_nodes = NULL;
 	char *features = NULL, *cpu_bind = NULL, *dependency = NULL;
-	char *orig_dependency = NULL, *mem_bind;
+	char *orig_dependency = NULL, *pack_group, *mem_bind;
 	char *err = NULL, *in = NULL, *out = NULL, *work_dir = NULL;
 	char *ckpt_dir = NULL, *restart_dir = NULL;
 	char **argv = (char **) NULL, **env_sup = (char **) NULL;
@@ -2270,6 +2272,7 @@ static int _load_job_details(struct job_record *job_ptr, Buf buffer,
 		safe_unpackstr_xmalloc(&features,   &name_len, buffer);
 		safe_unpackstr_xmalloc(&dependency, &name_len, buffer);
 		safe_unpackstr_xmalloc(&orig_dependency, &name_len, buffer);
+		safe_unpackstr_xmalloc(&pack_group, &name_len, buffer);
 
 		safe_unpackstr_xmalloc(&err, &name_len, buffer);
 		safe_unpackstr_xmalloc(&in,  &name_len, buffer);
@@ -2313,6 +2316,7 @@ static int _load_job_details(struct job_record *job_ptr, Buf buffer,
 	xfree(job_ptr->details->cpu_bind);
 	xfree(job_ptr->details->dependency);
 	xfree(job_ptr->details->orig_dependency);
+	xfree(job_ptr->details->pack_group);
 	xfree(job_ptr->details->std_err);
 	for (i=0; i<job_ptr->details->env_cnt; i++)
 		xfree(job_ptr->details->env_sup[i]);
@@ -2342,6 +2346,7 @@ static int _load_job_details(struct job_record *job_ptr, Buf buffer,
 	job_ptr->details->cpus_per_task = cpus_per_task;
 	job_ptr->details->dependency = dependency;
 	job_ptr->details->orig_dependency = orig_dependency;
+	job_ptr->details->pack_group = pack_group;
 	job_ptr->details->env_cnt = env_cnt;
 	job_ptr->details->env_sup = env_sup;
 	job_ptr->details->std_err = err;
@@ -2387,6 +2392,7 @@ unpack_error:
 	xfree(cpu_bind);
 	xfree(dependency);
 	xfree(orig_dependency);
+	xfree(pack_group);
 /*	for (i=0; i<env_cnt; i++)
 	xfree(env_sup[i]);  Don't trust this on unpack error */
 	xfree(env_sup);
@@ -3442,8 +3448,8 @@ void dump_job_desc(job_desc_msg_t * job_specs)
 	debug3("   resp_host=%s alloc_resp_port=%u other_port=%u",
 	       job_specs->resp_host,
 	       job_specs->alloc_resp_port, job_specs->other_port);
-	debug3("   dependency=%s account=%s qos=%s comment=%s",
-	       job_specs->dependency, job_specs->account,
+	debug3("   dependency=%s pack_group=%s account=%s qos=%s comment=%s",
+	       job_specs->dependency, job_specs->pack_group, job_specs->account,
 	       job_specs->qos, job_specs->comment);
 
 	num_tasks = (job_specs->num_tasks != NO_VAL) ?
@@ -3730,6 +3736,7 @@ extern struct job_record *job_array_split(struct job_record *job_ptr)
 	details_new->depend_list = depended_list_copy(job_details->depend_list);
 	details_new->dependency = xstrdup(job_details->dependency);
 	details_new->orig_dependency = xstrdup(job_details->orig_dependency);
+	details_new->pack_group = xstrdup(job_details->pack_group);
 	if (job_details->env_cnt) {
 		details_new->env_sup =
 			xmalloc(sizeof(char *) * (job_details->env_cnt + 1));
@@ -4049,7 +4056,6 @@ extern int job_allocate(job_desc_msg_t * job_specs, int immediate,
 				 &job_ptr, submit_uid, err_msg,
 				 protocol_version);
 	*job_pptr = job_ptr;
-
 	if (error_code) {
 		if (job_ptr && (immediate || will_run)) {
 			/* this should never really happen here */
@@ -4216,7 +4222,6 @@ extern int job_allocate(job_desc_msg_t * job_specs, int immediate,
 		       job_ptr->job_id, job_ptr->nodes);
 		rebuild_job_part_list(job_ptr);
 	}
-
 	return SLURM_SUCCESS;
 }
 
@@ -4809,7 +4814,7 @@ extern int prolog_complete(uint32_t job_id,
  * global: job_list - pointer global job list
  *	last_job_update - time of last job table update
  */
-extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
+static int _job_complete(uint32_t job_id, uid_t uid, bool requeue,
 			bool node_fail, uint32_t job_return_code)
 {
 	struct node_record *node_ptr;
@@ -5002,6 +5007,83 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 	info("%s: %s done", __func__, jobid2str(job_ptr, jbuf, sizeof(jbuf)));
 
 	return SLURM_SUCCESS;
+}
+
+/*
+ * job_complete - note the normal termination the specified job
+ * IN job_id - id of the job which completed
+ * IN uid - user id of user issuing the RPC
+ * IN requeue - job should be run again if possible
+ * IN node_fail - true of job terminated due to node failure
+ * IN job_return_code - job's return code, if set then set state to FAILED
+ * RET - 0 on success, otherwise ESLURM error code
+ * global: job_list - pointer global job list
+ *	last_job_update - time of last job table update
+ */
+extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
+			bool node_fail, uint32_t job_return_code)
+{
+	int rc;
+	List pack_depend;
+	ListIterator depend_iter;
+	struct depend_spec *ldr_dep_ptr;
+	struct job_record *job_ptr;
+	struct job_record *mbr_job;
+
+	job_ptr = find_job_record(job_id);
+
+	if (job_ptr->details != NULL) {
+		pack_depend = job_ptr->details->depend_list;
+		if (pack_depend) {
+			depend_iter = list_iterator_create(pack_depend);
+			while ((ldr_dep_ptr = (struct depend_spec *)
+					list_next(depend_iter))) {
+				if (ldr_dep_ptr->depend_type ==
+							SLURM_DEPEND_PACK) {
+					info("JPCK: RBS: not completing pack %d, will wait for it's leader",ldr_dep_ptr->job_id);
+					return SLURM_SUCCESS;
+				}
+				if (ldr_dep_ptr->depend_type !=
+							SLURM_DEPEND_PACKLEADER)
+					continue;
+				mbr_job = ldr_dep_ptr->job_ptr;
+				if (mbr_job->job_state == JOB_COMPLETE
+				    || mbr_job->job_state == JOB_COMPLETING) {
+					info("JPCK: RBS: skipping pack %d, already complete",ldr_dep_ptr->job_id);
+					continue;
+				}
+				info("JPCK: Complete pack jobid=%d",
+						ldr_dep_ptr->job_id);
+				rc = _job_complete(ldr_dep_ptr->job_id, uid,
+							  false, false,
+							  job_return_code);
+
+				if (rc != SLURM_SUCCESS) {
+					if (rc == ESLURM_ALREADY_DONE) {
+/* RBS: TODO -- this is okay for standalong srun.
+ *              revisit for step-launch srun. Hopefully is is okay,
+ *              or something else obvious breaks. */
+						info("JPCK: pack job %d is "
+						      "already complete",
+						      ldr_dep_ptr->job_id);
+
+					} else {
+						info("JPCK: Failed to complete "
+						      "pack job %d",
+						      ldr_dep_ptr->job_id);
+					}
+				}
+			}
+			list_iterator_destroy(depend_iter);
+		}
+		if (job_ptr->job_state == JOB_COMPLETE
+		    || job_ptr->job_state == JOB_COMPLETING) {
+			info("JPCK: RBS: skipping job pack leader %d, already complete",ldr_dep_ptr->job_id);
+			return SLURM_SUCCESS;
+		}
+		info("JPCK: Completing job pack leader=%d", job_id);
+	}
+	return _job_complete(job_id, uid, false, false, job_return_code);
 }
 
 static int _alt_part_test(struct part_record *part_ptr,
@@ -6288,6 +6370,7 @@ static int _test_job_desc_fields(job_desc_msg_t * job_desc)
 	    _test_strlen(job_desc->std_err, "std_err", MAXPATHLEN)	||
 	    _test_strlen(job_desc->std_in, "std_in", MAXPATHLEN)	||
 	    _test_strlen(job_desc->std_out, "std_out", MAXPATHLEN)	||
+	    _test_strlen(job_desc->pack_group, "pack_group", 1024*128)	||
 	    _test_strlen(job_desc->wckey, "wckey", 1024)		||
 	    _test_strlen(job_desc->work_dir, "work_dir", MAXPATHLEN))
 		return ESLURM_PATHNAME_TOO_LONG;
@@ -7164,6 +7247,10 @@ _copy_job_desc_to_job_record(job_desc_msg_t * job_desc,
 		detail_ptr->std_out = xstrdup(job_desc->std_out);
 	if (job_desc->work_dir)
 		detail_ptr->work_dir = xstrdup(job_desc->work_dir);
+
+	if (job_desc->pack_group) {
+		detail_ptr->pack_group = xstrdup(job_desc->pack_group);
+	}
 	if (job_desc->begin_time > time(NULL))
 		detail_ptr->begin_time = job_desc->begin_time;
 	job_ptr->select_jobinfo =
@@ -11311,6 +11398,9 @@ static int _update_job(struct job_record *job_ptr, job_desc_msg_t * job_specs,
 	if (error_code != SLURM_SUCCESS)
 		goto fini;
 
+	if (job_specs->pack_group) {
+		job_ptr->details->pack_group = job_specs->pack_group;
+	}
 	if (job_specs->begin_time) {
 		if (IS_JOB_PENDING(job_ptr) && detail_ptr) {
 			char time_str[32];
@@ -15058,6 +15148,7 @@ extern job_desc_msg_t *copy_job_record_to_job_desc(struct job_record *job_ptr)
 	job_desc->cpu_freq_gov      = details->cpu_freq_gov;
 	job_desc->deadline          = job_ptr->deadline;
 	job_desc->dependency        = xstrdup(details->dependency);
+	job_desc->pack_group        = xstrdup(details->pack_group);
 	job_desc->end_time          = 0; /* Unused today */
 	job_desc->environment       = get_job_env(job_ptr,
 						  &job_desc->env_size);

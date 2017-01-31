@@ -269,11 +269,6 @@ struct hostlist_iterator {
 	struct hostlist_iterator *next;
 };
 
-struct _range {
-	unsigned long lo, hi;
-	int width;
-};
-
 /* ---- ---- */
 
 /* Multi-dimension system stuff here */
@@ -295,12 +290,12 @@ static int _add_box_ranges(int dim,  int curr,
 			   int *start,
 			   int *end,
 			   int *pos,
-			   struct _range * *ranges,
+			   range_t * *ranges,
 			   int *capacity, int max_capacity, int *count,
 			   int dims);
 static int _get_next_box(int *start, int *end, int dims);
 static int _get_boxes(char *buf, int max_len, int dims, int brackets);
-static int _grow_ranges(struct _range * *ranges,	/* in/out */
+static int _grow_ranges(range_t * *ranges,	/* in/out */
 			int *capacity,			/* in/out */
 			int max_capacity);
 static void _set_box_in_grid(int dim, int curr,
@@ -1599,7 +1594,7 @@ hostlist_t _hostlist_create(const char *hostlist, char *sep,
 
 #endif                /* WANT_RECKLESS_HOSTRANGE_EXPANSION */
 
-static int _grow_ranges(struct _range * *ranges,	/* in/out */
+static int _grow_ranges(range_t * *ranges,	/* in/out */
 			int *capacity,			/* in/out */
 			int max_capacity)
 {
@@ -1614,7 +1609,7 @@ static int _grow_ranges(struct _range * *ranges,	/* in/out */
 	new_capacity = (*capacity) * 2 + 10;
 	if (new_capacity > max_capacity)
 		new_capacity = max_capacity;
-	xrealloc_nz((*ranges), (sizeof(struct _range) * new_capacity));
+	xrealloc_nz((*ranges), (sizeof(range_t) * new_capacity));
 	if ((*ranges) == NULL) {
 		errno = ENOMEM;
 		_error(__FILE__, __LINE__,
@@ -1626,7 +1621,7 @@ static int _grow_ranges(struct _range * *ranges,	/* in/out */
 }
 
 
-static int _parse_box_range(char *str, struct _range * *ranges,
+static int _parse_box_range(char *str, range_t * *ranges,
 			    int *capacity, int max_capacity, int *count,
 			    int dims)
 {
@@ -1678,7 +1673,7 @@ static int _parse_box_range(char *str, struct _range * *ranges,
  * returns 1 if str contained a valid number or range,
  *         0 if conversion of str to a range failed.
  */
-static int _parse_single_range(const char *str, struct _range *range, int dims)
+static int _parse_single_range(const char *str, range_t *range, int dims)
 {
 	char *p, *q;
 	char *orig = strdup(str);
@@ -1738,12 +1733,12 @@ error:
 
 /*
  * Convert 'str' containing comma separated digits and ranges into an array
- *  of struct _range types (dynamically allocated and resized).
+ *  of range_t types (dynamically allocated and resized).
  *
  * Return number of ranges created, or -1 on error.
  */
-static int _parse_range_list(char *str,
-			     struct _range * *ranges, int *capacity,
+int parse_range_list(char *str,
+			     range_t * *ranges, int *capacity,
 			     int max_capacity, int dims)
 {
 	char *p;
@@ -1785,7 +1780,7 @@ static int _parse_range_list(char *str,
  * The prefix can contain a up to one range expresseion (e.g. "rack[1-4]_").
  * RET 0 on success, -1 on failure (invalid prefix) */
 static int
-_push_range_list(hostlist_t hl, char *prefix, struct _range *range,
+_push_range_list(hostlist_t hl, char *prefix, range_t *range,
 		 int n, int dims)
 {
 	int i, k, nr, rc = 0, rc1;
@@ -1796,16 +1791,16 @@ _push_range_list(hostlist_t hl, char *prefix, struct _range *range,
 	tmp_prefix[sizeof(tmp_prefix) - 1] = '\0';
 	if (((p = strrchr(tmp_prefix, '[')) != NULL) &&
 	    ((q = strrchr(p, ']')) != NULL)) {
-		struct _range *prefix_range = NULL;
+		range_t *prefix_range = NULL;
 		int pr_capacity = 0;
-		struct _range *saved_range = range, *pre_range;
+		range_t *saved_range = range, *pre_range;
 		unsigned long j, prefix_cnt = 0;
 		bool recurse = false;
 		*p++ = '\0';
 		*q++ = '\0';
 		if (strrchr(tmp_prefix, '[') != NULL)
 			recurse = true;
-		nr = _parse_range_list(p, &prefix_range, &pr_capacity,
+		nr = parse_range_list(p, &prefix_range, &pr_capacity,
 				       MAX_RANGES, dims);
 		if (nr < 0) {
 			xfree(prefix_range);
@@ -1863,7 +1858,7 @@ _hostlist_create_bracketed(const char *hostlist, char *sep,
 			   char *r_op, int dims)
 {
 	hostlist_t new = hostlist_new();
-	struct _range *ranges = NULL;
+	range_t *ranges = NULL;
 	int capacity = 0;
 	int nr, err;
 	char *cur_tok = NULL, *p, *tok, *str, *orig;
@@ -1885,7 +1880,7 @@ _hostlist_create_bracketed(const char *hostlist, char *sep,
 				if ((q[1] != ',') && (q[1] != '\0'))
 					goto error;
 				*q = '\0';
-				nr = _parse_range_list(p,
+				nr = parse_range_list(p,
 						       &ranges,
 						       &capacity, MAX_RANGES,
 						       dims);
@@ -2980,7 +2975,7 @@ static int _add_box_ranges(int dim,  int curr,
 			   int *start,
 			   int *end,
 			   int *pos,
-			   struct _range * *ranges,
+			   range_t * *ranges,
 			   int *capacity, int max_capacity,  int *count,
 			   int dims)
 {

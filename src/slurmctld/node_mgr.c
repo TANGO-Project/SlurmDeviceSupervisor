@@ -3490,9 +3490,11 @@ extern void make_node_alloc(struct node_record *node_ptr,
  * IN node_ptr - pointer to node marked for completion of job
  * IN job_ptr - pointer to job that is completing
  * IN suspended - true if job was previously suspended
+ * IN pack - true if job is pack job being deallocated
  */
 extern void make_node_comp(struct node_record *node_ptr,
-			   struct job_record *job_ptr, bool suspended)
+			   struct job_record *job_ptr,
+			   bool suspended, bool pack)
 {
 	int inx = node_ptr - node_record_table_ptr;
 	uint32_t node_flags;
@@ -3523,7 +3525,7 @@ extern void make_node_comp(struct node_record *node_ptr,
 		}
 	}
 
-	if (!IS_NODE_DOWN(node_ptr))  {
+	if (!IS_NODE_DOWN(node_ptr) && !pack)  {
 		/* Don't verify  RPC if DOWN */
 		(node_ptr->comp_job_cnt)++;
 		node_ptr->node_state |= NODE_STATE_COMPLETING;

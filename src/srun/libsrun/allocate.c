@@ -729,7 +729,7 @@ job_desc_msg_create_from_opts (void)
 	}
 	j->user_id        = opt.uid;
 	j->dependency     = opt.dependency;
-	if (opt.nice != NO_VAL)
+	if (opt.nice)
 		j->nice   = NICE_OFFSET + opt.nice;
 	if (opt.priority)
 		j->priority = opt.priority;
@@ -843,8 +843,7 @@ job_desc_msg_create_from_opts (void)
 		j->time_limit          = opt.time_limit;
 	if (opt.time_min != NO_VAL)
 		j->time_min            = opt.time_min;
-	if (opt.shared != (uint16_t) NO_VAL)
-		j->shared = opt.shared;
+	j->shared = opt.shared;
 
 	if (opt.warn_signal)
 		j->warn_signal = opt.warn_signal;

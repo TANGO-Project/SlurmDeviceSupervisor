@@ -4738,7 +4738,21 @@ extern char * debug_flags2str(uint64_t debug_flags)
 			xstrcat(rc, ",");
 		xstrcat(rc, "Triggers");
 	}
+<<<<<<< HEAD
 
+=======
+	if (debug_flags & DEBUG_FLAG_WIKI) {
+		if (rc)
+			xstrcat(rc, ",");
+		xstrcat(rc, "Wiki");
+	}
+	}
+	if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+		if (rc)
+			xstrcat(rc, ",");
+		xstrcat(rc, "JobPack");
+	}
+>>>>>>> 5ff6b63... Initial Implementation job pack
 	return rc;
 }
 
@@ -4860,6 +4874,8 @@ extern int debug_str2flags(char *debug_flags, uint64_t *flags_out)
 			(*flags_out) |= DEBUG_FLAG_POWER;
 		else if (xstrcasecmp(tok, "TimeCray") == 0)
 			(*flags_out) |= DEBUG_FLAG_TIME_CRAY;
+		else if (strcasecmp(tok, "JobPack") == 0)
+			(*flags_out) |= DEBUG_FLAG_JOB_PACK;
 		else {
 			error("Invalid DebugFlag: %s", tok);
 			(*flags_out) = 0;

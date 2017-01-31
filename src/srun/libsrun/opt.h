@@ -130,7 +130,9 @@ typedef struct srun_options {
 	unsigned int jobid;     /* --jobid=jobid                */
 	bool jobid_set;		/* true if jobid explicitly set */
 	char *mpi_type;		/* --mpi=type			*/
+	bool  mpi_combine;	/* --mpi-combine=yes|no		*/
 	char *dependency;	/* --dependency, -P type:jobid	*/
+	char *pack_group;	/* --pack-group	                */
 	int nice;		/* --nice			*/
 	uint32_t priority;	/* --priority */
 	char *account;		/* --account, -U acct_name	*/
@@ -243,9 +245,42 @@ typedef struct srun_options {
 	time_t deadline; 	/* --deadline                   */
 	uint32_t job_flags;	/* --gres-flags */
 	uint32_t delay_boot;	/* --delay-boot			*/	
+	uint32_t ngrpidx;     	/* Number of task group indexes */
+	uint32_t *groupidx;	/* Indexes of task groups running these tasks */
 } opt_t;
 
 extern opt_t opt;
+extern int mpi_curtaskid; // MNP PMI
+extern int mpi_curnodecnt; // MNP PMI
+
+typedef struct {
+	bool packleader;
+	bool pack_job;
+	uint32_t group_number;
+	uint32_t job_id;
+	opt_t *opt;
+	env_t *env;
+	srun_job_t *job;
+	resource_allocation_response_msg_t *resp;
+	uint32_t ac;
+	char **av;
+} pack_job_env_t;
+
+extern pack_job_env_t *pack_job_env;
+
+typedef struct {
+	bool groupjob;			/* indicates group numbers designated */
+	uint16_t pack_group_count;	/* count of pack groups for this desc */
+	pack_job_env_t *pack_job_env;	/* array of pack_job_env_t */
+} pack_group_struct_t;
+
+extern pack_group_struct_t *desc;
+
+void _copy_opt_struct(opt_t *to, opt_t *from);
+void _copy_env_struct(env_t *to, env_t *from);
+void _copy_srun_job_struct(srun_job_t *to, srun_job_t *from);
+void _copy_resp_struct(resource_allocation_response_msg_t *to,
+		       resource_allocation_response_msg_t *from);
 
 extern int error_exit;		/* exit code for slurm errors */
 extern int immediate_exit;	/* exit code for --imediate option & busy */
@@ -274,7 +309,8 @@ extern resource_allocation_response_msg_t *global_resp;
  * 3. update options with commandline args
  * 4. perform some verification that options are reasonable
  */
-int initialize_and_process_args(int argc, char **argv);
+int initialize_and_process_args(int argc, char *argv[]);
+int initialize_and_process_args_jobpack(int argc, char *argv[], uint32_t group_number);
 
 /* external functions available for SPANK plugins to modify the environment
  * exported to the SLURM Prolog and Epilog programs */

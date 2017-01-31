@@ -2459,6 +2459,10 @@ extern void print_job_dependency(struct job_record *job_ptr)
 			dep_str = "afterok";
 		else if (dep_ptr->depend_type == SLURM_DEPEND_AFTER_CORRESPOND)
 			dep_str = "aftercorr";
+		else if (dep_ptr->depend_type == SLURM_DEPEND_PACK)
+			dep_str = "pack";
+		else if (dep_ptr->depend_type == SLURM_DEPEND_PACKLEADER)
+			dep_str = "packleader";
 		else if (dep_ptr->depend_type == SLURM_DEPEND_EXPAND)
 			dep_str = "expand";
 		else
@@ -2483,6 +2487,7 @@ static void _depend_list2str(struct job_record *job_ptr, bool set_or_flag)
 	ListIterator depend_iter;
 	struct depend_spec *dep_ptr;
 	char *dep_str, *sep = "";
+	bool leader1 = false;
 
 	if (job_ptr->details == NULL)
 		return;
@@ -2512,6 +2517,10 @@ static void _depend_list2str(struct job_record *job_ptr, bool set_or_flag)
 			dep_str = "afterok";
 		else if (dep_ptr->depend_type == SLURM_DEPEND_AFTER_CORRESPOND)
 			dep_str = "aftercorr";
+		else if (dep_ptr->depend_type == SLURM_DEPEND_PACK)
+			dep_str = "pack";
+		else if (dep_ptr->depend_type == SLURM_DEPEND_PACKLEADER)
+			dep_str = "packleader";
 		else if (dep_ptr->depend_type == SLURM_DEPEND_EXPAND)
 			dep_str = "expand";
 		else
@@ -2554,6 +2563,14 @@ extern int test_job_dependency(struct job_record *job_ptr)
  	bool run_now;
 	int results = 0;
 	struct job_record *qjob_ptr, *djob_ptr, *dcjob_ptr;
+	uint64_t debug_flags = slurm_get_debug_flags();
+	time_t now = time(NULL);
+	/* For performance reasons with job arrays, we cache dependency
+	 * results and re-use them whenever possible */
+	static uint32_t cache_job_id = 0;
+	static struct job_record *cache_job_ptr = NULL;
+	static int cache_results;
+	static time_t cache_time = 0;
 
 	if ((job_ptr->details == NULL) ||
 	    (job_ptr->details->depend_list == NULL) ||
@@ -2592,6 +2609,17 @@ extern int test_job_dependency(struct job_record *job_ptr)
  				list_delete_item(depend_iter);
  			else
 				depends = true;
+		} else if (dep_ptr->depend_type == SLURM_DEPEND_PACK) {
+			depends = true;
+			if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+				info("JPCK: Jobid=%d is a pack member",
+					job_ptr->job_id);
+	        } else if (dep_ptr->depend_type == SLURM_DEPEND_PACKLEADER) {
+			depends = false;
+			if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+				info("JPCK: Jobid=%d is a pack leader for %d",
+				     job_ptr->job_id, dep_ptr->job_id);
+			} //nlk this seems strange
 		} else if ((djob_ptr == NULL) ||
 			   (djob_ptr->magic != JOB_MAGIC) ||
 			   ((djob_ptr->job_id != dep_ptr->job_id) &&
@@ -2727,6 +2755,10 @@ extern int test_job_dependency(struct job_record *job_ptr)
 				job_ptr->details->whole_node =
 					djob_ptr->details->whole_node;
 			}
+		} else if (dep_ptr->depend_type == SLURM_DEPEND_PACK) {
+			depends = true;
+		} else if (dep_ptr->depend_type == SLURM_DEPEND_PACKLEADER) {
+			depends = true;
 		} else
 			failure = true;
 		if (clear_dep) {
@@ -2749,6 +2781,13 @@ extern int test_job_dependency(struct job_record *job_ptr)
 	else if (depends)
 		results = 1;
 
+	if ((job_ptr->array_task_id != NO_VAL) &&
+	    (job_ptr->array_recs == NULL)) {
+		cache_job_id  = job_ptr->job_id;
+		cache_job_ptr = job_ptr;
+		cache_results = results;
+		cache_time = now;
+	}
 	return results;
 }
 
@@ -2879,6 +2918,18 @@ extern int update_job_dependency(struct job_record *job_ptr, char *new_depend)
 			break;
  		}
 
+			/* Test for job pack type */
+		if (strcasecmp(tok,"pack") == 0) {
+			depend_type = SLURM_DEPEND_PACK;
+			dep_ptr = xmalloc(sizeof(struct depend_spec));
+			dep_ptr->depend_type = depend_type;
+			/* dep_ptr->job_id = 0;		set by xmalloc */
+			/* dep_ptr->job_ptr = NULL;	set by xmalloc */
+			(void) list_append(new_depend_list, dep_ptr);
+			info("JPCK: update_job_dependency -- todo(?) job=%d --dependency=pack",job_ptr->job_id);
+			break;
+		}
+
 		/* Test for old format, just a job ID */
 		sep_ptr = strchr(tok, ':');
 		if ((sep_ptr == NULL) && (tok[0] >= '0') && (tok[0] <= '9')) {
@@ -2951,6 +3002,10 @@ extern int update_job_dependency(struct job_record *job_ptr, char *new_depend)
 			depend_type = SLURM_DEPEND_AFTER_OK;
 		else if (strncasecmp(tok, "after", 5) == 0)
 			depend_type = SLURM_DEPEND_AFTER;
+		else if (strncasecmp(tok,"packleader",10) == 0) {
+			depend_type = SLURM_DEPEND_PACKLEADER;
+			info("JPCK: update_job, b4 test for leader, jobid=%d type=%d ldrtype=%d",job_ptr->job_id, depend_type, SLURM_DEPEND_PACKLEADER);
+		}
 		else if (strncasecmp(tok, "expand", 6) == 0) {
 			if (!select_g_job_expand_allow()) {
 				rc = ESLURM_DEPENDENCY;
@@ -2964,6 +3019,7 @@ extern int update_job_dependency(struct job_record *job_ptr, char *new_depend)
 		sep_ptr++;	/* skip over ":" */
 		while (rc == SLURM_SUCCESS) {
 			job_id = strtol(sep_ptr, &sep_ptr2, 10);
+			info("JPCK: found jobid=%d",job_id);
 			if ((sep_ptr2 != NULL) && (sep_ptr2[0] == '_')) {
 				if (sep_ptr2[1] == '*') {
 					array_task_id = INFINITE;

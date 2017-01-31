@@ -791,6 +791,7 @@ extern void slurm_free_job_desc_msg(job_desc_msg_t * msg)
 			xfree(msg->spank_job_env);
 		}
 		xfree(msg->tres_req_cnt);
+		xfree(msg->pack_group);
 		xfree(msg->wckey);
 		xfree(msg->work_dir);
 		xfree(msg);
@@ -960,6 +961,7 @@ extern void slurm_free_job_info_members(job_info_t * job)
 		xfree(job->std_err);
 		xfree(job->std_in);
 		xfree(job->std_out);
+		xfree(job->pack_group);
 		xfree(job->tres_alloc_str);
 		xfree(job->tres_req_str);
 		xfree(job->wckey);

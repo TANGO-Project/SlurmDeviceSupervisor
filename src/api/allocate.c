@@ -257,6 +257,7 @@ slurm_allocate_resources_blocking (const job_desc_msg_t *user_req,
 				pending_callback(job_id);
  			resp = _wait_for_allocation_response(job_id, listen,
 							     timeout);
+			info("JGRP: return from _wait_for_allocation_response is %p for job=%d", resp, job_id);
 			/* If NULL, we didn't get the allocation in
 			   the time desired, so just free the job id */
 			if ((resp == NULL) && (errno != ESLURM_ALREADY_DONE)) {

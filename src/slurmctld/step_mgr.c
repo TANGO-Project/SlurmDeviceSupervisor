@@ -1887,7 +1887,6 @@ extern void step_alloc_lps(struct step_record *step_ptr)
 	int i_node, i_first, i_last;
 	int job_node_inx = -1, step_node_inx = -1;
 	bool pick_step_cores = true;
-
 	xassert(job_resrcs_ptr);
 	xassert(job_resrcs_ptr->cpus);
 	xassert(job_resrcs_ptr->cpus_used);

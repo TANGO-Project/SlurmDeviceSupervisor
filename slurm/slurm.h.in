@@ -1464,6 +1464,7 @@ typedef struct job_descriptor {	/* For submit, allocate, and update requests */
 				 * scripts as set by SPANK plugins */
 	uint32_t spank_job_env_size; /* element count in spank_env */
 	uint32_t task_dist;	/* see enum task_dist_state */
+	char *pack_group;	/* pack-members of job-group to use for step */
 	uint32_t time_limit;	/* maximum run time in minutes, default is
 				 * partition limit */
 	uint32_t time_min;	/* minimum run time in minutes, default is
@@ -1649,6 +1650,7 @@ typedef struct job_info {
 	char *std_out;		/* pathname of job's stdout file */
 	time_t submit_time;	/* time of job submission */
 	time_t suspend_time;	/* time job last suspended or resumed */
+	char *pack_group;	/* group of tasks for job pack */
 	uint32_t time_limit;	/* maximum run time in minutes or INFINITE */
 	uint32_t time_min;	/* minimum run time in minutes or INFINITE */
 	uint16_t threads_per_core; /* threads per core required by job  */
@@ -2551,6 +2553,7 @@ typedef struct reservation_name_msg {
 #define DEBUG_FLAG_ESEARCH      0x0000400000000000 /* Elasticsearch debug */
 #define DEBUG_FLAG_NODE_FEATURES 0x0000800000000000 /* Node Features debug */
 #define DEBUG_FLAG_FEDR         0x0001000000000000 /* Federation debug */
+#define DEBUG_FLAG_JOB_PACK	    0x0002000000000000 /* job pack */
 
 #define GROUP_FORCE		0x8000	/* if set, update group membership
 					 * info even if no updates to

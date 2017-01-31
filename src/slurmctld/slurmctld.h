@@ -534,6 +534,7 @@ struct job_details {
 	uint32_t task_dist;		/* task layout for this job. Only
 					 * useful when Consumable Resources
 					 * is enabled */
+	char *pack_group;		/* group of tasks in job pack */
 	uint32_t usable_nodes;		/* node count needed by preemption */
 	uint8_t whole_node;		/* WHOLE_NODE_REQUIRED: 1: --exclusive
 					 * WHOLE_NODE_USER: 2: --exclusive=user
@@ -802,6 +803,8 @@ struct job_record {
 #define SLURM_DEPEND_EXPAND		6	/* Expand running job */
 #define SLURM_DEPEND_AFTER_CORRESPOND	7	/* After corresponding job array
 						 * elements completes */
+#define SLURM_DEPEND_PACKLEADER		8	/* ARRM Packleader */
+#define SLURM_DEPEND_PACK		9	/* ARRM Pack */
 
 #define SLURM_FLAGS_OR			1	/* OR job dependencies */
 
@@ -811,6 +814,7 @@ struct	depend_spec {
 	uint16_t	depend_flags;	/* SLURM_FLAGS_* type */
 	uint32_t	job_id;		/* SLURM job_id */
 	struct job_record *job_ptr;	/* pointer to this job */
+	uint32_t	pack_leader;    /* SLURM job_id of packleader job */
 };
 
 #define STEP_FLAG 0xbbbb
@@ -1714,9 +1718,11 @@ extern void make_node_alloc(struct node_record *node_ptr,
  * IN node_ptr - pointer to node marked for completion of job
  * IN job_ptr  - pointer to job that is completing
  * IN suspended - true if job was previously suspended
+ * IN pack - true if job is ARRM pack job being deallocated
  */
 extern void make_node_comp(struct node_record *node_ptr,
-			   struct job_record *job_ptr, bool suspended);
+			   struct job_record *job_ptr,
+			   bool suspended, bool pack);
 
 /*
  * make_node_idle - flag specified node as having finished with a job
