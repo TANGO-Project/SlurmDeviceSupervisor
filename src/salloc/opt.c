@@ -210,9 +210,8 @@ static void  _usage(void);
 
 /*---[ end forward declarations of static functions ]---------------------*/
 
-int initialize_and_process_args(int argc, char **argv)
+void copy_opt_struct(opt_t *to, opt_t *from)
 
-extern void _copy_opt_struct(opt_t *to, opt_t *from)
 {
 	memcpy(to, from, sizeof(opt_t));
 }
@@ -247,7 +246,6 @@ static bool _check_jobpack__opt(char *option)
 }
 
 int initialize_and_process_args(int argc, char *argv[])
-
 {
 	/* initialize option defaults */
 	_opt_default();

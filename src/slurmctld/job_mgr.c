@@ -109,6 +109,7 @@
 #define DETAILS_FLAG 0xdddd
 #define MAX_EXIT_VAL 255	/* Maximum value returned by WIFEXITED() */
 #define SLURM_CREATE_JOB_FLAG_NO_ALLOCATE_0 0
+#define STEP_FLAG 0xbbbb
 #define TOP_PRIORITY 0xffff0000	/* large, but leave headroom for higher */
 #define ONE_YEAR	(365 * 24 * 60 * 60)
 
@@ -4748,13 +4749,6 @@ extern int job_signal(uint32_t job_id, uint16_t signal, uint16_t flags,
 		      "uid %d", job_ptr->job_id, uid);
 		return ESLURM_ACCESS_DENIED;
 	}
-	if (!validate_slurm_user(uid) && (signal == SIGKILL) &&
-	    job_ptr->part_ptr &&
-	    (job_ptr->part_ptr->flags & PART_FLAG_ROOT_ONLY) && wiki2_sched) {
-		info("Attempt to cancel Moab job using Slurm command from "
-		     "uid %d", uid);
-		return ESLURM_ACCESS_DENIED;
-	}
 
 	if ((signal == SIGKILL) && (job_ptr->pack_leader != 0)) {
 		/* Is a job_pack, kill all the members, including the leader */
@@ -7243,8 +7237,9 @@ _read_data_array_from_file(int fd, char *file_name, char ***data,
 			for (i = 0; i < rec_cnt; i++) {
 				if (xstrncmp(array_ptr[i],
 					     job_ptr->details->env_sup[j],
-					     name_len))
+					     name_len)) {
 					continue;
+				}
 				/* over-write duplicate */
 				memcpy(&buffer[pos],
 				       job_ptr->details->env_sup[j], env_len);
@@ -7670,10 +7665,8 @@ _copy_job_desc_to_job_record(job_desc_msg_t * job_desc,
 		detail_ptr->std_out = xstrdup(job_desc->std_out);
 	if (job_desc->work_dir)
 		detail_ptr->work_dir = xstrdup(job_desc->work_dir);
-
 	if (job_desc->begin_time > time(NULL))
 		detail_ptr->begin_time = job_desc->begin_time;
-
 	job_ptr->select_jobinfo =
 		select_g_select_jobinfo_copy(job_desc->select_jobinfo);
 	select_g_select_jobinfo_set(job_ptr->select_jobinfo,
@@ -9758,7 +9751,7 @@ void purge_old_job(void)
 			if (job_ptr->bit_flags & KILL_INV_DEP) {
 				_kill_dependent(job_ptr);
 			} else if (job_ptr->bit_flags & NO_KILL_INV_DEP) {
-				debug("%s: %s job dependency condition never satisfied",
+				debug("%s: %s job dependency never satisfied",
 				      __func__,
 				      jobid2str(job_ptr, jbuf, sizeof(jbuf)));
 				job_ptr->state_reason = WAIT_DEP_INVALID;
@@ -9766,7 +9759,7 @@ void purge_old_job(void)
 			} else if (kill_invalid_dep) {
 				_kill_dependent(job_ptr);
 			} else {
-				debug("%s: %s job dependency condition never satisfied",
+				debug("%s: %s job dependency never satisfied",
 				      __func__,
 				      jobid2str(job_ptr, jbuf, sizeof(jbuf)));
 				job_ptr->state_reason = WAIT_DEP_INVALID;
@@ -16313,7 +16306,6 @@ _kill_dependent(struct job_record *job_ptr)
 	last_job_update = now;
 	srun_allocate_abort(job_ptr);
 }
-
 
 static void _free_job_fed_details(job_fed_details_t **fed_details_pptr)
 {

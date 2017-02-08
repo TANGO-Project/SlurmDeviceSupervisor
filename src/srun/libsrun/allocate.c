@@ -318,7 +318,7 @@ static int _wait_bluegene_block_ready(resource_allocation_response_msg_t *alloc)
 			break;
 	}
 	if (is_ready)
-		debug("Block %s is ready for job", block_id);
+     		debug("Block %s is ready for job", block_id);
 	else if (!destroy_job)
 		error("Block %s still not ready", block_id);
 	else	/* destroy_job set and slurmctld not responing */
@@ -595,6 +595,7 @@ allocate_nodes_jobpack(bool handle_signals)
 	copy_opt_struct(desc[group_index].pack_job_env[job_index].opt, &opt);
 	if (!j)
 		return NULL;
+
 	if (pack_desc_count)
 		copy_opt_struct(desc[group_index].pack_job_env[job_index].opt,
 				 &opt);

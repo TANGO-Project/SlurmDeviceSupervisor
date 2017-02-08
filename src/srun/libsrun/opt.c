@@ -264,8 +264,8 @@ static bool  _valid_node_list(char **node_list_pptr);
 
 /*---[ end forward declarations of static functions ]---------------------*/
 
-int initialize_and_process_args(int argc, char **argv)
-extern void _copy_opt_struct(opt_t *to, opt_t *from)
+
+void copy_opt_struct(opt_t *to, opt_t *from)
 
 {
 	memcpy(to, from, sizeof(opt_t));
@@ -297,7 +297,7 @@ static bool _check_jobpack__opt(char *option)
 	return true;
 }
 
-int initialize_and_process_args(int argc, char *argv[])
+int initialize_and_process_args(int argc, char **argv)
 {
 	/* initialize option defaults */
 	_opt_default();
