@@ -4685,10 +4685,10 @@ static int _kill_job_pack(uint32_t pack_id, struct job_record *job_ptr,
 	if ((pack_ptr == NULL)
 	    || (pack_ptr->details == NULL)
 	    || (pack_ptr->details->depend_list == NULL)) {
-		/* Didn't find the leader, just kill the orginator */
+		/* Didn't find the leader, just kill the originator */
 		return _job_signal(job_ptr, signal, flags, uid, preempt);
 	}
-	/* Iterate throiugh the members of the leader, killing them */
+	/* Iterate through the members of the leader, killing them */
 	dep_iter = list_iterator_create(pack_ptr->details->depend_list);
 	dep_ptr = (struct depend_spec *) list_next(dep_iter);
 	while (dep_ptr != NULL) {
@@ -5375,22 +5375,20 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 				if (job_ptr->batch_flag > 0) {
 					/* Originator is member is a sbatch
 					 * or salloc. have to wait for leader */
-					if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+					if (debug_flags & DEBUG_FLAG_JOB_PACK)
 						info("JPCK: pack member "
 						     "%d waiting for leader %d "
 					             "to complete", job_id,
 						     job_ptr->pack_leader);
-					}
 					return SLURM_SUCCESS;
 				} else {
 					/* Originator is member is
 					 * stand-alone-srun, can complete now */
-					if (debug_flags & DEBUG_FLAG_JOB_PACK) {
-						info("JPCK: pack member %d "
+					if (debug_flags & DEBUG_FLAG_JOB_PACK)
+					       info("JPCK: pack member %d "
 						    "(leader %d) is completing",
-						     job_id,
-						     job_ptr->pack_leader);
-					}
+						    job_id,
+						    job_ptr->pack_leader);
 					return _job_complete(job_id, uid, false,
 							false, job_return_code);
 				}
@@ -5403,40 +5401,37 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 			 * mbr_job is one of its members, complete mbr_job */
 			if (mbr_job->job_state == JOB_COMPLETE
 			    || mbr_job->job_state == JOB_COMPLETING) {
-				if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+				if (debug_flags & DEBUG_FLAG_JOB_PACK)
 					info("JPCK: skipping pack member %d, "
 					     "(already complete)",
 					     ldr_dep_ptr->job_id);
-				}
 				continue;
 			}
-			if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+			if (debug_flags & DEBUG_FLAG_JOB_PACK)
 				info("JPCK: Leader %d completing pack member "
 				     "jobid=%d", job_id, ldr_dep_ptr->job_id);
-			}
+
 			/* only kill the packmember jobs if this is not
-			   a stand-alone srun, otherwise let the them
+			   a stand-alone srun, otherwise let them
 			   complete in their own time (instead of killing
 			   them now) This is done to prevent timing issues
 			   when the packleader completes before the packmembers
 			   for stand-alone sruns. There may be a better way to
 			   handle this situation. */
-			if (job_ptr->batch_flag > 0) {
+			if (job_ptr->batch_flag > 0)
 				rc = _job_complete(ldr_dep_ptr->job_id, uid,
 					   false, false, job_return_code);
-			}
 			else
 				rc = SLURM_SUCCESS;
 
 			if ((debug_flags & DEBUG_FLAG_JOB_PACK)
 			    && (rc != SLURM_SUCCESS)) {
-				if (rc == ESLURM_ALREADY_DONE) {
+				if (rc == ESLURM_ALREADY_DONE)
 					info("JPCK: pack job %d is already "
 					     "complete", ldr_dep_ptr->job_id);
-				} else {
+				else
 					info("JPCK: Failed to complete pack "
 					     "job %d", ldr_dep_ptr->job_id);
-				}
 			}
 		}
 		list_iterator_destroy(dpnd_iter);
@@ -5445,19 +5440,16 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 			    || job_ptr->job_state == JOB_COMPLETING) {
 				if ((slurm_get_debug_flags() &
 						DEBUG_FLAG_JOB_PACK)
-				    && ldr_dep_ptr) {
-
+				    && ldr_dep_ptr)
 					info("JPCK: skipping job pack leader "
 					     "%d, (already complete)",
 					     ldr_dep_ptr->job_id);
-				}
 				return SLURM_SUCCESS;
 			}
 			if ((slurm_get_debug_flags() & DEBUG_FLAG_JOB_PACK)
-			    && ldr_dep_ptr) {
+			    && ldr_dep_ptr)
 				info("JPCK: Completing job pack leader=%d",
 				     ldr_dep_ptr->job_id);
-			}
 		}
 	}
 	return _job_complete(job_id, uid, false, false, job_return_code);
@@ -7251,9 +7243,8 @@ _read_data_array_from_file(int fd, char *file_name, char ***data,
 			for (i = 0; i < rec_cnt; i++) {
 				if (xstrncmp(array_ptr[i],
 					     job_ptr->details->env_sup[j],
-					     name_len)) {
+					     name_len))
 					continue;
-				}
 				/* over-write duplicate */
 				memcpy(&buffer[pos],
 				       job_ptr->details->env_sup[j], env_len);
@@ -7288,9 +7279,8 @@ _read_data_array_from_file(int fd, char *file_name, char ***data,
 			for (i = 0; i < rec_cnt; i++) {
 				if (xstrncmp(array_ptr[i],
 					     job_ptr->jobpack_env[j],
-					     name_len)) {
+					     name_len))
 					continue;
-				}
 				/* over-write duplicate */
 				memcpy(&buffer[pos],
 				       job_ptr->jobpack_env[j], env_len);
@@ -8157,9 +8147,8 @@ void job_time_limit(void)
 						job_ptr->details->depend_list);
 				while ((dep_ptr = list_next(dep_iter))) {
 					if (dep_ptr->depend_type
-						!= SLURM_DEPEND_PACKLEADER) {
+						!= SLURM_DEPEND_PACKLEADER)
 						continue;
-					}
 					if (slurm_get_debug_flags() &
 							DEBUG_FLAG_JOB_PACK) {
 						info("JPCK: killing pack member"
@@ -16441,7 +16430,7 @@ uint32_t get_pack_nodelist(uint32_t job_id,  char **nodelist)
 		error("failed to find job_record for job_id=%d", job_id);
 		return 0;
 	}
-	/* Alway start with bit map of originator */
+	/* Always start with bit map of originator */
 	job_node_bitmap = bit_copy(job_ptr->node_bitmap);
 	if (job_ptr->details == NULL)
 		goto legacy;

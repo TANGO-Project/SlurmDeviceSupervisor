@@ -205,22 +205,20 @@ temp_kvs_send(void)
 	kvs_seq ++; /* expecting new kvs after now */
 
 	while (1) {
-		if (retry == 1) {
+		if (retry == 1)
 			verbose("failed to send temp kvs, rc=%d, retrying", rc);
-		}
 
-		if (! in_stepd()) {	/* srun */
+		if (! in_stepd())	/* srun */
 			rc = tree_msg_to_stepds(hl,
 						temp_kvs_cnt,
 						temp_kvs_buf);
-		} else if (tree_info.parent_node != NULL) {
+		else if (tree_info.parent_node != NULL)
 			/* non-first-level stepds */
 			rc = tree_msg_to_stepds(hl,
 						temp_kvs_cnt,
 						temp_kvs_buf);
-		} else {		/* first level stepds */
+		else		/* first level stepds */
 			rc = tree_msg_to_srun(temp_kvs_cnt, temp_kvs_buf);
-		}
 		if (rc == SLURM_SUCCESS)
 			break;
 
@@ -232,9 +230,8 @@ temp_kvs_send(void)
 		delay *= 2;
 	}
 	temp_kvs_init();	/* clear old temp kvs */
-	if( free_hl ){
+	if( free_hl )
 		hostlist_destroy(hl);
-	}
 	return rc;
 }
 

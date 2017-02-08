@@ -791,12 +791,12 @@ struct job_record {
 	time_t wait4switch_start; /* Time started waiting for switch       */
 
         /* Reserved port data used for JobPack MPI support */
-        bool resv_port_flag;            /* notify job_scheduler */
+	bool resv_port_flag;            /* notify job_scheduler */
 	int *resv_port_array;		/* reserved port indexes */
 	uint16_t resv_port_cnt;		/* count of ports reserved per node */
 	char *resv_ports;		/* ports reserved for job */
-        uint32_t group_number;          /* jobpack group number index */
-        uint32_t numpack;               /* number of jobpack jobs */
+	uint32_t group_number;          /* jobpack group number index */
+	uint32_t numpack;               /* number of jobpack jobs */
 	char ** jobpack_env;            /* jobpack specific envs */
 	uint16_t jobpack_envc;          /* count of jobpack specific envs */
 };

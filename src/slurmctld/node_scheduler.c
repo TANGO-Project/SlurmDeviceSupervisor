@@ -2725,7 +2725,7 @@ extern int select_nodes_pack(struct job_record *job_ptr, bool test_only,
  *
  *	All the callers (and their callers) of select_nodes pass NULL for
  *	select_node_bitmap. However, we will remain faithful and handle
- *	a real pointer. For an job pack member, the bitmap will be the OR of
+ *	a real pointer. For a job pack member, the bitmap will be the OR of
  *	all pack members including the packleader.
  */
 extern int select_nodes(struct job_record *job_ptr, bool test_only,
@@ -4068,7 +4068,7 @@ static void _orphan_members(struct job_record *job_ptr)
 
 /*
  * Tests to see if a job_pack leader will ever run.
- * This is a weak test as it remove nodes already allocated for job_pack
+ * This is a weak test as it removes nodes already allocated for job_pack
  * members from the available nodes bitmap. It is possible that jobs that
  * theoretically could run will fail this test. This is a restriction
  * imposed by treating members of a job_pack as separate jobs.
@@ -4340,7 +4340,7 @@ cleanup:
 
 /*
  * Build list of certain jobpack related env vars for the pack job
- * prolog/epilog environments and stored in pelog_env. This procedure
+ * prolog/epilog environments and store in pelog_env. This procedure
  * will only be called once - by the first job in the jobpack that calls
  * this function. All pelog_env vars will be saved for the entire jobpack
  * during this one time call. Only specific jobpack related env vars are
@@ -4442,7 +4442,7 @@ static void _set_resv_ports_jobpack(struct job_record *job_ptr)
 	job_ptr->resv_port_cnt = job_ptr->node_cnt;
 	int i = resv_port_alloc_jobpack(job_ptr);
 	if (i != SLURM_SUCCESS) {
-	        error("failed to reserve node ports assigned to job %u",
+		error("failed to reserve node ports assigned to job %u",
 		      job_ptr->job_id);
 	}
 	return;

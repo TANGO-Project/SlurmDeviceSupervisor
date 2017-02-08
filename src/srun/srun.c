@@ -204,19 +204,17 @@ int _count_jobs(int ac, char **av)
 			        fatal( "Missing pack job specification "
 				       "following pack job delimiter" );
 		}
-		if (!xstrncmp(av[index], "--pack", 6)) {
+		if (!xstrncmp(av[index], "--pack", 6))
 			pack_group_job = true;
-		}
 	}
 	if (pack_desc_count)
 		pack_desc_count++;
 	if ((tmp = getenv("SLURM_NUMPACK"))) {
 		pgj = atoi(tmp);
-		if (pgj > 1) {
+		if (pgj > 1)
 			pack_group_job = true;
-		}
-	if ((pack_group_job == false) && (pack_desc_count != 0))
-		fatal("Pack jobs not allowed for a legacy allocation");
+		if ((pack_group_job == false) && (pack_desc_count != 0))
+			fatal("Pack jobs not allowed for a legacy allocation");
 	}
 	if ((pack_desc_count == 0) && (pack_group_job == true))
 		pack_desc_count ++;
@@ -1089,7 +1087,7 @@ static void _create_srun_steps_jobpack(bool got_alloc)
 				step_failed = true;
 			if (step_failed)
 				continue;
-//			slurm_free_resource_allocation_response_msg(resp);
+
 			/* What about code at lines 625-638 in srun_job.c? */
 			memcpy(opt_ptr, &opt, sizeof(opt_t));
 			srun_step_idx++;

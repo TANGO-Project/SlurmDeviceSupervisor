@@ -1082,8 +1082,8 @@ extern int as_mysql_step_start(mysql_conn_t *mysql_conn,
 
 	step_name = slurm_add_slash_to_quotes(step_ptr->name);
 
-		packjobid = step_ptr->packjobid;
-		packstepid = step_ptr->packstepid;
+	packjobid = step_ptr->packjobid;
+	packstepid = step_ptr->packstepid;
 
 	/* we want to print a -1 for the requid so leave it a
 	   %d */

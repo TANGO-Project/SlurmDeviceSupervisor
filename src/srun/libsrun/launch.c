@@ -359,29 +359,27 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 		}
 
 		if (i == 0) {
-			if (rc == ESLURM_PROLOG_RUNNING) {
+			if (rc == ESLURM_PROLOG_RUNNING)
 				verbose("Resources allocated for job %u and "
 					"being configured, please wait",
 					job->ctx_params.job_id);
-			} else if (job->pack_member &&
-				   rc == ESLURM_NODES_BUSY) {
+			else if (job->pack_member &&
+				   rc == ESLURM_NODES_BUSY)
 				   fatal("JPCK: nodes  busy, assume "
 				         "job_pack with exclusive allocation");
-			} else {
+			else
 				info("Job step creation temporarily disabled, "
 				     "retrying");
-			}
+
 			xsignal_unblock(sig_array);
 			for (j = 0; sig_array[j]; j++)
 				xsignal(sig_array[j], signal_function);
-		} else {
+		} else
 			verbose("Job step creation still disabled, retrying");
-		}
 
-		if (*destroy_job) {
+		if (*destroy_job)
 			/* cancelled by signal */
 			break;
-		}
 	}
 	if (i > 0) {
 		xsignal_block(sig_array);

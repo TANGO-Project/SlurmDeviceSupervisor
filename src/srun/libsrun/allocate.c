@@ -318,7 +318,7 @@ static int _wait_bluegene_block_ready(resource_allocation_response_msg_t *alloc)
 			break;
 	}
 	if (is_ready)
-     		debug("Block %s is ready for job", block_id);
+		debug("Block %s is ready for job", block_id);
 	else if (!destroy_job)
 		error("Block %s still not ready", block_id);
 	else	/* destroy_job set and slurmctld not responing */
@@ -422,7 +422,7 @@ static int _wait_nodes_ready(resource_allocation_response_msg_t *alloc)
 		resource_allocation_response_msg_t *resp;
 		char *tmp_str;
 		if (i > 0)
-     			verbose("Nodes %s are ready for job", alloc->node_list);
+			verbose("Nodes %s are ready for job", alloc->node_list);
 		if (alloc->alias_list && !xstrcmp(alloc->alias_list, "TBD") &&
 		    (slurm_allocation_lookup_lite(pending_job_id, &resp)
 		     == SLURM_SUCCESS)) {
@@ -644,7 +644,7 @@ allocate_nodes_jobpack(bool handle_signals)
 			fatal( "no response to pack job allocation request" );
 		}
 		copy_resp_struct(desc[group_index].pack_job_env[
-			         job_index].resp, resp);
+				 job_index].resp, resp);
 		return resp;
 	}
 
@@ -666,30 +666,29 @@ allocate_nodes_jobpack(bool handle_signals)
 		}
 		desc[0].pack_job_env[0].job_id = resp->job_id;
 		copy_resp_struct(desc[group_index].pack_job_env[job_index].
-			         resp, resp);
+				 resp, resp);
 
 		for (desc_index = 0; desc_index < pack_desc_count;
 		     desc_index++) {
 			copy_opt_struct(&opt,
-				        desc[desc_index].pack_job_env[0].opt);
+					desc[desc_index].pack_job_env[0].opt);
 			copy_resp_struct(resp, desc[desc_index].
-				         pack_job_env[0].resp);
+					 pack_job_env[0].resp);
 			opt.jobid = desc[desc_index].pack_job_env[0].job_id;
 			resp = existing_allocation();
 
-			if (!resp) {
+			if (!resp)
 				fatal("JPCK: failed pack member allocation. "
 				      "desc_index=%d desc[0]_job=%d opt_job=%d",
 				      desc_index, desc[0].pack_job_env[0].
 				      job_id, opt.jobid);
-			}
 
 			/* save response message for pack-member */
 			copy_resp_struct(desc[desc_index].pack_job_env[0].resp,
-				         resp);
-			 }
-	}			 
-			
+					 resp);
+		}
+	}
+
 	if (resp && !destroy_job) {
 		/*
 		 * Allocation granted!
@@ -779,27 +778,27 @@ resource_allocation_response_msg_t *
 existing_allocation(void)
 {
 	uint32_t old_job_id;
-        resource_allocation_response_msg_t *resp = NULL;
+	resource_allocation_response_msg_t *resp = NULL;
 
 	if (opt.jobid != NO_VAL)
 		old_job_id = (uint32_t)opt.jobid;
 	else
-                return NULL;
+		return NULL;
 
-        if (slurm_allocation_lookup_lite(old_job_id, &resp) < 0) {
-                if (opt.parallel_debug || opt.jobid_set)
-                        return NULL;    /* create new allocation as needed */
-                if (errno == ESLURM_ALREADY_DONE)
-                        error ("SLURM job %u has expired.", old_job_id);
-                else
-                        error ("Unable to confirm allocation for job %u: %m",
+	if (slurm_allocation_lookup_lite(old_job_id, &resp) < 0) {
+		if (opt.parallel_debug || opt.jobid_set)
+			return NULL;    /* create new allocation as needed */
+		if (errno == ESLURM_ALREADY_DONE)
+			error ("SLURM job %u has expired.", old_job_id);
+		else
+			error ("Unable to confirm allocation for job %u: %m",
 			       old_job_id);
-                info ("Check SLURM_JOB_ID environment variable "
-                      "for expired or invalid job.");
-                exit(error_exit);
-        }
+		info ("Check SLURM_JOB_ID environment variable "
+		      "for expired or invalid job.");
+		exit(error_exit);
+	}
 
-        return resp;
+	return resp;
 }
 
 /* Set up port to handle messages from slurmctld */
@@ -1113,5 +1112,3 @@ create_job_step(srun_job_t *job, bool use_all_cpus)
 					_signal_while_allocating,
 					&destroy_job);
 }
-
-

@@ -809,7 +809,7 @@ void set_options(const int argc, char **argv)
 		{"use-min-nodes", no_argument,       0, LONG_OPT_USE_MIN_NODES},
 		{"wait-all-nodes",required_argument, 0, LONG_OPT_WAIT_ALL_NODES},
 		{"wckey",         required_argument, 0, LONG_OPT_WCKEY},
-		{"resv-port",     no_argument, 0, LONG_OPT_RESV_PORT},
+		{"resv-port",     no_argument,       0, LONG_OPT_RESV_PORT},
 		{NULL,            0,                 0, 0}
 	};
 	char *opt_string =
@@ -1207,13 +1207,12 @@ void set_options(const int argc, char **argv)
 		case LONG_OPT_PRIORITY:
 			if (!optarg) { /* CLANG Fix */
 				;
+			} else if (!(_check_jobpack__opt("--priority"))) {
+				break;
 			} else if (strcasecmp(optarg, "TOP") == 0) {
 				opt.priority = NO_VAL - 1;
 			} else {
 				priority = strtoll(optarg, NULL, 10);
-			if (_check_jobpack__opt("--priority")) {
-				priority = strtoll(optarg, NULL, 10);
-			}
 				if (priority < 0) {
 					error("Priority must be >= 0");
 					exit(error_exit);

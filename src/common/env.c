@@ -1419,7 +1419,6 @@ env_array_for_step(char ***dest,
 		   bool preserve_env)
 {
         char *tmp, *tpn;
-	//        char *val;
 	uint32_t node_cnt = step->step_layout->node_cnt;
 	uint32_t cluster_flags = slurmdb_setup_cluster_flags();
 	int jobpack_flag = 0;

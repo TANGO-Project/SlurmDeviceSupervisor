@@ -354,9 +354,8 @@ exec_task(stepd_step_rec_t *job, int i)
 		_make_tmpdir(job);
 
 	gtids = xmalloc(job->node_tasks * sizeof(uint32_t));
-	for (j = 0; j < job->node_tasks; j++) {
+	for (j = 0; j < job->node_tasks; j++)
 		gtids[j] = job->task[j]->gtid;
-	}
 	job->envtp->sgtids = _uint32_array_to_str(job->node_tasks, gtids);
 	xfree(gtids);
 

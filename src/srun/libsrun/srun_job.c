@@ -397,14 +397,14 @@ job_step_create_allocation(resource_allocation_response_msg_t *resp)
 
 	ai->partition = resp->partition;
 
-/* 	info("looking for %d nodes out of %s with a must list of %s", */
-/* 	     ai->nnodes, ai->nodelist, opt.nodelist); */
+/*	info("looking for %d nodes out of %s with a must list of %s", */
+/*	     ai->nnodes, ai->nodelist, opt.nodelist); */
 	/*
 	 * Create job
 	 */
 	job = _job_create_structure(ai);
 error:
-   	xfree(ai);
+	xfree(ai);
 	return (job);
 
 }
@@ -834,10 +834,10 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 			* Spawn process to insure clean-up of
 			* job and/or step on abnormal term
 			*/
-		opt.shepherd_fd = -1;
-		opt.shepherd_fd = _shepherd_spawn(job,
-				 *got_alloc);
-			 
+			opt.shepherd_fd = -1;
+			opt.shepherd_fd = _shepherd_spawn(job,
+							  *got_alloc);
+
 			copy_opt_struct(desc[group_index].pack_job_env[
 					job_index].opt, &opt);
 		}
@@ -849,11 +849,9 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 			      "job_pack");
 		if ((tmp = getenv ("SLURM_NUMPACK"))) {
 			numpack = atoi(tmp);
-			if (numpack > 1 ) {
+			if (numpack > 1 )
 				fatal("Pack job didn't use the existing "
 				      "allocation");
-			}
-
 		}
 #if defined HAVE_FRONT_END && (!defined HAVE_BG || defined HAVE_BG_L_P || !defined HAVE_BG_FILES) && (!defined HAVE_REAL_CRAY)
 		uid_t my_uid = getuid();
@@ -863,10 +861,9 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 			exit(error_exit);
 		}
 #endif
-		if (opt.relative_set && opt.relative) {
+		if (opt.relative_set && opt.relative)
 			fatal("--relative option invalid for job allocation "
 			      "request");
-		}
 
 		if (!opt.job_name_set_env && opt.job_name_set_cmd)
 			setenvfs("SLURM_JOB_NAME=%s", opt.job_name);
@@ -876,9 +873,9 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 		if ( !(resp = allocate_nodes(handle_signals)) )
 			exit(error_exit);
 
-		if (packjob == true) {
+		if (packjob == true)
 			return;
-		}
+
 		global_resp = resp;
 		*got_alloc = true;
 		for (desc_index = 0; desc_index < pack_desc_count;
@@ -989,7 +986,7 @@ extern void fini_srun(srun_job_t *job, bool got_alloc, uint32_t *global_rc,
 			slurm_complete_job(job->jobid, NO_VAL);
 		else
 			slurm_complete_job(job->jobid, *global_rc);
-		}
+	}
 
 	_shepherd_notify(opt.shepherd_fd);
 
@@ -1054,10 +1051,9 @@ job_force_termination(srun_job_t *job)
 			info("job abort in progress");
 			last_msg = now;
 		}
-		if (kill_sent == 1) {
+		if (kill_sent == 1)
 			/* Try sending SIGKILL through slurmctld */
 			slurm_kill_job_step(job->jobid, job->stepid, SIGKILL);
-		}
 	}
 	kill_sent++;
 }
@@ -1101,9 +1097,9 @@ _job_create_structure(allocation_info_t *ainfo)
 	slurm_cond_init(&job->state_cond, NULL);
 	job->state = SRUN_JOB_INIT;
 
- 	job->alias_list = xstrdup(ainfo->alias_list);
- 	job->nodelist = xstrdup(ainfo->nodelist);
- 	job->partition = xstrdup(ainfo->partition);
+	job->alias_list = xstrdup(ainfo->alias_list);
+	job->nodelist = xstrdup(ainfo->nodelist);
+	job->partition = xstrdup(ainfo->partition);
 	job->stepid  = ainfo->stepid;
 
 #if defined HAVE_BG

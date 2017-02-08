@@ -213,17 +213,15 @@ _setup_stepd_job_info(const stepd_step_rec_t *job, char ***env)
 	if (p) {
 		job_info.pmi_stepid = xstrdup(p);
 		unsetenvp(*env, PMI2_PMI_STEPID_ENV);
-	} else {
+	} else
 		xstrfmtcat(job_info.pmi_stepid, "%u", job->mpi_stepid);
-	}
 	p = getenvp(*env, PMI2_PMI_JOBID_ENV);
 	if (p) {
 		job_info.pmi_jobid = xstrdup(p);
 		unsetenvp(*env, PMI2_PMI_JOBID_ENV);
-	} else {
+	} else
 		xstrfmtcat(job_info.pmi_jobid, "%u.%u", job->mpi_jobid,
 			   job->mpi_stepid);
-	}
 	p = getenvp(*env, PMI2_STEP_NODES_ENV);
 	if (!p) {
 		error("mpi/pmi2: unable to find nodes in job environment");
@@ -346,9 +344,8 @@ _setup_stepd_tree_info(const stepd_step_rec_t *job, char ***env)
 	if (!p) {
 		error("mpi/pmi2: unable to find srun comm ifhn in env");
 		return SLURM_ERROR;
-	} else {
+	} else
 		strncpy(srun_host, p, 64);
-	}
 	p = getenvp(*env, PMI2_SRUN_PORT_ENV);
 	if (!p) {
 		error("mpi/pmi2: unable to find srun pmi2 port in env");
@@ -671,11 +668,10 @@ _setup_srun_job_info(const mpi_plugin_client_info_t *job)
 
 
 	p = getenv(PMI2_PMI_DEBUGGED_ENV);
-	if (p) {
+	if (p)
 		job_info.pmi_debugged = atoi(p);
-	} else {
+	else
 		job_info.pmi_debugged = 0;
-	}
 	p = getenv(PMI2_SPAWN_SEQ_ENV);
 	if (p) { 		/* spawned */
 		job_info.spawn_seq = atoi(p);
@@ -688,22 +684,19 @@ _setup_srun_job_info(const mpi_plugin_client_info_t *job)
 	}
 	job_info.step_nodelist = xstrdup(job->step_layout->node_list);
 	job_info.proc_mapping = _get_proc_mapping(job);
-	if (job_info.proc_mapping == NULL) {
+	if (job_info.proc_mapping == NULL)
 		return SLURM_ERROR;
-	}
 	p = getenv(PMI2_PMI_STEPID_ENV);
-	if (p) {		/* spawned */
+	if (p)		/* spawned */
 		job_info.pmi_stepid = xstrdup(p);
-	} else {
+	else
 		xstrfmtcat(job_info.pmi_stepid, "%u", job_info.stepid);
-	}
 	p = getenv(PMI2_PMI_JOBID_ENV);
-	if (p) {		/* spawned */
+	if (p)		/* spawned */
 		job_info.pmi_jobid = xstrdup(p);
-	} else {
+	else
 		xstrfmtcat(job_info.pmi_jobid, "%u.%u", job->jobid,
 			   job->stepid);
-	}
 
 	job_info.job_env = env_array_copy((const char **)environ);
 

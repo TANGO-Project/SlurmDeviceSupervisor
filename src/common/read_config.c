@@ -4869,7 +4869,7 @@ extern int debug_str2flags(char *debug_flags, uint64_t *flags_out)
 			(*flags_out) |= DEBUG_FLAG_POWER;
 		else if (xstrcasecmp(tok, "TimeCray") == 0)
 			(*flags_out) |= DEBUG_FLAG_TIME_CRAY;
-		else if (strcasecmp(tok, "JobPack") == 0)
+		else if (xstrcasecmp(tok, "JobPack") == 0)
 			(*flags_out) |= DEBUG_FLAG_JOB_PACK;
 		else {
 			error("Invalid DebugFlag: %s", tok);

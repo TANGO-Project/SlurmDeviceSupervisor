@@ -786,7 +786,7 @@ static int _cluster_get_jobs(mysql_conn_t *mysql_conn,
 			xfree(extra);
 		}
 
-//		if (debug_flags & DEBUG_FLAG_DB_STEP)
+		if (debug_flags & DEBUG_FLAG_DB_STEP)
 			DB_DEBUG(mysql_conn->conn, "query\n%s", query);
 
 		if (!(step_result = mysql_db_query_ret(

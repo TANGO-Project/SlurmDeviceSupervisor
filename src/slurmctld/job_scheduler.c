@@ -2296,7 +2296,7 @@ extern batch_job_launch_msg_t *build_launch_job_msg(struct job_record *job_ptr,
 		launch_msg_ptr->pelog_env_size = job_ptr->pelog_env_size;
 		launch_msg_ptr->pelog_env = xduparray(job_ptr->pelog_env_size,
 						      job_ptr->pelog_env);
-        }
+	}
 	launch_msg_ptr->environment = get_job_env(job_ptr,
 						  &launch_msg_ptr->envc);
 	if (launch_msg_ptr->environment == NULL) {
@@ -2386,17 +2386,16 @@ static void _list_resv_ports_jobpack(struct job_record *job_ptr, List rports)
 	uint16_t protocol_version = (uint16_t) NO_VAL;
 	char *ports;
 
-	if (job_ptr->details == NULL) {
+	if (job_ptr->details == NULL)
 		return;
-	}
-	if (job_ptr->details->depend_list == NULL) {
+
+	if (job_ptr->details->depend_list == NULL)
 		return;
-	}
+
 	depend_iter = list_iterator_create(job_ptr->details->depend_list);
 	while ((dep_ptr = (struct depend_spec *) list_next(depend_iter))) {
-		if (dep_ptr->depend_type != SLURM_DEPEND_PACKLEADER) {
+		if (dep_ptr->depend_type != SLURM_DEPEND_PACKLEADER)
 			continue;
-		}
 		dep_job_ptr = dep_ptr->job_ptr;
 #ifdef HAVE_FRONT_END
 		front_end_record_t *front_end_ptr;
@@ -2457,7 +2456,7 @@ static void _add_jobpack_envs(char **member_env, int numpack, uint32_t ntasks,
 			      batch_job_launch_msg_t *launch_msg_ptr,
 			      struct job_record *job_ptr_ldr, List rports)
 {
-        struct job_record *jp;
+	struct job_record *jp;
 	uint32_t nnodes_pack;
 	char *nodelist_pack;
 	int i;
@@ -2640,18 +2639,16 @@ static char ** _check_for_jobpack_envs(struct job_record *job_ptr,
 	char *ntaskmember = NULL;
 	int packcnt = 0;
 
-	if (job_ptr->details == NULL) {
+	if (job_ptr->details == NULL)
 		return NULL;
-	}
-	if (job_ptr->details->depend_list == NULL) {
+
+	if (job_ptr->details->depend_list == NULL)
 		return NULL;
-	}
 
 	depend_iter = list_iterator_create(job_ptr->details->depend_list);
 	while ((dep_ptr = (struct depend_spec *) list_next(depend_iter))) {
-		if (dep_ptr->depend_type != SLURM_DEPEND_PACKLEADER) {
+		if (dep_ptr->depend_type != SLURM_DEPEND_PACKLEADER)
 			continue;
-		}
 		dep_job_ptr = dep_ptr->job_ptr;
 #ifdef HAVE_FRONT_END
 		front_end_record_t *front_end_ptr;
@@ -2711,12 +2708,12 @@ static char ** _check_jobpack_member_envs(struct job_record *job_ptr,
 	int packcnt = 1;
 	struct node_record *node_ptr;
 
-	if (job_ptr->details == NULL) {
+	if (job_ptr->details == NULL)
 		return NULL;
-	}
-	if (job_ptr->details->depend_list == NULL) {
+
+	if (job_ptr->details->depend_list == NULL)
 		return NULL;
-	}
+
 #ifdef HAVE_FRONT_END
 	front_end_record_t *front_end_ptr;
 	front_end_ptr = find_front_end_record(job_ptr->batch_host);
@@ -2798,7 +2795,7 @@ static char ** _check_jobpack_member_envs(struct job_record *job_ptr,
 }
 
 /*
- * launch_jobpack - send RPCs to a slurmds to initiate  batch job
+ * launch_jobpack - send RPCs to slurmds to initiate batch job
  * IN job_ptr - pack leader job pointer
  */
 static void _launch_jobpack(struct job_record *job_ptr, List rports)
@@ -2813,18 +2810,16 @@ static void _launch_jobpack(struct job_record *job_ptr, List rports)
 	int numpack = 0;
 	uint32_t ntasks = 0;
 
-	if (job_ptr->details == NULL) {
+	if (job_ptr->details == NULL)
 		return;
-	}
-	if (job_ptr->details->depend_list == NULL) {
+
+	if (job_ptr->details->depend_list == NULL)
 		return;
-	}
 
 	depend_iter = list_iterator_create(job_ptr->details->depend_list);
 	while ((dep_ptr = (struct depend_spec *) list_next(depend_iter))) {
-		if (dep_ptr->depend_type != SLURM_DEPEND_PACKLEADER) {
+		if (dep_ptr->depend_type != SLURM_DEPEND_PACKLEADER)
 			continue;
-		}
 		dep_job_ptr = dep_ptr->job_ptr;
 		xstrfmtcat(list_jobids, "%d", job_ptr->job_id);
 		xstrfmtcat(list_jobids, ",%d", dep_job_ptr->job_id);
@@ -3255,21 +3250,20 @@ extern int test_job_dependency(struct job_record *job_ptr)
 				failure = true;
 				break;
 			} else if (job_ptr->job_id > lpackmbr) {
-				if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+				if (debug_flags & DEBUG_FLAG_JOB_PACK)
 					info("JPCK: Jobid=%d (%s) is a pack "
 					      "member. Leader=%d",
 					      job_ptr->job_id, job_ptr->name,
 					      job_ptr->pack_leader);
-				}
 				lpackmbr = job_ptr->job_id;
 			}
 		} else if (dep_ptr->depend_type == SLURM_DEPEND_PACKLEADER) {
 			if ((debug_flags & DEBUG_FLAG_JOB_PACK)
-			     && ( job_ptr->job_id >= lpackldr)) {
+			     && ( job_ptr->job_id >= lpackldr))
 				info("JPCK: Jobid=%d (%s) is a pack leader "
 				     "for %d", job_ptr->job_id, job_ptr->name,
 				     dep_ptr->job_id);
-			}
+
 			/* lpackldr is not a perfect filter for logging pack
 			 * leaders. It will log the last pack leader submitted
 			 * until it is complete. */
@@ -3568,7 +3562,7 @@ static bool _xref_packleader(struct job_record *job_ptr, List depend_list)
 			/* This is a pack member, identify its leader */
 			dep_job_ptr->pack_leader = job_ptr->job_id;
 			/* Reformat dependency string so scontrol identifies
-			 * this our pack leadder */
+			 * this our pack leader */
 			xfree(dep_job_ptr->details->dependency);
 			dep_job_ptr->details->dependency = xstrdup("pack");
 			xstrfmtcat(dep_job_ptr->details->dependency,

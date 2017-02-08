@@ -218,9 +218,9 @@ int PMI_Init( int *spawned )
 		goto replay;
 
 	env = getenv("SLURM_JOB_ID");
-	if (env) {
+	if (env)
 		pmi_jobid = atoi(env);
-	} else
+	else
 		pmi_jobid = 0;
 
 	env = getenv("SLURM_STEPID");
@@ -259,19 +259,16 @@ int PMI_Init( int *spawned )
 		pmi_jobid = atoi(strtok(env, s));
 	}
 	env = getenv("PMI_STEPID");
-	if (env) {
+	if (env)
 		pmi_stepid = atoi(env);
-	}
 
 	env = getenv("PMI_RANK");
-	if (env) {
+	if (env)
 		pmi_rank = atoi(env);
-	}
 
 	env = getenv("PMI_SIZE");
-	if (env) {
+	if (env)
 		pmi_size = atoi(env);
-	}
 
 	if (pmi_debug) {
 		fprintf(stderr, "pmi_jobid=%ld\n", pmi_jobid);

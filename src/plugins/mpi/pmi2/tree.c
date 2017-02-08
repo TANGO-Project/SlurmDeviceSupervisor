@@ -734,7 +734,6 @@ tree_msg_to_stepds(hostlist_t hl, uint32_t len, char *data)
 		for (i=0; i < srun_num_steps; i++) {
 			/* set srun_nodelist to sublist of nodes for this srun
 			 * step index */
-//			nnodes = job_info.nnodes_array[i];
 			srun_nodelist[0] ='\0';
 			for (j=0; j<job_info.nnodes_array[i]; j++) {
 				if (j>0)
