@@ -157,161 +157,6 @@ int sig_array[] = {
 	SIGTERM, SIGUSR1, SIGUSR2, 0
 };
 
-int _count_jobs(int ac, char **av)
-{
-	int index;
-
-	for (index = 0; index < ac; index++) {
-		if ((strcmp(av[index], ":") == 0)) {
-			pack_desc_count ++;
-			if (index+1 == ac)
-			        fatal( "Missing pack job specification "
-				       "following pack job delimiter" );
-		}
-	}
-	if(pack_desc_count) pack_desc_count++;
-	return pack_desc_count;
-}
-
-static void _build_env_structs(int ac, char **av)
-{
-	int i;
-
-	pack_job_env = xmalloc(sizeof(pack_job_env_t) * pack_desc_count);
-	for (i = 0; i < pack_desc_count; i++) {
-		pack_job_env[i].opt = xmalloc(sizeof(opt_t));
-		memset(pack_job_env[i].opt, 0, sizeof(opt_t));
-		pack_job_env[i].env = (char **)xmalloc(sizeof(char **));
-		pack_job_env[i].env[0] = NULL;
-		pack_job_env[i].desc = xmalloc(sizeof(job_desc_msg_t));
-		memset(pack_job_env[i].desc, 0, sizeof(job_desc_msg_t));
-		pack_job_env[i].alloc =
-			xmalloc(sizeof(resource_allocation_response_msg_t));
-		memset(pack_job_env[i].alloc, 0,
-		       sizeof(resource_allocation_response_msg_t));
-		pack_job_env[i].packleader = false;
-		pack_job_env[i].pack_job = false;
-		pack_job_env[i].job_id = 0;
-	}
-	return;
-}
-
-static void _identify_job_descriptions(int ac, char **av)
-{
-	int index, index2;
-	int i = 0;
-	int j = 0;
-	int current = 1;
-	int job_index = 0;
-	char *pack_str = xstrdup("-dpack");
-	char *packleader_str = xstrdup("-dpackleader");
-	char *command = NULL;
-	char **newcmd;
-	bool _pack_l;
-	uint16_t dependency_position = 0;
-
-	newcmd = xmalloc(sizeof(char *) * (ac + 1));
-	while (current < ac){
-		newcmd[0] = xstrdup(av[0]);
-		for (i = 1; i < (ac + 1); i++) {
-			newcmd[i] = NULL;
-		}
-		i = 1;
-		j = 1;
-		_pack_l = false;
-		dependency_position = 0;
-		for (index = current; index < ac; index++) {
-			command = xstrdup(av[index]);
-			if ((strcmp(command, ":") != 0)) {
-				newcmd[i] = command;
-				if ((strncmp(command, "-d", 2) == 0) ||
-				    (strncmp(command, "--d", 3) == 0)) {
-					dependency_position = i;
-				}
-				i++;
-				j++;
-			} else {
-				if (job_index == 0) {
-					_pack_l = true;
-				}
-				break;
-			}
-		}
-
-		if (_pack_l == false) {
-			if (job_index >= 1)
-				pack_job_env[job_index].pack_job = true;
-		} else {
-				pack_job_env[job_index].packleader = true;
-		}
-		current = index + 1;
-
-		if (dependency_position == 0) j++;
-		pack_job_env[job_index].av = xmalloc(sizeof(char *) * (j + 1));
-		pack_job_env[job_index].av[0] = (char *) xstrdup(newcmd[0]);
-		i = 1;
-		if (dependency_position != 0) {
-			if ((_pack_l == false) && (job_index >= 1)){
-				xstrcat(newcmd[dependency_position], ",pack");
-			} else if (_pack_l == true) {
-				xstrfmtcat(newcmd[dependency_position],
-					   ",packleader");
-				packl_dependency_position = dependency_position;
-			}
-		} else {
-			if (_pack_l == true) {
-				pack_job_env[job_index].av[1] = (char *)
-					xstrdup(packleader_str);
-				packl_dependency_position = 1;
-				i++;
-			} else if ((_pack_l == false) && (job_index >= 1)) {
-				pack_job_env[job_index].av[1] = (char *)
-					xstrdup(pack_str);
-				i++;
-			}
-		}
-		int k = 1;
-		for (index2 = i; index2 < j + 1; index2++) {
-			pack_job_env[job_index].av[index2] = (char * )
-				xstrdup(newcmd[k]);
-			k++;
-		}
-
-		pack_job_env[job_index].ac = j;
-		job_index++;
-	}
-	for (i = 0; i < (ac + 1); i++) {
-		if(newcmd[i] != NULL)
-			xfree(newcmd[i]);
-	}
-	return;
-}
-
-resource_allocation_response_msg_t *
-existing_allocation(void)
-{
-	uint32_t old_job_id;
-        resource_allocation_response_msg_t *resp = NULL;
-
-	if (opt.jobid != NO_VAL)
-		old_job_id = (uint32_t)opt.jobid;
-	else
-		return NULL;
-
-	if (slurm_allocation_lookup_lite(old_job_id, &resp) < 0) {
-		if (errno == ESLURM_ALREADY_DONE)
-			error ("SLURM job %u has expired.", old_job_id);
-		else
-			error ("Unable to confirm allocation for job %u: %m",
-			       old_job_id);
-		info ("Check SLURM_JOB_ID environment variable "
-			  "for expired or invalid job.");
-		exit(error_exit);
-	}
-
-	return resp;
-}
-
 static void _reset_input_mode (void)
 {
 	/* SIGTTOU needs to be blocked per the POSIX spec:
@@ -333,7 +178,7 @@ int main(int argc, char **argv)
 	job_desc_msg_t desc;
 	resource_allocation_response_msg_t *alloc;
 	time_t before, after;
-	allocation_msg_thread_t *msg_thr = NULL;
+	allocation_msg_thread_t *msg_thr;
 	char **env = NULL, *cluster_name;
 	int status = 0;
 	int retries = 0;
@@ -343,18 +188,10 @@ int main(int argc, char **argv)
 	int i, rc = 0;
 	static char *msg = "Slurm job queue full, sleeping and retrying.";
 	slurm_allocation_callbacks_t callbacks;
-	char* listjobids = NULL;
 
 	slurm_conf_init(NULL);
 	log_init(xbasename(argv[0]), logopt, 0, NULL);
 	_set_exit_code();
-
-	if (_count_jobs(argc, argv)) {
-		rc = main_jobpack(argc, argv);
-		if (rc != 0)
-			error("jobpack processing failed");
-		return 0;
-	}
 
 	if (spank_init_allocator() < 0) {
 		error("Failed to initialize plugin stack");
@@ -481,23 +318,12 @@ int main(int argc, char **argv)
 		}
 	}
 
-	/* If can run on multiple clusters find the earliest run time
-	 * and run it there */
-	desc.clusters = xstrdup(opt.clusters);
-	if (opt.clusters &&
-	    slurmdb_get_first_avail_cluster(&desc, opt.clusters,
-			&working_cluster_rec) != SLURM_SUCCESS) {
-		print_db_notok(opt.clusters, 0);
-		exit(error_exit);
-	}
-
 	callbacks.ping = _ping_handler;
 	callbacks.timeout = _timeout_handler;
 	callbacks.job_complete = _job_complete_handler;
 	callbacks.job_suspend = _job_suspend_handler;
 	callbacks.user_msg = _user_msg_handler;
 	callbacks.node_fail = _node_fail_handler;
-
 	/* create message thread to handle pings and such from slurmctld */
 	msg_thr = slurm_allocation_msg_thr_create(&desc.other_port,
 						  &callbacks);
@@ -551,17 +377,6 @@ int main(int argc, char **argv)
 		 */
 		info("Granted job allocation %u", alloc->job_id);
 		pending_job_id = alloc->job_id;
-
-		if (alloc->working_cluster_rec) {
-			slurm_setup_remote_working_cluster(alloc);
-
-			/* set env for srun's to find the right cluster */
-			setenvf(NULL, "SLURM_WORKING_CLUSTER", "%s:%d:%d",
-				working_cluster_rec->control_host,
-				working_cluster_rec->control_port,
-				working_cluster_rec->rpc_version);
-		}
-
 #ifdef HAVE_BG
 		if (!_wait_bluegene_block_ready(alloc)) {
 			if (!allocation_interrupted)
@@ -641,7 +456,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	env_array_set_environment(env, -1);
+	env_array_set_environment(env);
 	env_array_free(env);
 
 	xstrfmtcat(listjobids, "%d", alloc->job_id);
@@ -1339,6 +1154,12 @@ relinquish:
 			default:
 				break;
 			}
+	for (index = 0; index < ac; index++) {
+		if (!xstrcmp(av[index], ":")) {
+			pack_desc_count ++;
+			if (index+1 == ac)
+			        fatal( "Missing pack job specification "
+				       "following pack job delimiter" );
 		}
 	}
 	return rc;
@@ -1564,6 +1385,7 @@ static int _fill_job_desc_from_opts(job_desc_msg_t *desc)
 		desc->bitflags = opt.job_flags;
 	desc->shared = opt.shared;
 	desc->job_id = opt.jobid;
+
 	desc->wait_all_nodes = opt.wait_all_nodes;
 	if (opt.warn_signal)
 		desc->warn_signal = opt.warn_signal;
@@ -1581,9 +1403,6 @@ static int _fill_job_desc_from_opts(job_desc_msg_t *desc)
 		desc->mcs_label = xstrdup(opt.mcs_label);
 	if (opt.delay_boot != NO_VAL)
 		desc->delay_boot = opt.delay_boot;
-
-	if (opt.resv_port_flag)
-	        desc->resv_port = 1;
 
 	return 0;
 }
@@ -1782,6 +1601,7 @@ static void _set_rlimits(char **env)
 	char env_name[25] = "SLURM_RLIMIT_";
 	char *env_value, *p;
 	struct rlimit r;
+	//unsigned long env_num;
 	rlim_t env_num;
 
 	for (rli=get_slurm_rlimits_info(); rli->name; rli++) {

@@ -3136,10 +3136,10 @@ static void _depend_list2str(struct job_record *job_ptr, bool set_or_flag)
 			xstrfmtcat(job_ptr->details->dependency, "%s%s:%u",
 					sep, dep_str, dep_ptr->job_id);
 		else {
-			if (strcmp(dep_str,"pack") == 0) {
+			if (!xstrcmp(dep_str, "pack")) {
 				xstrfmtcat(job_ptr->details->dependency,
 					   "%s%s ", sep, dep_str);
-			} else if (strcmp(dep_str,"packleader") == 0) {
+			} else if (!xstrcmp(dep_str, "packleader")) {
 				if (!leader1) {
 					xstrfmtcat(job_ptr->details->dependency,
 						   "%s%s:%u",
@@ -3541,8 +3541,8 @@ static bool _xref_packleader(struct job_record *job_ptr, List depend_list)
 			}
 			if (dep_job_ptr->details == NULL
 			    || dep_job_ptr->details->dependency == NULL
-			    || (strcmp(dep_job_ptr->details->dependency,
-					    "pack ") !=0)) {
+			    || (xstrcmp(dep_job_ptr->details->dependency,
+					"pack "))) {
 				if (debug_flags & DEBUG_FLAG_JOB_PACK) {
 					info("JPCK: %d is not -dpack"
 					     " for leader=%d",
@@ -3554,8 +3554,7 @@ static bool _xref_packleader(struct job_record *job_ptr, List depend_list)
 			}
 			/*  TBD -- test for account, or user_id if desired
 			 * for now we don't think this is needed
-			if (strcmp(dep_job_ptr->account,job_ptr->account)
-									!= 0) {
+			if (xstrcmp(dep_job_ptr->account,job_ptr->account)) {
 				if (debug_flags & DEBUG_FLAG_JOB_PACK) {
 					info("JPCK: member=%d is not same "
 					     "accountg as leader=%d",

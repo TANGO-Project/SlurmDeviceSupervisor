@@ -1396,8 +1396,7 @@ static void _set_options(int argc, char **argv)
 			break;
 		case 'd':
 			xfree(opt.dependency);
-			if ((packjob == true) &&
-			    (strcmp(optarg, "pack") == 0)) {
+			if ((packjob == true) && !xstrcmp(optarg, "pack")) {
 				opt.dependency = xstrdup(optarg);
 				break;
 			}
@@ -1514,8 +1513,7 @@ static void _set_options(int argc, char **argv)
 		case 'P':
 			verbose("-P option is deprecated, use -d instead");
 			xfree(opt.dependency);
-			if ((packjob == true) &&
-			    (strcmp(optarg, "pack") == 0)) {
+			if ((packjob == true) && !xstrcmp(optarg, "pack")) {
 				opt.dependency = xstrdup(optarg);
 				break;
 			}
@@ -2348,7 +2346,7 @@ static void _set_pbs_options(int argc, char **argv)
 			} else if (!strncasecmp(optarg, "depend=", 7)) {
 				xfree(opt.dependency);
 				if ((packjob == true) &&
-				    (strcmp(optarg, "pack") == 0)) {
+				    !xstrcmp(optarg, "pack")) {
 					opt.dependency = xstrdup(optarg);
 					break;
 				}

@@ -451,7 +451,11 @@ static int _sort_job_by_dependency_jobpack(void *void1, void *void2)
 	if (strlen(packldr) == 0 || strlen(packmbr_ldr) == 0)
 		return 0;
 
-	diff = (strcmp(packldr, packmbr_ldr) == 0);
+
+	diff = xstrcmp(packldr, packmbr_ldr);
+
+	if (reverse_order)
+		diff = -diff;
 
 	return diff;
 }
@@ -505,7 +509,10 @@ static int _sort_step_by_dependency_jobpack(void *void1, void *void2)
 	if (strlen(packldr) == 0 || strlen(packmbr_ldr) == 0)
 		return 0;
 
-	diff = (strcmp(packldr, packmbr_ldr) == 0);
+	diff = xstrcmp(packldr, packmbr_ldr);
+
+	if (reverse_order)
+		diff = -diff;
 
 	return diff;
 }

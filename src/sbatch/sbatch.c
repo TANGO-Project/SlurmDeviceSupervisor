@@ -95,7 +95,7 @@ int _count_jobs(int ac, char **av)
 	int index;
 
 	for (index = 0; index < ac; index++) {
-		if ((strcmp(av[index], ":") == 0)) {
+		if (!xstrcmp(av[index], ":")) {
 			pack_desc_count ++;
 			if (index+1 == ac)
 			        fatal( "Missing pack job specification "
@@ -148,7 +148,7 @@ static void _identify_job_descriptions(int ac, char **av)
 		dependency_position = 0;
 		for (index = current; index < ac; index++) {
 			command = xstrdup(av[index]);
-			if ((strcmp(command, ":") != 0)) {
+			if (xstrcmp(command, ":")) {
 				newcmd[i] = command;
 				if ((strncmp(command, "-d", 2) == 0) ||
 				    (strncmp(command, "--d", 3) == 0)) {

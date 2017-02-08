@@ -355,7 +355,7 @@ int initialize_and_process_args_jobpack(int argc, char *argv[],
 
 	if (opt.launch_cmd) {
 		char *launch_type = slurm_get_launch_type();
-		if (!strcmp(launch_type, "launch/slurm")) {
+		if (!xstrcmp(launch_type, "launch/slurm")) {
 			error("--launch-cmd option is invalid with %s",
 			      launch_type);
 			xfree(launch_type);
@@ -983,9 +983,9 @@ _process_env_var(env_vars_t *e, const char *val)
 		break;
 
 	case OPT_MPI_COMBINE:
-		if (strcmp(val, "yes") == 0)
+		if (!xstrcmp(val, "yes"))
 			opt.mpi_combine = true;
-		else if (strcmp(val, "no") == 0)
+		else if (!xstrcmp(val, "no"))
 			opt.mpi_combine = false;
 		else {
 			error("\"%s=%s\" -- invalid MPI_COMBINE, "
@@ -1333,8 +1333,7 @@ static void _set_options(const int argc, char **argv)
 			break;
 		case (int)'d':
 			xfree(opt.dependency);
-			if ((packjob == true) &&
-			    (strcmp(optarg, "pack") == 0)) {
+			if ((packjob == true) && !xstrcmp(optarg, "pack")) {
 				opt.dependency = xstrdup(optarg);
 				break;
 			}
@@ -1478,8 +1477,7 @@ static void _set_options(const int argc, char **argv)
 		case (int)'P':
 			verbose("-P option is deprecated, use -d instead");
 			xfree(opt.dependency);
-			if ((packjob == true) &&
-			    (strcmp(optarg, "pack") == 0)) {
+			if ((packjob == true) && !xstrcmp(optarg, "pack")) {
 				opt.dependency = xstrdup(optarg);
 				break;
 			}
@@ -1661,9 +1659,9 @@ static void _set_options(const int argc, char **argv)
 			}
 			break;
 		case LONG_OPT_MPI_COMBINE:
-			if (strcmp(optarg, "yes") == 0)
+			if (!xstrcmp(optarg, "yes"))
 				opt.mpi_combine = true;
-			else if (strcmp(optarg, "no") == 0)
+			else if (!xstrcmp(optarg, "no"))
 				opt.mpi_combine = false;
 			else {
 				error("\"--mpi-combine=%s\" -- invalid MPI_COMBINE, "

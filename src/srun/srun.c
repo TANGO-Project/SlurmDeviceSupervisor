@@ -198,13 +198,13 @@ int _count_jobs(int ac, char **av)
 	bool pack_group_job = false;
 
 	for (index = 0; index < ac; index++) {
-		if ((strcmp(av[index], ":") == 0)) {
+		if (!xstrcmp(av[index], ":")) {
 			pack_desc_count ++;
 			if (index+1 == ac)
 			        fatal( "Missing pack job specification "
 				       "following pack job delimiter" );
 		}
-		if ((strncmp(av[index], "--pack", 6) == 0)) {
+		if (!xstrncmp(av[index], "--pack", 6)) {
 			pack_group_job = true;
 		}
 	}
@@ -338,7 +338,7 @@ static void _identify_job_descriptions(int ac, char **av)
 		dependency_position = 0;
 		for (index = current; index < ac; index++) {
 			command = xstrdup(av[index]);
-			if ((strcmp(command, ":") != 0)) {
+			if (xstrcmp(command, ":")) {
 				newcmd[i] = command;
 				if ((strncmp(command, "-d", 2) == 0) ||
 				    (strncmp(command, "--d", 3) == 0)) {
@@ -429,10 +429,10 @@ static void _identify_group_job_descriptions(int ac, char **av)
 		dependency_position = 0;
 		for (index = current; index < ac; index++) {
 			command = xstrdup(av[index]);
-			if ((strcmp(command, ":") != 0)) {
+			if (xstrcmp(command, ":")) {
 				newcmd[i] = command;
-				if ((strncmp(command, "-d", 2) == 0) ||
-				    (strncmp(command, "--d", 3) == 0)) {
+				if (!xstrncmp(command, "-d", 2) ||
+				    !xstrncmp(command, "--d", 3)) {
 					dependency_position = i;
 				}
 				i++;
