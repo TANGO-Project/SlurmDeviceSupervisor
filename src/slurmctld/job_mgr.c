@@ -6583,6 +6583,7 @@ char **get_job_env(struct job_record *job_ptr, uint32_t * env_size)
 {
 	char *file_name = NULL, **environment = NULL;
 	int cc, fd = -1, hash;
+	uint32_t use_id;
 
 	/* Standard file location for job arrays */
 	if (job_ptr->array_task_id != NO_VAL) {
@@ -6634,6 +6635,7 @@ char *get_job_script(struct job_record *job_ptr)
 {
 	char *file_name = NULL, *script = NULL;
 	int fd = -1, hash;
+	uint32_t use_id;
 
 	if (!job_ptr->batch_flag)
 		return NULL;
