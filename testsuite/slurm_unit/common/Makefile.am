@@ -1,8 +1,6 @@
 AUTOMAKE_OPTIONS = foreign
 
-SUBDIRS = slurmdb_pack
-
-AM_CPPFLAGS = -I$(top_srcdir) -ldl -lpthread
+AM_CPPFLAGS = -I$(top_srcdir)
 LDADD = $(top_builddir)/src/api/libslurm.o $(DL_LIBS)
 
 check_PROGRAMS = \
