@@ -355,12 +355,12 @@ void print_fields(slurmdb_step_rec_t *step)
 			break;
 		case PRINT_PACKJOBID:
 			field->print_routine(field,
-					     step->packstepid[0],
+					     step->packjobid,
 					     (curr_inx == field_count));
 			break;
 		case PRINT_PACKSTEPID:
 			field->print_routine(field,
-					     step->packstepid[1],
+					     step->packstepid,
 					     (curr_inx == field_count));
 			break;
 		case PRINT_PIDS:

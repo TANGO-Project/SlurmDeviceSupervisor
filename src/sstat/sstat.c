@@ -144,8 +144,8 @@ int _do_stat(uint32_t jobid, uint32_t stepid, char *nodelist,
 	step.req_cpufreq_gov = req_cpufreq_gov;
 	step.stepname = NULL;
 	step.state = JOB_RUNNING;
-	step.packstepid[0] = packjobid;
-	step.packstepid[1] = packstepid;
+	step.packjobid = packjobid;
+	step.packstepid = packstepid;
 
 	hl = hostlist_create(NULL);
 	itr = list_iterator_create(step_stat_response->stats_list);

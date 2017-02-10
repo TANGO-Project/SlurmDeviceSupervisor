@@ -586,8 +586,8 @@ extern slurmdb_step_rec_t *slurmdb_create_step_rec()
 	step->state = NO_VAL;
 	step->exitcode = NO_VAL;
 	step->elapsed = (uint32_t)NO_VAL;
-	step->packstepid[0] = (uint32_t)NO_VAL;
-	step->packstepid[1] = (uint32_t)NO_VAL;
+	step->packjobid = (uint32_t)NO_VAL;
+	step->packstepid = (uint32_t)NO_VAL;
 	step->tot_cpu_sec = (uint32_t)NO_VAL;
 	step->tot_cpu_usec = (uint32_t)NO_VAL;
 	step->requid = -1;

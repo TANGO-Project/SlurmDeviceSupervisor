@@ -392,8 +392,8 @@ stepd_step_rec_create(launch_tasks_request_msg_t *msg, uint16_t protocol_version
 	job->switch_job  = msg->switch_job;
 	job->open_mode   = msg->open_mode;
 	job->options     = msg->options;
-	job->packstepid[0] = msg->packjobid;
-	job->packstepid[1] = msg->packstepid;
+	job->packjobid	 = msg->packjobid;
+	job->packstepid	 = msg->packstepid;
 
 	format_core_allocs(msg->cred, conf->node_name, conf->cpus,
 			   &job->job_alloc_cores, &job->step_alloc_cores,

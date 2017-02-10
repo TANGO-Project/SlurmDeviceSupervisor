@@ -3365,8 +3365,8 @@ static int  _step_complete(slurmdbd_conn_t *slurmdbd_conn,
 	step.step_id = step_comp_msg->step_id;
 	details.submit_time = step_comp_msg->job_submit_time;
 	details.num_tasks = step_comp_msg->total_tasks;
-	step.packjobid = step_comp_msg->packstepid[0];
-	step.packstepid = step_comp_msg->packstepid[1];
+	step.packjobid = step_comp_msg->packjobid;
+	step.packstepid = step_comp_msg->packstepid;
 
 	job.details = &details;
 	step.job_ptr = &job;
@@ -3437,8 +3437,8 @@ static int  _step_start(slurmdbd_conn_t *slurmdbd_conn,
 	step.cpu_freq_max = step_start_msg->req_cpufreq_max;
 	step.cpu_freq_gov = step_start_msg->req_cpufreq_gov;
 	step.tres_alloc_str = step_start_msg->tres_alloc_str;
-	step.packjobid = step_start_msg->packstepid[0];
-	step.packstepid = step_start_msg->packstepid[1];
+	step.packjobid = step_start_msg->packjobid;
+	step.packstepid = step_start_msg->packstepid;
 	layout.node_cnt = step_start_msg->node_cnt;
 	layout.task_dist = step_start_msg->task_dist;
 

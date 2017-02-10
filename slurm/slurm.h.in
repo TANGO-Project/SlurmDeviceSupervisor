@@ -1985,8 +1985,8 @@ typedef struct {
 	uint32_t time_limit;	/* step time limit */
 	char *tres_alloc_str;   /* tres used in the job */
 	uint32_t user_id;	/* user the job runs as */
-	uint32_t packstepid[2]; /* jobid of srun first step of the jobpack
-				 * & stepid of jobpack member */
+	uint32_t packjobid; 	 /* jobid of srun first step of the jobpack */
+	uint32_t packstepid; 	 /* stepid of jobpack member */
 } job_step_info_t;
 
 typedef struct job_step_info_response_msg {

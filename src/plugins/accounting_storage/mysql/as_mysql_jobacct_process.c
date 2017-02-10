@@ -833,9 +833,9 @@ static int _cluster_get_jobs(mysql_conn_t *mysql_conn,
 			step->nnodes = slurm_atoul(step_row[STEP_REQ_NODES]);
 
 			step->ntasks = slurm_atoul(step_row[STEP_REQ_TASKS]);
-			step->packstepid[0] =
+			step->packjobid =
 				slurm_atoul(step_row[STEP_REQ_PACKJOBID]);
-			step->packstepid[1] =
+			step->packstepid =
 				slurm_atoul(step_row[STEP_REQ_PACKSTEPID]);
 
 			step->task_dist =

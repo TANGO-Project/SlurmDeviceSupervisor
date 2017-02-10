@@ -352,7 +352,8 @@ typedef struct dbd_step_comp_msg {
 	uint32_t job_id;	/* job ID */
 	time_t   job_submit_time;/* job submit time needed to find job record
 				  * in db */
-	uint32_t packstepid[2];	/* jobid and stepid of srun first step */
+	uint32_t packjobid;	/* jobid of srun first step of the jobpack */
+	uint32_t packstepid;	/* stepid of jobpack member */
 	uint32_t req_uid;	/* requester user ID */
 	time_t   start_time;	/* step start time */
 	uint16_t state;         /* current state of node.  Used to get
