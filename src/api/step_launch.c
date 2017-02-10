@@ -916,8 +916,7 @@ struct step_launch_state *step_launch_state_create(slurm_step_ctx_t *ctx)
 	sls->abort = false;
 	sls->abort_action_taken = false;
 	sls->mpi_info->jobid = ctx->mpi_jobid;
-	sls->mpi_info->stepid = ctx->step_resp->job_step_id; // MNP obviated by following line
-	sls->mpi_info->stepid = ctx->mpi_stepid;
+	sls->mpi_info->stepid = packstepid;
 	sls->mpi_info->step_layout = layout;
 	sls->mpi_state = NULL;
 	slurm_mutex_init(&sls->lock);

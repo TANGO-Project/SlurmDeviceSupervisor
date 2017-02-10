@@ -75,7 +75,7 @@
 #include "kvs.h"
 #include "ring.h"
 
-#define PMI2_SOCK_ADDR_FMT "/tmp/sock.pmi2.%u.%u"
+#define PMI2_SOCK_ADDR_FMT "%s/sock.pmi2.%u.%u"
 #define VECT_MAX_SIZE 100
 
 extern char **environ;
@@ -356,6 +356,7 @@ _setup_stepd_sockets(const stepd_step_rec_t *job, char ***env)
 {
 	struct sockaddr_un sa;
 	int i;
+	char *spool;
 
 	debug("mpi/pmi2: setup sockets");
 
@@ -379,6 +380,8 @@ _setup_stepd_sockets(const stepd_step_rec_t *job, char ***env)
 	snprintf(sa.sun_path, sizeof(sa.sun_path), PMI2_SOCK_ADDR_FMT,
 				job->mpi_jobid, job->mpi_stepid);
 	unlink(sa.sun_path);    /* remove possible old socket */
+	xfree(spool);
+
 	if (bind(tree_sock, (struct sockaddr *)&sa, SUN_LEN(&sa)) < 0) {
 		error("mpi/pmi2: failed to bind tree socket: %m");
 		unlink(sa.sun_path);
@@ -396,8 +399,7 @@ _setup_stepd_sockets(const stepd_step_rec_t *job, char ***env)
 		/* this must be delayed after the tasks have been forked */
 /* 		close(TASK_PMI_SOCK(i)); */
 	}
-	for (i = 0; i < job->node_tasks; i ++) {
-	}
+
 	return SLURM_SUCCESS;
 }
 
@@ -639,7 +641,7 @@ _setup_srun_job_info(const mpi_plugin_client_info_t *job)
 
 	job_info.jobid  = job->jobid;
 	job_info.orig_jobid = job->orig_jobid;
-	job_info.stepid = job->stepid;
+	job_info.stepid = packstepid;
 	job_info.nnodes = job->step_layout->node_cnt;
 	job_info.nodeid = -1;	/* id in tree. not used. */
 	job_info.ntasks = job->step_layout->task_cnt;
@@ -673,7 +675,7 @@ _setup_srun_job_info(const mpi_plugin_client_info_t *job)
 	if (p) {		/* spawned */
 		job_info.pmi_stepid = xstrdup(p);
 	} else {
-		xstrfmtcat(job_info.pmi_stepid, "%u", job->stepid);
+		xstrfmtcat(job_info.pmi_stepid, "%u", job_info.stepid);
 	}
 	p = getenv(PMI2_PMI_JOBID_ENV);
 	if (p) {		/* spawned */
@@ -682,6 +684,7 @@ _setup_srun_job_info(const mpi_plugin_client_info_t *job)
 		xstrfmtcat(job_info.pmi_jobid, "%u.%u", job->jobid,
 			   job->stepid);
 	}
+
 	job_info.job_env = env_array_copy((const char **)environ);
 
 
@@ -717,6 +720,7 @@ _setup_srun_tree_info(const mpi_plugin_client_info_t *job)
 {
 	char *p;
 	uint16_t p_port;
+	char *spool;
 
 	memset(&tree_info, 0, sizeof(tree_info));
 
@@ -740,7 +744,8 @@ _setup_srun_tree_info(const mpi_plugin_client_info_t *job)
 	 * the node name here */
 	spool = slurm_get_slurmd_spooldir(NULL);
 	snprintf(tree_sock_addr, 128, PMI2_SOCK_ADDR_FMT,
-		 job->jobid, job->stepid);
+		 spool, job->jobid, atoi(job_info.pmi_stepid));
+	xfree(spool);
 
 	/* init kvs seq to 0. TODO: reduce array size */
 	tree_info.children_kvs_seq = xmalloc(sizeof(uint32_t) *

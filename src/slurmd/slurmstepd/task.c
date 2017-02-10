@@ -319,7 +319,6 @@ _setup_mpi(stepd_step_rec_t *job, int ltaskid)
 	mpi_plugin_task_info_t minfo[1];
 
 	minfo->jobid = job->mpi_jobid;
-//	minfo->stepid = job->stepid; // MNP obviated by following line
 	minfo->stepid = job->mpi_stepid;
 	minfo->nodeid = job->nodeid;
 	minfo->ntasks = job->mpi_ntasks;
