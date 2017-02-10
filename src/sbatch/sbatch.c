@@ -535,8 +535,11 @@ static int main_jobpack(int argc, char *argv[])
 		if (opt.wrap != NULL) {
 		        script_body = _script_wrap(opt.wrap);
 		} else {
-		        if (script_name == NULL && !packleader)
+		        if (script_name == NULL && !packleader) {
+			        debug("Pack member job; no script or script "
+				      "ignored; calling _script_donothing");
 			        script_body = _script_donothing(&script_size);
+			}
 			else
 			        script_body = _get_script_buffer(script_name,
 								 &script_size);

@@ -788,6 +788,7 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 			error("Job creation failure.");
 			exit(error_exit);
 		}
+		opt.mpi_jobid = opt.jobid;	// MNP PMI - legacy compatibility with MPI changes for Job Packs
 		if (create_job_step(job, false) < 0) {
 			exit(error_exit);
 		}

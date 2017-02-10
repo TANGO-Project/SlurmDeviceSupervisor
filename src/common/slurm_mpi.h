@@ -55,6 +55,7 @@ extern int *vector_pipe;	// MNP PMI
 extern int *nodelist_pipe;	// MNP PMI
 extern int *ntasks_pipe;	// MNP PMI
 extern int *nnodes_pipe;	// MNP PMI
+extern int *pmiport_pipe;	// MNP PMI
 
 extern int num_steps;		// MNP PMI
 extern int mpi_step_idx;	// MNP PMI

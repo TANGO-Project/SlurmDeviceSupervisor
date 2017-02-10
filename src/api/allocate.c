@@ -907,7 +907,7 @@ _handle_msg(slurm_msg_t *msg, resource_allocation_response_msg_t **resp)
 			rc = 1;
 			break;
 		case SRUN_JOB_COMPLETE:
-			//debug("******** MNP %d: allocate.c:_handle_msg, received SRUN_JOB_COMPLETE", getpid());
+			// debug("******** MNP %d: allocate.c:_handle_msg, received SRUN_JOB_COMPLETE", getpid());
 			info("Job has been cancelled");
 			break;
 		default:

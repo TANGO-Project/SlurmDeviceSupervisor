@@ -331,9 +331,4 @@ char *uint32_compressed_to_str(uint32_t array_len,
 			       const uint16_t *array,
 			       const uint32_t *array_reps);
 
-/*
- * TODO
- */
-extern void env_array_for_packenv(char ***env_array, char *name, char *value);
-
 #endif

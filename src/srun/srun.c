@@ -93,6 +93,10 @@
 #include "src/common/mpi.h"
 // MNP PMI pipe test end
 
+// MNP PMI
+#include "src/common/mpi.h"
+// MNP PMI
+
 /********************
  * Global Variables *
  ********************/
@@ -180,6 +184,44 @@ void cfmakeraw(struct termios *attr)
 	attr->c_cflag |= CS8;
 }
 #endif
+
+/*
+static int
+_build_group_jobid_array( char* str )
+{
+	int count = 0;
+	char *jobid = NULL, *tmp_char = NULL, *group_jobid_list = NULL;
+	int i, j=0;
+
+	if ( str == NULL)
+		return SLURM_ERROR;
+	// count the number of group jobids
+	group_jobid_list = xstrdup( str );
+	jobid = strtok_r( group_jobid_list, ",", &tmp_char );
+	while (jobid) {
+		count++;
+		jobid = strtok_r (NULL, ",", &tmp_char);
+	}
+	tmp_char = NULL;
+
+	group_ids = xmalloc(sizeof(int) * count);
+
+	group_jobid_list = xstrdup( str );
+	jobid = strtok_r( group_jobid_list, ",", &tmp_char );
+	while (jobid) {
+		i = slurm_xlate_job_id(jobid);
+		if (i <= 0) {
+			error( "Invalid job id: %s", jobid );
+			exit( 1 );
+		}
+		group_ids[j] = i;
+//		info("group_ids[%u] = %u", j, group_ids[j]);
+		j++;
+		jobid = strtok_r (NULL, ",", &tmp_char);
+	}
+	return SLURM_SUCCESS;
+}
+*/
 
 /*
 static int
@@ -1127,6 +1169,12 @@ static void _enhance_env_jobpack(bool got_alloc)
 	env_t *env;
 	srun_job_t *job;
 	slurm_step_launch_callbacks_t step_callbacks;
+	char *nodelist_mpi = NULL;
+	int nodecnt_mpi = 0;
+	int taskcnt_mpi = 0;
+	hostlist_t hl = NULL;
+	char *aggr = xmalloc(40);
+	char *tmp;
 
 	/* For each job description, enhance environment for job */
 	for (i = 0; i < pack_desc_count; i++) {
@@ -1177,6 +1225,13 @@ static void _enhance_env_jobpack(bool got_alloc)
 
 				env->select_jobinfo = job->select_jobinfo;
 				env->nodelist = job->nodelist;
+				/* aggregate the jobpack mpi env values */
+				sprintf(aggr, "SLURM_NODELIST_MPI_PACK_GROUP_%d",
+					opt.groupidx[j]);
+				if ((tmp = getenv (aggr))) {
+				        xstrcat(nodelist_mpi, tmp);
+					xstrcat(nodelist_mpi, ",");
+				}
 				env->partition = job->partition;
 				/* If we didn't get the allocation don't
 				* overwrite the previous info.
@@ -1187,6 +1242,11 @@ static void _enhance_env_jobpack(bool got_alloc)
 				env->task_count =
 					_uint16_array_to_str(job->nhosts,
 							     tasks);
+				/* aggregate the jobpack mpi env values */
+				sprintf(aggr, "SLURM_NTASKS_MPI_PACK_GROUP_%d",
+					opt.groupidx[j]);
+				if ((tmp = getenv (aggr)))
+				        taskcnt_mpi += atoi(tmp);
 				env->jobid = job->jobid;
 				env->stepid = job->stepid;
 				env->account = job->account;
@@ -1223,6 +1283,27 @@ static void _enhance_env_jobpack(bool got_alloc)
 			memcpy(opt_ptr, &opt, sizeof(opt_t));
 		}
 	}
+	xfree(aggr);
+	/* Set SLURM_NODELIST_MPI env */
+	/* trim off the trailing comma */
+	char *ch = strrchr(nodelist_mpi, ',');
+	if (ch != NULL) *ch = '\0';
+	setenv("SLURM_NODELIST_MPI", nodelist_mpi, 1);
+
+	/* Set SLURM_NNODES_MPI env */
+        hl = hostlist_create(nodelist_mpi);
+        nodecnt_mpi = hostlist_count(hl);
+        hostlist_destroy(hl);
+        int n = snprintf(NULL, 0, "%d", nodecnt_mpi);
+        tmp = xmalloc(n + 1);
+        sprintf(tmp, "%d", nodecnt_mpi);
+        setenv("SLURM_NNODES_MPI", tmp, 1);
+
+	/* Set SLURM_NTASKS_MPI env */
+        n = snprintf(NULL, 0, "%d", taskcnt_mpi);
+        tmp = xmalloc(n + 1);
+        sprintf(tmp, "%d", taskcnt_mpi);
+        setenv("SLURM_NTASKS_MPI", tmp, 1);
 }
 
 static void _pre_launch_srun_jobpack(void)
@@ -1276,17 +1357,19 @@ static int _launch_srun_steps_jobpack(bool got_alloc)
 	forkpids = xmalloc(total_jobs * sizeof(int));
 	pid_idx = 0;
 	// MNP PMI start
-	/* Allocate and create four pipes for each step to be launched */
+	/* Allocate and create five pipes for each step to be launched */
 	vector_pipe = xmalloc(pack_desc_count * 2 * sizeof(int));
 	nodelist_pipe = xmalloc(pack_desc_count * 2 * sizeof(int));
 	ntasks_pipe = xmalloc(pack_desc_count * 2 * sizeof(int));
 	nnodes_pipe = xmalloc(pack_desc_count * 2 * sizeof(int));
+	pmiport_pipe = xmalloc(pack_desc_count * 2 * sizeof(int));
 	for (i = 0; i < pack_desc_count; i++) {
 		debug("******** MNP in _launch_srun_steps_jobpack, initalizing pipes, i=%d", i);
 		pipe(&vector_pipe[i*2]);
 		pipe(&nodelist_pipe[i*2]);
 		pipe(&ntasks_pipe[i*2]);
 		pipe(&nnodes_pipe[i*2]);
+		pipe(&pmiport_pipe[i*2]);
 	}
 	// MNP PMI end
 	num_steps = pack_desc_count; // MNP PMI

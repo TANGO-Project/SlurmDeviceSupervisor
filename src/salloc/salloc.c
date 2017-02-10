@@ -668,10 +668,6 @@ int main(int argc, char **argv)
 		}
 	}
 
-        info("DHP salloc.c: calling env_array_set_environment.."); //dhp
-        if (setenvf(NULL, "SLURM_NUMPACK", "%d", pack_desc_count) < 0)
-		error("unable to set SLURM_NUMPACK in environment");
-
         env_array_set_environment(env, -1);
 	env_array_free(env);
 
@@ -1161,9 +1157,6 @@ int main_jobpack(int argc, char *argv[])
 		env_array_set_environment(env, group_number);
 		env_array_free(env);
 	}
-
-        /* Set SLURM_NODELIST_MPI env */
-        setenv("SLURM_NODELIST_MPI", aggregate_hosts, 1);
 
         /* Set new ENVs for jobpack */
 
