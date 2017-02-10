@@ -79,10 +79,16 @@ static const char *syms[] = {
 	"p_mpi_hook_client_fini"
 };
 
-int vector_pipe[2];	// MNP PMI pipe test
-int nodelist_pipe[2];	// MNP PMI pipe test
-int ntasks_pipe[2];	// MNP PMI pipe test
-int nnodes_pipe[2];	// MNP PMI pipe test
+/* Pipes used to pass MPI-related data between forked
+ * sruns for aggregation
+ */
+int *vector_pipe;	// MNP PMI
+int *nodelist_pipe;	// MNP PMI
+int *ntasks_pipe;	// MNP PMI
+int *nnodes_pipe;	// MNP PMI
+
+int num_steps;		// MNP PMI
+int mpi_step_idx;	// MNP PMI
 
 static slurm_mpi_ops_t ops;
 static plugin_context_t *g_context = NULL;

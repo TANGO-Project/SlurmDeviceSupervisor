@@ -187,7 +187,7 @@ int slurm_step_launch (slurm_step_ctx_t *ctx,
 	char **env = NULL;
 	char **mpi_env = NULL;
 	int rc = SLURM_SUCCESS;
-	debug("!!!!!!!! MNP pid=%d, entering slurm_step_launch", getpid());
+	debug("******** MNP pid=%d, entering slurm_step_launch", getpid());
 	debug("Entering slurm_step_launch");
 	memset(&launch, 0, sizeof(launch));
 
@@ -268,10 +268,10 @@ int slurm_step_launch (slurm_step_ctx_t *ctx,
 	launch.alias_list	= params->alias_list;
 	launch.nnodes		= ctx->step_resp->step_layout->node_cnt;
 	launch.ntasks		= ctx->step_resp->step_layout->task_cnt;
-	debug("!!!!!!!! MNP pid=%d, in slurm_step_launch, launch.ntasks=%d", getpid(), launch.ntasks);
-	debug("!!!!!!!! MNP pid=%d, in slurm_step_launch, params->mpi_stepftaskid=%d", getpid(), params->mpi_stepftaskid);
+	debug("******** MNP pid=%d, in slurm_step_launch, launch.ntasks=%d", getpid(), launch.ntasks);
+	debug("******** MNP pid=%d, in slurm_step_launch, params->mpi_stepftaskid=%d", getpid(), params->mpi_stepftaskid);
 	launch.mpi_jobid	= params->mpi_jobid; // MNP PMI
-	debug("!!!!!!!! MNP pid=%d, in slurm_step_launch, launch.mpi_jobid=%d", getpid(), launch.mpi_jobid);
+	debug("******** MNP pid=%d, in slurm_step_launch, launch.mpi_jobid=%d", getpid(), launch.mpi_jobid);
 	launch.mpi_ntasks	= params->mpi_ntasks; // MNP PMI
 	launch.mpi_nnodes	= params->mpi_nnodes; // MNP PMI
 	launch.mpi_stepftaskid	= params->mpi_stepftaskid; // MNP PMI
@@ -387,7 +387,7 @@ fail1:
 	xfree(launch.cwd);
 	env_array_free(env);
 	job_options_destroy(launch.options);
-	debug("!!!!!!!! MNP pid=%d, exiting slurm_step_launch", getpid());
+	debug("******** MNP pid=%d, exiting slurm_step_launch", getpid());
 	return rc;
 }
 
@@ -1694,6 +1694,7 @@ static int _launch_tasks(slurm_step_ctx_t *ctx,
 
 	if (ctx->step_resp->use_protocol_ver)
 		msg.protocol_version = ctx->step_resp->use_protocol_ver;
+	debug("******** MNP pid=%d, in _launch_tasks, sending REQUEST_LAUNCH_TASKS msg", getpid());
 
 #ifdef HAVE_FRONT_END
 	slurm_cred_get_args(ctx->step_resp->cred, &cred_args);
@@ -1764,6 +1765,7 @@ static void _print_launch_msg(launch_tasks_request_msg_t *msg,
 	char tmp_str[10], *task_list = NULL;
 	hostlist_t hl = hostlist_create(NULL);
 
+	debug("******** MNP pid=%d, entering _print_launch_msg, msg->tasks_to_launch[nodeid]=%d", getpid(), msg->tasks_to_launch[nodeid]);
 	for (i=0; i<msg->tasks_to_launch[nodeid]; i++) {
 		sprintf(tmp_str, "%u", msg->global_task_ids[nodeid][i]);
 		hostlist_push_host(hl, tmp_str);

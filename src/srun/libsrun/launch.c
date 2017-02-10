@@ -344,10 +344,9 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 //			layout->mpi_tids = xmalloc(layout->task_cnt * sizeof(uint32_t));
 			debug("******** MNP pid=%d, in launch_common_create_job_step", getpid());
 			for (j=0; j<layout->node_cnt; j++) {
-				debug("******** MNP pid=%d, in launch_common_create_job_step 1, j=%d", getpid(), j);
 				for(k=0; k<layout->tasks[j]; k++) {
 					layout->mpi_tids[j][k] = layout->tids[j][k] + opt.mpi_stepftaskid;
-					debug("******** MNP pid=%d, layout->tids[%d][%d]=%d, mpi_tids[%d][%d]=%d", getpid(),j,k,layout->tids[j][k],j,k,layout->mpi_tids[j][k]);
+					debug("******** MNP pid=%d, tids[%d][%d]=%d, mpi_tids[%d][%d]=%d", getpid(),j,k,layout->tids[j][k],j,k,layout->mpi_tids[j][k]);
 				}
 			} // MNP PMI end
 			break;
@@ -364,7 +363,7 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 		     (rc != ESLURM_INTERCONNECT_BUSY) &&
 		     (rc != ESLURM_DISABLED))) {
 			error ("Unable to create job step: %m");
-			debug("******** MNP opt.immediate = %d opt.no_alloc=%d , rc = %d", opt.immediate, opt.no_alloc, rc); // MNP debug
+			debug("******** MNP opt.immediate = %d, rc = %d", opt.immediate, rc); // MNP debug
 			return SLURM_ERROR;
 		}
 

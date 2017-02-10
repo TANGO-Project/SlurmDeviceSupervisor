@@ -1353,14 +1353,19 @@ This function gets the value of the specified key in the keyval space.
 int PMI_KVS_Get( const char kvsname[], const char key[], char value[], int length)
 {
 	int i, j, rc;
+	debug("******** MNP pid=%d, entering PMI_KVS_Get, kvsname=%s, key=%s, value=%s, length=%d", getpid(), kvsname, key, value, length);
 
 	if (pmi_debug)
 		fprintf(stderr, "In: PMI_KVS_Get(%s)\n", key);
 
-	if ((kvsname == NULL) || (strlen(kvsname) > PMI_MAX_KVSNAME_LEN))
+	if ((kvsname == NULL) || (strlen(kvsname) > PMI_MAX_KVSNAME_LEN)) {
+		debug("******** MNP pid=%d, in PMI_KVS_Get, returning error PMI_ERR_INVALID_KVS", getpid());
 		return PMI_ERR_INVALID_KVS;
-	if ((key == NULL) || (strlen(key) >PMI_MAX_KEY_LEN))
+	}
+	if ((key == NULL) || (strlen(key) >PMI_MAX_KEY_LEN)) {
+		debug("******** MNP pid=%d, in PMI_KVS_Get, returning error PMI_ERR_INVALID_KEY", getpid());
 		return PMI_ERR_INVALID_KEY;
+	}
 	if (value == NULL)
 		return PMI_ERR_INVALID_VAL;
 
@@ -1384,6 +1389,8 @@ int PMI_KVS_Get( const char kvsname[], const char key[], char value[], int lengt
 			}
 			goto fini;
 		}
+		debug("******** MNP pid=%d, in PMI_KVS_Get, returning error PMI_ERR_INVALID_KVS 1", getpid());
+
 		rc = PMI_ERR_INVALID_KEY;
 		goto fini;
 	}

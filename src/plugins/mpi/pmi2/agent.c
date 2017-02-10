@@ -236,7 +236,7 @@ _task_read(eio_obj_t *obj, List objs)
 	int rc, lrank;
 
 	lrank = (int)(long)(obj->arg);
-debug("******** MNP, pid=%d, in _task_read, lrank=%d", getpid(), lrank);
+debug("******** MNP, pid=%d, in _task_read, lrank=%d, fd=%d, obj ptr=%p", getpid(), lrank, obj->fd, obj);
 	rc = _handle_task_request(obj->fd, lrank);
 
 	return rc;
@@ -317,6 +317,7 @@ _agent(void * unused)
 	/* for stepd, add the sockets to tasks */
 	if (in_stepd()) {
 		for (i = 0; i < job_info.ltasks; i ++) {
+			debug("******** MNP, pid=%d, in pmi2/agent.c:_agent, calling eio_obj_create to create task obj", getpid());
 			task_obj = eio_obj_create(STEPD_PMI_SOCK(i), &task_ops,
 						  (void*)(long)(i));
 			eio_new_initial_obj(pmi2_handle, task_obj);
@@ -357,6 +358,7 @@ pmi2_start_agent(void)
 	pthread_attr_t attr;
 	pthread_t pmi2_agent_tid = 0;
 
+	debug("******** MNP, pid=%d, entering pmi2/agent.c:pmi2_start_agent", getpid());
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 	while ((errno = pthread_create(&pmi2_agent_tid, &attr,

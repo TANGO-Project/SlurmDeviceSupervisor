@@ -616,6 +616,7 @@ extern void create_srun_job(srun_job_t **p_job, bool *got_alloc,
 			error("Job creation failure.");
 			exit(error_exit);
 		}
+		opt.mpi_jobid = opt.jobid;	// MNP PMI - legacy compatibility with MPI changes for Job Packs
 		if (create_job_step(job, false) < 0) {
 			exit(error_exit);
 		}
@@ -677,6 +678,7 @@ extern void create_srun_job(srun_job_t **p_job, bool *got_alloc,
 			error("--begin is ignored because nodes"
 			      " are already allocated.");
 		}
+		opt.mpi_jobid = opt.jobid;	// MNP PMI - legacy compatibility with MPI changes for Job Packs
 		if (!job || create_job_step(job, false) < 0)
 			exit(error_exit);
 	} else {
@@ -733,6 +735,7 @@ extern void create_srun_job(srun_job_t **p_job, bool *got_alloc,
 		if (_become_user () < 0)
 			info("Warning: Unable to assume uid=%u", opt.uid);
 
+		opt.mpi_jobid = opt.jobid;	// MNP PMI - legacy compatibility with MPI changes for Job Packs
 		if (!job || create_job_step(job, true) < 0) {
 			slurm_complete_job(resp->job_id, 1);
 			exit(error_exit);

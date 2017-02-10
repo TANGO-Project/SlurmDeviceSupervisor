@@ -169,6 +169,7 @@ int eio_message_socket_accept(eio_obj_t *obj, List objs)
 	slurm_msg_t *msg = NULL;
 	int len = sizeof(addr);
 
+	//debug("******** MNP, pid=%d, entering eio_obj_socket_accept, obj ptr=%p", getpid(), obj);
 	debug3("Called eio_msg_socket_accept");
 
 	xassert(obj);
@@ -527,6 +528,8 @@ eio_obj_t *
 eio_obj_create(int fd, struct io_operations *ops, void *arg)
 {
 	eio_obj_t *obj = xmalloc(sizeof(*obj));
+	//debug("******** MNP, pid=%d, in eio_obj_create, obj->fd=%d, obj ptr=%p", getpid(), fd, obj);
+
 	obj->fd  = fd;
 	obj->arg = arg;
 	obj->ops = _ops_copy(ops);

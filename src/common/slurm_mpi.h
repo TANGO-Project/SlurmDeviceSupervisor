@@ -48,13 +48,20 @@
 typedef struct slurm_mpi_context *slurm_mpi_context_t;
 typedef void mpi_plugin_client_state_t;
 
-extern int vector_pipe[];	// MNP PMI pipe test
-extern int nodelist_pipe[];	// MNP PMI pipe test
-extern int ntasks_pipe[];	// MNP PMI pipe test
-extern int nnodes_pipe[];	// MNP PMI pipe test
+/* Pipes used to pass MPI-related data between forked
+ * sruns for aggregation
+ */
+extern int *vector_pipe;	// MNP PMI
+extern int *nodelist_pipe;	// MNP PMI
+extern int *ntasks_pipe;	// MNP PMI
+extern int *nnodes_pipe;	// MNP PMI
+
+extern int num_steps;		// MNP PMI
+extern int mpi_step_idx;	// MNP PMI
 
 typedef struct {
 	uint32_t jobid;
+	uint32_t orig_jobid; // MNP PMI
 	uint32_t stepid;
 	slurm_step_layout_t *step_layout;
 } mpi_plugin_client_info_t;

@@ -75,7 +75,7 @@ static int _task_layout_hostfile(slurm_step_layout_t *step_layout,
 slurm_step_layout_t *slurm_step_layout_create(
 	slurm_step_layout_req_t *step_layout_req)
 {
-	debug("!!!!!!!! MNP pid=%d entering slurm_step_layout_create", getpid());
+	debug("******** MNP pid=%d entering slurm_step_layout_create", getpid());
 	char *arbitrary_nodes = NULL;
 	slurm_step_layout_t *step_layout =
 		xmalloc(sizeof(slurm_step_layout_t));
@@ -121,7 +121,7 @@ slurm_step_layout_t *slurm_step_layout_create(
 		step_layout = NULL;
 	}
 	xfree(arbitrary_nodes);
-	debug("!!!!!!!! MNP pid=%d exiting slurm_step_layout_create", getpid());
+	debug("******** MNP pid=%d exiting slurm_step_layout_create", getpid());
 	return step_layout;
 }
 
@@ -146,7 +146,7 @@ slurm_step_layout_t *fake_slurm_step_layout_create(
 	uint32_t node_cnt,
 	uint32_t task_cnt)
 {
-	debug("!!!!!!!! MNP pid=%d entering fake_slurm_step_layout_create", getpid());
+	debug("******** MNP pid=%d entering fake_slurm_step_layout_create", getpid());
 	uint32_t cpn = 1;
 	int cpu_cnt = 0, cpu_inx = 0, i, j;
 	slurm_step_layout_t *step_layout = NULL;
@@ -212,7 +212,7 @@ slurm_step_layout_t *fake_slurm_step_layout_create(
 			}
 		}
 	}
-	debug("!!!!!!!! MNP pid=%d exiting fake_slurm_step_layout_create", getpid());
+	debug("******** MNP pid=%d exiting fake_slurm_step_layout_create", getpid());
 	return step_layout;
 }
 
@@ -226,7 +226,7 @@ extern slurm_step_layout_t *slurm_step_layout_copy(
 	int i = 0;
 	if (!step_layout)
 		return NULL;
-	debug("!!!!!!!! MNP pid=%d entering _slurm_step_layout_copy", getpid());
+	debug("******** MNP pid=%d entering _slurm_step_layout_copy", getpid());
 	layout = xmalloc(sizeof(slurm_step_layout_t));
 	layout->node_list = xstrdup(step_layout->node_list);
 	layout->node_cnt = step_layout->node_cnt;
@@ -248,7 +248,7 @@ extern slurm_step_layout_t *slurm_step_layout_copy(
 		memcpy(layout->mpi_tids[i], step_layout->mpi_tids[i],
 		       (sizeof(uint32_t) * layout->tasks[i])); // MNP PMI
 	}
-	debug("!!!!!!!! MNP pid=%d exiting _slurm_step_layout_copy", getpid());
+	debug("******** MNP pid=%d exiting _slurm_step_layout_copy", getpid());
 	return layout;
 }
 
@@ -280,7 +280,7 @@ extern void pack_slurm_step_layout(slurm_step_layout_t *step_layout,
 		error("pack_slurm_step_layout: protocol_version "
 		      "%hu not supported", protocol_version);
 	}
-	debug("!!!!!!!! MNP exiting pack_slurm_step_layout");
+	debug("******** MNP exiting pack_slurm_step_layout");
 }
 
 extern int unpack_slurm_step_layout(slurm_step_layout_t **layout, Buf buffer,
@@ -582,7 +582,7 @@ static int _task_layout_block(slurm_step_layout_t *step_layout, uint16_t *cpus)
 	static uint16_t select_params = (uint16_t) NO_VAL;
 	int i, j, task_id = 0;
 	bool pack_nodes;
-	debug("!!!!!!!! MNP pid=%d entering _task_layout_block", getpid());
+	debug("******** MNP pid=%d entering _task_layout_block", getpid());
 	if (select_params == (uint16_t) NO_VAL)
 		select_params = slurm_get_select_type_param();
 	if (step_layout->task_dist & SLURM_DIST_PACK_NODES)
@@ -658,7 +658,7 @@ static int _task_layout_block(slurm_step_layout_t *step_layout, uint16_t *cpus)
 			task_id++;
 		}
 	}
-	debug("!!!!!!!! MNP pid=%d exiting _task_layout_block", getpid());
+	debug("******** MNP pid=%d exiting _task_layout_block", getpid());
 	return SLURM_SUCCESS;
 }
 
@@ -680,7 +680,7 @@ static int _task_layout_cyclic(slurm_step_layout_t *step_layout,
 {
 	int i, j, taskid = 0;
 	bool over_subscribe = false;
-	debug("!!!!!!!! MNP pid=%d entering _task_layout_cyclic", getpid());
+	debug("******** MNP pid=%d entering _task_layout_cyclic", getpid());
 	for (j=0; taskid<step_layout->task_cnt; j++) {   /* cycle counter */
 		bool space_remaining = false;
 		for (i=0; ((i<step_layout->node_cnt)
@@ -693,10 +693,10 @@ static int _task_layout_cyclic(slurm_step_layout_t *step_layout,
 
 				step_layout->tids[i][step_layout->tasks[i]] =
 					taskid;
-				debug("!!!!!!!! MNP in _task_layout_cyclic, step_layout->tids[%d][step_layout->tasks[%d]]=%d",i,i,taskid );
+				debug("******** MNP in _task_layout_cyclic, step_layout->tids[%d][step_layout->tasks[%d]]=%d",i,i,taskid );
 				step_layout->mpi_tids[i][step_layout->tasks[i]] =
 					taskid; // MNP PMI
-				debug("!!!!!!!! MNP in _task_layout_cyclic, step_layout->mpi_tids[%d][step_layout->tasks[%d]]=%d",i,i,taskid );
+				debug("******** MNP in _task_layout_cyclic, step_layout->mpi_tids[%d][step_layout->tasks[%d]]=%d",i,i,taskid );
 				taskid++;
 				step_layout->tasks[i]++;
 				if ((j+1) < cpus[i])
@@ -706,7 +706,7 @@ static int _task_layout_cyclic(slurm_step_layout_t *step_layout,
 		if (!space_remaining)
 			over_subscribe = true;
 	}
-	debug("!!!!!!!! MNP pid=%d exiting _task_layout_cyclic", getpid());
+	debug("******** MNP pid=%d exiting _task_layout_cyclic", getpid());
 	return SLURM_SUCCESS;
 }
 

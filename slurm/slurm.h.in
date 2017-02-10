@@ -1877,6 +1877,7 @@ typedef struct {
 	bool multi_prog;
 	uint32_t mpi_jobid;	/* MPI jobid (same for all steps) */
 	uint32_t mpi_ntasks;	/* number of MPI tasks for all steps */
+	uint32_t mpi_nnodes;	/* number of MPI nodes for all steps */
 	uint32_t mpi_stepftaskid; /* first MPI taskid for this step */
 	uint32_t num_tasks;	/* number of tasks in this step */
 	uint32_t slurmd_debug;  /* remote slurmd debug level */

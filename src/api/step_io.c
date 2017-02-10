@@ -545,6 +545,7 @@ create_file_write_eio_obj(int fd, uint32_t taskid, uint32_t nodeid,
 	info->taskid = taskid;
 	info->nodeid = nodeid;
 
+	debug("******** MNP, pid=%d, in create_file_write_eio_obj, taskid=%d", getpid(), taskid);
 	eio = eio_obj_create(fd, &file_write_ops, (void *)info);
 
 	return eio;

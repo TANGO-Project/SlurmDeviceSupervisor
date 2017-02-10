@@ -250,8 +250,8 @@ typedef struct srun_options {
 	int group_number;       /* pack group number */  //dhp
 	int shepard_fd;
 	uint32_t mpi_jobid;	/* MPI jobid (same for all steps) */ // MNP PMI
-	int mpi_ntasks;		/* number of MPI tasks for all steps */ // MNP PMI
-	int mpi_nnodes;		/* number of MPI tasks for all steps */ // MNP PMI
+	int mpi_ntasks;		/* number of MPI tasks for all steps combined */ // MNP PMI
+	int mpi_nnodes;		/* number of MPI nodes for all steps combined */ // MNP PMI
 	int mpi_stepftaskid;	/* first MPI taskid for this step */ // MNP PMI
 } opt_t;
 
