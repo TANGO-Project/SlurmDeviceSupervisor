@@ -239,6 +239,7 @@ typedef struct {
 	uint32_t packjobid;		/* jobid of srun first step of the
 					 * jobpack */
 	uint32_t packstepid;		/* stepid of jobpack member */
+	bool		oom_error;	/* step out of memory error */
 } stepd_step_rec_t;
 
 

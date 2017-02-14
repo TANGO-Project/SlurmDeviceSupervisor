@@ -19,6 +19,7 @@ slurmstepd_SOURCES = 	        	\
 	task.c task.h			\
 	slurmstepd_job.c slurmstepd_job.h \
 	io.c io.h			\
+	fname.c fname.h			\
 	ulimits.c ulimits.h     	\
 	pdebug.c pdebug.h		\
 	pam_ses.c pam_ses.h		\

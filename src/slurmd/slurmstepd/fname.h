@@ -1,5 +1,6 @@
 /*****************************************************************************\
- * src/slurmd/common/fname.h - IO filename creation routine
+ * src/slurmd/slurmstepd/fname.h - IO filename creation routine
+ *                                 (slurmstepd specific)
  *****************************************************************************
  *  Copyright (C) 2002 The Regents of the University of California.
  *  Produced at Lawrence Livermore National Laboratory (cf, DISCLAIMER).
@@ -41,9 +42,9 @@
 
 #include "src/slurmd/slurmstepd/slurmstepd_job.h"
 
-extern char *fname_create(stepd_step_rec_t *job, const char *fmt, int taskid);
-extern char *fname_create2(batch_job_launch_msg_t *req);
-extern int   fname_single_task_io(const char *fmt);
+char *fname_create(stepd_step_rec_t *job, const char *fmt, int taskid);
+int   fname_trunc_all(stepd_step_rec_t *job, const char *fmt);
+int   fname_single_task_io (const char *fmt);
 extern char *is_path_escaped(char *);
 
 #endif /* !_SLURMD_FNAME_H */

@@ -72,9 +72,10 @@
 #include "src/common/xsignal.h"
 #include "src/common/xstring.h"
 
-#include "src/slurmd/common/fname.h"
+
 #include "src/slurmd/slurmd/slurmd.h"
 #include "src/slurmd/slurmstepd/io.h"
+#include "src/slurmd/slurmstepd/fname.h"
 #include "src/slurmd/slurmstepd/slurmstepd.h"
 
 /**********************************************************************
@@ -711,7 +712,7 @@ _create_task_out_eio(int fd, uint16_t type,
 	out->magic = TASK_OUT_MAGIC;
 #endif
 	out->type = type;
-	out->gtaskid = task->utaskid;
+	out->gtaskid = task->gtid;
 	out->ltaskid = task->id;
 	out->job = job;
 	out->buf = cbuf_create(MAX_MSG_LEN, MAX_MSG_LEN*4);
@@ -719,6 +720,7 @@ _create_task_out_eio(int fd, uint16_t type,
 	out->eof_msg_sent = false;
 	if (cbuf_opt_set(out->buf, CBUF_OPT_OVERWRITE, CBUF_NO_DROP) == -1)
 		error("setting cbuf options");
+
 	eio = eio_obj_create(fd, &task_read_ops, (void *)out);
 
 	return eio;
@@ -982,7 +984,6 @@ _init_task_stdio_fds(stepd_step_task_info_t *task, stepd_step_rec_t *job)
 #else
 	if (task->ifname != NULL) {
 #endif
-
 		int count = 0;
 		/* open file on task's stdin */
 		debug5("  stdin file name = %s", task->ifname);
@@ -998,7 +999,6 @@ _init_task_stdio_fds(stepd_step_task_info_t *task, stepd_step_rec_t *job)
 		task->to_stdin = -1;  /* not used */
 	} else {
 		/* create pipe and eio object */
-
 		int pin[2];
 
 		debug5("  stdin uses an eio object");
@@ -1161,12 +1161,12 @@ _init_task_stdio_fds(stepd_step_task_info_t *task, stepd_step_rec_t *job)
 		task->from_stderr = perr[0];
 		fd_set_close_on_exec(task->from_stderr);
 		fd_set_nonblocking(task->from_stderr);
-
 		task->err = _create_task_out_eio(task->from_stderr,
 						 SLURM_IO_STDERR, job, task);
 		list_append(job->stderr_eio_objs, (void *)task->err);
 		eio_new_initial_obj(job->eio, (void *)task->err);
 	}
+
 	return SLURM_SUCCESS;
 }
 
