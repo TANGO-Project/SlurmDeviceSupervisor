@@ -292,7 +292,7 @@ static int
 _setup_stepd_tree_info(const stepd_step_rec_t *job, char ***env)
 {
 	hostlist_t hl;
-	char srun_host[64];
+	char *srun_host;
 	uint16_t port;
 	char *p;
 	int tree_width;
@@ -318,6 +318,7 @@ _setup_stepd_tree_info(const stepd_step_rec_t *job, char ***env)
 	} else {
 		tree_width = slurm_get_tree_width();
 	}
+
 	/* TODO: cannot launch 0 tasks on node */
 
 	/*
@@ -340,22 +341,22 @@ _setup_stepd_tree_info(const stepd_step_rec_t *job, char ***env)
 
 	tree_info.pmi_port = 0;	/* not used */
 
-	p = getenvp(*env, "SLURM_SRUN_COMM_HOST");
-	if (!p) {
+	srun_host = getenvp(*env, "SLURM_SRUN_COMM_HOST");
+	if (!srun_host) {
 		error("mpi/pmi2: unable to find srun comm ifhn in env");
 		return SLURM_ERROR;
-	} else
-		strncpy(srun_host, p, 64);
+	}
 	p = getenvp(*env, PMI2_SRUN_PORT_ENV);
 	if (!p) {
 		error("mpi/pmi2: unable to find srun pmi2 port in env");
 		return SLURM_ERROR;
-	} else {
-		port = atoi(p);
-		unsetenvp(*env, PMI2_SRUN_PORT_ENV);
 	}
+	port = atoi(p);
+
 	tree_info.srun_addr = xmalloc(sizeof(slurm_addr_t));
 	slurm_set_addr(tree_info.srun_addr, port, srun_host);
+
+	unsetenvp(*env, PMI2_SRUN_PORT_ENV);
 
 	/* init kvs seq to 0. TODO: reduce array size */
 	tree_info.children_kvs_seq = xmalloc(sizeof(uint32_t) *
@@ -387,15 +388,15 @@ _setup_stepd_sockets(const stepd_step_rec_t *job, char ***env)
 	/* tree_sock_addr has to remain unformatted since the formatting
 	 * happens on the slurmd side */
 	spool = slurm_get_slurmd_spooldir(NULL);
-	snprintf(tree_sock_addr, sizeof(tree_sock_addr), PMI2_SOCK_ADDR_FMT,
-		 spool, job->jobid, job->stepid);
 	/* Make sure we adjust for the spool dir coming in on the address to
 	 * point to the right spot.
 	 */
+	step_index = job_info.srun_step_index_arr[job_info.nodeid];
+
 	xstrsubstitute(spool, "%n", job->node_name);
 	xstrsubstitute(spool, "%h", job->node_name);
 	snprintf(sa.sun_path, sizeof(sa.sun_path), PMI2_SOCK_ADDR_FMT,
-				job->mpi_jobid, job->mpi_stepid);
+		 spool, job->jobid, step_index);
 	unlink(sa.sun_path);    /* remove possible old socket */
 	xfree(spool);
 
@@ -409,6 +410,8 @@ _setup_stepd_sockets(const stepd_step_rec_t *job, char ***env)
 		unlink(sa.sun_path);
 		return SLURM_ERROR;
 	}
+	/* remove the tree socket file on exit */
+	strncpy(tree_sock_addr, sa.sun_path, 128);
 
 	task_socks = xmalloc(2 * job->node_tasks * sizeof(int));
 	for (i = 0; i < job->node_tasks; i ++) {
@@ -426,6 +429,7 @@ _setup_stepd_kvs(const stepd_step_rec_t *job, char ***env)
 	int rc = SLURM_SUCCESS, i = 0, pp_cnt = 0;
 	char *p, env_key[32], *ppkey, *ppval;
 
+	kvs_seq = 1;
 	rc = temp_kvs_init();
 	if (rc != SLURM_SUCCESS)
 		return rc;
@@ -511,9 +515,9 @@ pmi2_cleanup_stepd()
 static char *
 _get_proc_mapping(const mpi_plugin_client_info_t *job)
 {
-	uint32_t node_cnt, task_cnt, task_mapped, node_task_cnt, **tids,
-		block;
-	uint16_t task_dist, *tasks, *rounds;
+	uint32_t node_cnt, task_cnt, task_mapped, node_task_cnt, **tids;
+	uint32_t task_dist, block;
+	uint16_t *tasks, *rounds;
 	int i, start_id, end_id;
 	char *mapping = NULL;
 
@@ -525,10 +529,7 @@ _get_proc_mapping(const mpi_plugin_client_info_t *job)
 
 	/* for now, PMI2 only supports vector processor mapping */
 
-	if (task_dist == SLURM_DIST_CYCLIC ||
-	    task_dist == SLURM_DIST_CYCLIC_CFULL ||
-	    task_dist == SLURM_DIST_CYCLIC_CYCLIC ||
-	    task_dist == SLURM_DIST_CYCLIC_BLOCK) {
+	if ((task_dist & SLURM_DIST_NODEMASK) == SLURM_DIST_NODECYCLIC) {
 		mapping = xstrdup("(vector");
 
 		rounds = xmalloc (node_cnt * sizeof(uint16_t));
