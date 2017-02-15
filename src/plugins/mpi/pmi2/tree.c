@@ -50,6 +50,7 @@
 #include "src/common/slurm_protocol_interface.h"
 #include "src/common/slurm_protocol_api.h"
 #include "src/common/xmalloc.h"
+#include "src/common/srun_globals.h"
 
 #include "kvs.h"
 #include "spawn.h"
@@ -433,6 +434,7 @@ out:
 	free_buf(resp_buf);
 
 	debug3("mpi/pmi2: out _handle_name_publish");
+
 	return rc;
 
 unpack_error:

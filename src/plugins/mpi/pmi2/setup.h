@@ -60,6 +60,7 @@ typedef struct pmi2_job_info {
 	uint32_t orig_jobid; /* Original SLURM job id                 */
 	uint32_t stepid; /* Current step id (or NO_VAL)               */
 	uint32_t nnodes; /* number of nodes in current job step       */
+	int     *nnodes_array; /* step node count array               */
 	uint32_t nodeid; /* relative position of this node in job     */
 	uint32_t ntasks; /* total number of tasks in current job      */
 	uint32_t ltasks; /* number of tasks on *this* (local) node    */
@@ -68,6 +69,8 @@ typedef struct pmi2_job_info {
 
 	int pmi_debugged;    /* whether output verbose PMI messages */
 	char *step_nodelist; /* list of nodes in this job step */
+	char *srun_step_index_list; /* list of srun step indexes, by nodeid */
+	int  *srun_step_index_arr;  /* array of srun step indexes, by nodeid */
 	char *proc_mapping;  /* processor mapping */
 	char *pmi_jobid;     /* PMI job id */
 	char *pmi_stepid;     /* PMI step id */

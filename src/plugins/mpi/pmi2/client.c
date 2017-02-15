@@ -535,7 +535,6 @@ client_resp_send(client_resp_t *resp, int fd)
 {
 	char len_buf[7];
 	int len;
-
 	len = strlen(resp->buf);
 
 	if ( is_pmi20() ) {

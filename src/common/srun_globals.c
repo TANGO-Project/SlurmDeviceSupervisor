@@ -58,6 +58,7 @@
 /* pipes for inter-srun communication */
 int *vector_pipe_out;
 int *vector_pipe_in;
+int *stepindex_pipe_in;
 int *nnodes_pipe;
 int *pmi2port_pipe;
 int *pmi1port_pipe;

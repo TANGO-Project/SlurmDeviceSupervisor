@@ -1732,7 +1732,6 @@ static int _launch_tasks(slurm_step_ctx_t *ctx,
 	}
 	list_iterator_destroy(ret_itr);
 	FREE_NULL_LIST(ret_list);
-
 	if (tot_rc != SLURM_SUCCESS)
 		return tot_rc;
 	return rc;

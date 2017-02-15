@@ -55,6 +55,7 @@
 /* pipes for inter-srun communication */
 extern int *vector_pipe_out;
 extern int *vector_pipe_in;
+extern int *stepindex_pipe_in;
 extern int *nnodes_pipe;
 extern int *pmi2port_pipe;
 extern int *pmi1port_pipe;

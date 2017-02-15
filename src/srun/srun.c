@@ -185,6 +185,7 @@ void _free_srun_pipes(void)
 {
 	xfree(vector_pipe_out);
 	xfree(vector_pipe_in);
+	xfree(stepindex_pipe_in);
 	xfree(nnodes_pipe);
 	xfree(pmi2port_pipe);
 	xfree(pmi1port_pipe);
@@ -1299,12 +1300,14 @@ static int _launch_srun_steps_jobpack(bool got_alloc)
 	pipesz = srun_num_steps * 2 * sizeof(int);
 	vector_pipe_out = xmalloc(pipesz);
 	vector_pipe_in  = xmalloc(pipesz);
+	stepindex_pipe_in  = xmalloc(pipesz);
 	nnodes_pipe     = xmalloc(pipesz);
 	pmi2port_pipe   = xmalloc(pipesz);
 	pmi1port_pipe   = xmalloc(pipesz);
 	for (i = 0; i < srun_num_steps; i++) {
 		pipe(&vector_pipe_out[i*2]);
 		pipe(&vector_pipe_in[i*2]);
+		pipe(&stepindex_pipe_in[i*2]);
 		pipe(&nnodes_pipe[i*2]);
 		pipe(&pmi2port_pipe[i*2]);
 		pipe(&pmi1port_pipe[i*2]);
