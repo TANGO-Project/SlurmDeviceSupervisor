@@ -2607,16 +2607,37 @@ extern int test_job_dependency(struct job_record *job_ptr)
 			/* job can run now, delete dependency */
  			if (run_now)
  				list_delete_item(depend_iter);
- 			else
+			else
 				depends = true;
 		} else if (dep_ptr->depend_type == SLURM_DEPEND_PACK) {
-			depends = true;
-			if (debug_flags & DEBUG_FLAG_JOB_PACK) {
-				info("JPCK: Jobid=%d is a pack member",
-					job_ptr->job_id);
-	        } else if (dep_ptr->depend_type == SLURM_DEPEND_PACKLEADER) {
-			depends = false;
-			if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+			depends = true; /* member is always dependent. */
+			job_ptr->bit_flags |= KILL_INV_DEP;
+			/* pack_leader field used as flag to determine if job
+			 * is orphaned. Pack members arrive before the leader,
+			 * so leader=0, set to NO_VAL to indicate we've been
+			 * here once. The leader should be the next job
+			 * and will set leader=jobid. If leader is not
+			 * created, the next time through the scheduler,
+			 * it will find leader=NO_VAL, and will cancel the
+			 * member.
+			 */
+			if (dep_ptr->pack_leader == 0) {
+				if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+					info("JPCK: Jobid=%d is a pack member. "
+					      "Leader=%d", job_ptr->job_id,
+					      dep_ptr->pack_leader);
+				}
+				dep_ptr->pack_leader = NO_VAL;
+			} else if (dep_ptr->pack_leader == NO_VAL) {
+				if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+					info("JPCK: Pack Jobid=%d doesn't know "
+					     "its leader. Assume it's orphaned "
+					     "and cancel job", job_ptr->job_id);
+				}
+				failure = true;
+				break;
+			}
+		} else if (dep_ptr->depend_type == SLURM_DEPEND_PACKLEADER) {
 				info("JPCK: Jobid=%d is a pack leader for %d",
 				     job_ptr->job_id, dep_ptr->job_id);
 			} //nlk this seems strange
@@ -2784,6 +2805,7 @@ extern int test_job_dependency(struct job_record *job_ptr)
 		cache_results = results;
 		cache_time = now;
 	}
+
 	return results;
 }
 
@@ -2946,7 +2968,6 @@ info("Hit ESLURM_DEPENDENCY 1");					/* wjb */
 			/* dep_ptr->job_id = 0;		set by xmalloc */
 			/* dep_ptr->job_ptr = NULL;	set by xmalloc */
 			(void) list_append(new_depend_list, dep_ptr);
-			info("JPCK: update_job_dependency -- todo(?) job=%d --dependency=pack",job_ptr->job_id);
 			break;
 		}
 

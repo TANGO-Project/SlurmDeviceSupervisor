@@ -551,8 +551,6 @@ for (index1 = 0; index1 < ac; index1++) {
 	/* set default options, process commandline arguments, and
 	 * verify some basic values
 	 */
-info("in init_srun_jobpack for desc[%u].pack_job_env[%u].group_number is %u", group_index, job_index, desc[group_index].pack_job_env[job_index].group_number);	/* wjb */
-info("desc[%u].pack_group_count is %u", group_index, desc[group_index].pack_group_count);					/* wjb */
 	if (desc[group_index].pack_group_count != 0) {
 		group_number =
 			desc[group_index].pack_job_env[job_index].group_number;
@@ -805,7 +803,7 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 			exit(error_exit);
 		}
 	} else if ((resp = existing_allocation())) {
-info("took path of existing allocation");				/* wjb */
+//info("took path of existing allocation");				/* wjb */
 		select_g_alter_node_cnt(SELECT_APPLY_NODE_MAX_OFFSET,
 					&resp->node_cnt);
 		if (opt.nodes_set_env && !opt.nodes_set_opt &&
@@ -906,11 +904,7 @@ info("1 create_srun_jobpack desc[%u].pack_job_env[0].resp->job_id is %u", desc_i
 			}
 			/* save job for pack-member */
 			job = job_create_allocation(resp);
-//			_copy_srun_job_struct(pack_job_env[job_index].job, job);
 			_copy_srun_job_struct(desc[desc_index].pack_job_env[0].job, job);
-//info("1 create_srun_jobpack desc[%u].pack_job_env[0].job>jobid is %u", desc_index, desc[desc_index].pack_job_env[0].job->jobid);	/* wjb */
-//info("create_srun_jobpack in loop desc[0].pack_job_env[0].job>jobid is %u", desc[0].pack_job_env[0].job->jobid);	/* wjb */
-//info("create_srun_jobpack in loop desc[1].pack_job_env[0].job>jobid is %u", desc[1].pack_job_env[0].job->jobid);	/* wjb */
 
 			opt.time_limit = NO_VAL;/* not applicable for step, only job */
 			xfree(opt.constraints);	/* not applicable for this step */
@@ -932,8 +926,6 @@ info("1 create_srun_jobpack desc[%u].pack_job_env[0].resp->job_id is %u", desc_i
 				* Spawn process to insure clean-up of
 				* job and/or step on abnormal term
 				*/
-//				job = pack_job_env[job_index].job;
-//				job = desc[desc_index].pack_job_env[0].job;
 				opt.shepard_fd = -1;
 				opt.shepard_fd = _shepard_spawn(job,
 						 *got_alloc);
@@ -945,21 +937,14 @@ info("1 create_srun_jobpack desc[%u].pack_job_env[0].resp->job_id is %u", desc_i
 				info("Warning: Unable to assume uid=%u",
 				     opt.uid);
 			if (packleader == true) {
-//				*p_job = pack_job_env[0].job;
 				*p_job = desc[0].pack_job_env[0].job;
 			}
 			/* save updated opt information for pack-member */
-//			_copy_opt_struct(pack_job_env[job_index].opt, &opt);
 			_copy_opt_struct(desc[desc_index].pack_job_env[0].opt, &opt);
-//info("2 create_srun_jobpack desc[%u].pack_job_env[0].opt->jobid is %d", desc_index, desc[desc_index].pack_job_env[0].opt->jobid);		/* wjb */
 		}
-//info("create_srun_jobpack after loop desc[0].pack_job_env[0].job>jobid is %u", desc[0].pack_job_env[0].job->jobid);	/* wjb */
-//info("create_srun_jobpack after loop desc[1].pack_job_env[0].job>jobid is %u", desc[1].pack_job_env[0].job->jobid);	/* wjb */
 
 	}
-//	 _copy_opt_struct(&opt, pack_job_env[0].opt);
 	 _copy_opt_struct(&opt, desc[0].pack_job_env[0].opt);
-//info("3 create_srun_jobpack desc[0].pack_job_env[0].opt->jobid is %d", desc[0].pack_job_env[0].opt->jobid);		/* wjb */
 }
 
 extern void pre_launch_srun_job(srun_job_t *job, bool slurm_started,

@@ -64,7 +64,8 @@
 
 static void  _add_bb_to_script(char **script_body, char *burst_buffer_file);
 static void  _env_merge_filter(job_desc_msg_t *desc);
-static int   _fill_job_desc_from_opts(job_desc_msg_t *desc);
+static int   _fill_job_desc_from_opts(job_desc_msg_t *desc,
+				      uint32_t group_number);
 static int   _check_cluster_specific_settings(job_desc_msg_t *desc);
 static void *_get_script_buffer(const char *filename, int *size);
 static char *_script_wrap(char *command_string);
@@ -118,8 +119,6 @@ pack_job_env = xmalloc(sizeof(pack_job_env_t) * pack_desc_count);
 	for (i = 0; i < pack_desc_count; i++) {
 		pack_job_env[i].opt = xmalloc(sizeof(opt_t));
 		memset(pack_job_env[i].opt, 0, sizeof(opt_t));
-//		pack_job_env[i].env = xmalloc(sizeof(env_t));
-//		memset(pack_job_env[i].env, 0, sizeof(env_t));
 		pack_job_env[i].desc = xmalloc(sizeof(job_desc_msg_t));
 		memset(pack_job_env[i].desc, 0, sizeof(job_desc_msg_t));
 		pack_job_env[i].resp = xmalloc(sizeof(submit_response_msg_t));
@@ -129,6 +128,8 @@ pack_job_env = xmalloc(sizeof(pack_job_env_t) * pack_desc_count);
 		pack_job_env[i].job_id = 0;
 		pack_job_env[i].script_name = NULL;
 		pack_job_env[i].script_body = NULL;
+		pack_job_env[i].av = (char **) NULL;
+		pack_job_env[i].ac = 0;
 
 	}
 	return rc;
@@ -142,28 +143,23 @@ int _identify_job_descriptions(int ac, char **av)
 	int j = 0;
 	int current = 1;
 	int job_index = 0;
-//	char *sbatch_str = xstrdup("sbatch");
 	char *pack_str = xstrdup("-dpack");
 	char *packleader_str = xstrdup("-dpackleader");
 	char *command = NULL;
 	char **newcmd;
-	char **newcmd_cpy;
 	bool _pack_l;
 	uint16_t dependency_position = 0;
 
-	pack_job_id = xstrdup("");
 
 
-	int index3;
-	printf("in_identify_job_descriptions ac contains %u", ac);
-	for (index3 = 0; index3 < ac; index3++) {
-		printf("av[%u] is %s", index3, av[index3]);
-	}
+//	int index3;
+//	info("in_identify_job_descriptions ac contains %u\n", ac);
+//	for (index3 = 0; index3 < ac; index3++) {
+//		info("av[%u] is %s\n", index3, av[index3]);
+//	}
 
-
+	newcmd = xmalloc(sizeof(char *) * (ac + 1));
 	while (current < ac){
-		newcmd = xmalloc(sizeof(char *) * (ac + 1));
-//		newcmd[0] = sbatch_str;
 		newcmd[0] = xstrdup(av[0]);
 		for (i = 1; i < (ac + 1); i++) {
 			newcmd[i] = NULL;
@@ -199,8 +195,11 @@ int _identify_job_descriptions(int ac, char **av)
 		current = index + 1;
 		i = 1;
 
-		newcmd_cpy = xmalloc(sizeof(char *) * (j+1));
-		newcmd_cpy[0] =  xstrdup(newcmd[0]);
+//		newcmd_cpy = xmalloc(sizeof(char *) * (j+1));
+		if (dependency_position == 0) j++;
+		pack_job_env[job_index].av = xmalloc(sizeof(char *) * (j+2));
+//		newcmd_cpy[0] =  xstrdup(newcmd[0]);
+		pack_job_env[job_index].av[0] = (char * ) xstrdup(newcmd[0]);
 		i=1;
 		if (dependency_position != 0) {
 			if ((_pack_l == false) && (job_index >= 1)){
@@ -212,36 +211,33 @@ int _identify_job_descriptions(int ac, char **av)
 			}
 		} else {
 			if (_pack_l == true) {
-				newcmd_cpy[1] = xstrdup(packleader_str);
+				pack_job_env[job_index].av[1] = (char * ) xstrdup(packleader_str);
 				packl_dependency_position = 1;
-				j++;
 				i++;
 			} else if ((_pack_l == false) && (job_index >= 1)) {
-				newcmd_cpy[1] = xstrdup(pack_str);
-				j++;
+				pack_job_env[job_index].av[1] = (char * ) xstrdup(pack_str);
 				i++;
 			}
 		}
 		int k = 1;
 		for (index2 = i; index2 < j + 1; index2++) {
-			newcmd_cpy[index2] =  xstrdup(newcmd[k]);
+			pack_job_env[job_index].av[index2] = (char * ) xstrdup(newcmd[k]);
 			k++;
 		}
 
-	pack_job_env[job_index].ac = j;
-	pack_job_env[job_index].av = newcmd_cpy;
-int index1;
-for (index1=0; index1 < j; index1++)
-	printf("pack_job_env[%u].av[%u] = %s\n", job_index, index1, pack_job_env[job_index].av[index1]);	/* wjb */
+		pack_job_env[job_index].ac = j;
+//int index1;
+//for (index1=0; index1 < j; index1++)
+//	printf("pack_job_env[%u].av[%u] = %s\n", job_index, index1, pack_job_env[job_index].av[index1]);	/* wjb */
 //	pack_job_env[job_index].ac = j;
-	job_index++;
-info("job_index contains %u exiting_identify_job_descriptions\n", job_index);					/* wjb */
+		job_index++;
+//info("job_index contains %u exiting_identify_job_descriptions\n", job_index);					/* wjb */
+
+	}
 	for (i = 0; i < (ac + 1); i++) {
-		xfree(newcmd[i]);
+		if(newcmd[i] != NULL)
+			xfree(newcmd[i]);
 	}
-
-	}
-
 	return rc;
 }
 
@@ -275,8 +271,7 @@ int main(int argc, char **argv)
 	if (atexit((void (*) (void)) spank_fini) < 0)
 		error("Failed to register atexit handler for plugins: %m");
 
-	// dhp TEMPORARY!!!
-	opt.group_number = 1;
+	group_number = 0;  //dhp
 
 	// dhp TEMPORARY!!!
 	opt.group_number = 1;
@@ -333,11 +328,8 @@ int main(int argc, char **argv)
 	_set_spank_env();
 	_set_submit_dir_env();
 	_set_umask_env();
-	_set_sbatch_pack_envs();
-
 	slurm_init_job_desc_msg(&desc);
-
-	if (_fill_job_desc_from_opts(&desc) == -1) {
+	if (_fill_job_desc_from_opts(&desc, group_number) == -1) {
 		exit(error_exit);
 	}
 
@@ -352,6 +344,7 @@ int main(int argc, char **argv)
 		print_db_notok(opt.clusters, 0);
 		exit(error_exit);
 	}
+
 
 	if (_check_cluster_specific_settings(&desc) != SLURM_SUCCESS)
 		exit(error_exit);
@@ -390,9 +383,6 @@ int main(int argc, char **argv)
 			error("%s", msg);
 		sleep (++retries);
         }
-
-	//dhp
-	info("resp->job_id = %d", resp->job_id);
 
 	if (!opt.parsable){
 		printf("Submitted batch job %u", resp->job_id);
@@ -510,12 +500,13 @@ static int main_jobpack(int argc, char *argv[])
 	log_options_t logopt = LOG_OPTS_STDERR_ONLY;
 	job_desc_msg_t desc;
 	submit_response_msg_t *resp;
-	char *script_name;
+	char *script_name = NULL;
 	void *script_body;
 	int script_size = 0;
 	int retries = 0;
 	int rc = 0;
 	int job_index;
+//	int index, index1;							/* wjb */
 
 	slurm_conf_init(NULL);
 	log_init(xbasename(argv[0]), logopt, 0, NULL);
@@ -531,28 +522,23 @@ static int main_jobpack(int argc, char *argv[])
 	if (atexit((void (*) (void)) spank_fini) < 0)
 		error("Failed to register atexit handler for plugins: %m");
 
-		rc = _build_env_structs(argc, argv);
-		rc = _identify_job_descriptions(argc, argv);
-
+	rc = _build_env_structs(argc, argv);
+	rc = _identify_job_descriptions(argc, argv);
 	for (job_index = pack_desc_count; job_index > 0; job_index--) {
-	int index1;
-	for (index1=0; index1 < pack_job_env[job_index].ac; index1++)
-	printf("pack_job_env[%u].av[%u] = %s\n", job_index, index1, pack_job_env[job_index].av[index1]);	/* wjb */
-info("job_index is %u", job_index);										/* wjb */
+//info("********** top of main loop ****************");				/* wjb */
 		group_number = job_index - 1;
 		packleader = pack_job_env[group_number].packleader;
 		packjob = pack_job_env[group_number].pack_job;
-		if (packleader == true)
-			if ((strcmp(pack_job_id, "") == 0))
+		if (packleader == true) {
+			if (pack_job_id == NULL)
 				fatal( "found packleader but no pack job id" );
 			xstrcat(pack_job_env[group_number].av[packl_dependency_position],
 			        pack_job_id);
+		}
 		_copy_opt_struct( &opt, pack_job_env[group_number].opt);
 
 	script_name = process_options_first_pass(pack_job_env[group_number].ac,
 						 pack_job_env[group_number].av);
-info("returned from call to process_options_first_pass");				/* wjb */
-info("process_options_first_pass returned script_name %s", script_name);		/* wjb */
 	/* reinit log with new verbosity (if changed by command line) */
 	if (opt.verbose || opt.quiet) {
 		logopt.stderr_level += opt.verbose;
@@ -561,16 +547,21 @@ info("process_options_first_pass returned script_name %s", script_name);		/* wjb
 		log_alter(logopt, 0, NULL);
 	}
 
-	if (opt.wrap != NULL) {
-		script_body = _script_wrap(opt.wrap);
-	} else {
-		script_body = _get_script_buffer(script_name, &script_size);
+	if (!packleader)   //dhp
+	        script_body = _script_donothing();
+	else {
+	        if (opt.wrap != NULL) {
+		        script_body = _script_wrap(opt.wrap);
+		} else {
+		        script_body = _get_script_buffer(script_name, &script_size);
+		}
 	}
 	if (script_body == NULL) {						/* wjb added { */
 info("found NULL script_body taking exit with error_exit %u", error_exit);	/* wjb */
 		exit(error_exit);
 	}									/* wjb */
-info("calling process_options_second_pass");					/* wjb */
+//info("calling process_options_second_pass");					/* wjb */
+//info("pack_job_env[%u].av[1] = %s\n", group_number, pack_job_env[group_number].av[1]);	/* wjb */
 	if (process_options_second_pass(
 				(pack_job_env[group_number].ac - opt.script_argc),
 				pack_job_env[group_number].av,
@@ -579,7 +570,7 @@ info("calling process_options_second_pass");					/* wjb */
 		error("sbatch parameter parsing");
 		exit(error_exit);
 	}
-info("returned from process_options_second_pass");				/* wjb */
+//info("returned from process_options_second_pass opt.dependency  = %s", opt.dependency);				/* wjb */
 
 	if (spank_init_post_opt() < 0) {
 		error("Plugin stack post-option processing failed");
@@ -599,7 +590,6 @@ info("returned from process_options_second_pass");				/* wjb */
 	 */
 	if (opt.export_file != NULL)
 		env_unset_environment();
-
 	_set_prio_process_env();
 	_set_spank_env();
 	_set_submit_dir_env();
@@ -611,7 +601,6 @@ info("returned from process_options_second_pass");				/* wjb */
 	if (_fill_job_desc_from_opts(&desc) == -1) {
 		exit(error_exit);
 	}
-
 	desc.script = (char *)script_body;
 
 	/* If can run on multiple clusters find the earliest run time
@@ -634,6 +623,7 @@ info("returned from process_options_second_pass");				/* wjb */
 		exit (0);
 	}
 
+//info("calling slurm_submit_batch_job");				/* wjb */
 	while (slurm_submit_batch_job(&desc, &resp) < 0) {
 		static char *msg;
 
@@ -660,6 +650,7 @@ info("returned from process_options_second_pass");				/* wjb */
 			error("%s", msg);
 		sleep (++retries);
         }
+//info("successful return slurm_submit_batch_job!!!!");				/* wjb */
 	if (packjob == true)
 		xstrfmtcat(pack_job_id,":%u", resp->job_id);
 	if (!opt.parsable){
@@ -676,7 +667,7 @@ info("returned from process_options_second_pass");				/* wjb */
 
 	xfree(desc.script);
 	slurm_free_submit_response_response_msg(resp);
-
+//info("*************** end of main loop******************");			/* wjb */
 }					/* wjb end of for loop */
 	return 0;
 }
@@ -772,7 +763,6 @@ static void _env_merge_filter(job_desc_msg_t *desc)
 		if (xstrncmp("SLURM_", environ[i], 6))
 			continue;
 		save_env[0] = environ[i];
-		info("MERGE_FILTER: save_env[0] = %s", save_env[0]);
 		env_array_merge(&desc->environment,
 				(const char **)save_env);
 	}
@@ -807,7 +797,8 @@ static int _check_cluster_specific_settings(job_desc_msg_t *req)
 }
 
 /* Returns 0 on success, -1 on failure */
-static int _fill_job_desc_from_opts(job_desc_msg_t *desc)
+static int _fill_job_desc_from_opts(job_desc_msg_t *desc,
+				    uint32_t group_number)
 {
 	int i;
 	extern char **environ;
@@ -979,11 +970,18 @@ static int _fill_job_desc_from_opts(job_desc_msg_t *desc)
 		env_array_overwrite(&desc->environment,
 				    "SLURM_GET_USER_ENV", "1");
 	}
+
 	if ((opt.distribution & SLURM_DIST_STATE_BASE) == SLURM_DIST_ARBITRARY) {
 		env_array_overwrite_fmt(&desc->environment,
 					"SLURM_ARBITRARY_NODELIST",
 					"%s", desc->req_nodes);
 	}
+
+	//dhp
+	info("DHP sbatch: setting SLURM_GROUP_NUMBER to %d in desc.env array",
+	     group_number);
+	env_array_overwrite_fmt(&desc->environment, "SLURM_GROUP_NUMBER",
+			    "%d", group_number);
 
 	desc->env_size = envcount(desc->environment);
 	desc->argv = opt.script_argv;
@@ -1191,7 +1189,7 @@ static void *_get_script_buffer(const char *filename, int *size)
 	 * First figure out whether we are reading from STDIN_FILENO
 	 * or from a file.
 	 */
-info("entered _get_script_buffer with filename %s", filename);			/* wjb */
+//info("entered _get_script_buffer with filename %s", filename);			/* wjb */
 	if (filename == NULL) {
 		fd = STDIN_FILENO;
 	} else {
@@ -1205,7 +1203,7 @@ info("entered _get_script_buffer with filename %s", filename);			/* wjb */
 	/*
 	 * Then read in the script.
 	 */
-info("preparing to read the script");						/* wjb */
+//info("preparing to read the script");						/* wjb */
 	buf = ptr = xmalloc(buf_size);
 	buf_left = buf_size;
 	while((tmp_size = read(fd, ptr, buf_left)) > 0) {
@@ -1224,7 +1222,7 @@ info("preparing to read the script");						/* wjb */
 	/*
 	 * Finally we perform some sanity tests on the script.
 	 */
-info("performing sanity tests on the script");					/* wjb */
+//info("performing sanity tests on the script");					/* wjb */
 	if (script_size == 0) {
 		error("Batch script is empty!");
 		goto fail;
@@ -1248,10 +1246,10 @@ info("performing sanity tests on the script");					/* wjb */
 	}
 
 	*size = script_size;
-info("passed sanity checks, script_size %u", script_size);			/* wjb */
+//info("passed sanity checks, script_size %u", script_size);			/* wjb */
 	return buf;
 fail:
-info("at label fail");								/* wjb */
+//info("at label fail");								/* wjb */
 	xfree(buf);
 	*size = 0;
 	return NULL;
@@ -1266,6 +1264,19 @@ static char *_script_wrap(char *command_string)
 	xstrcat(script, "# This script was created by sbatch --wrap.\n\n");
 	xstrcat(script, command_string);
 	xstrcat(script, "\n");
+
+	return script;
+}
+
+/* Create a simple do-nothing shell script for pack member jobs. The pack leader
+   will issue the real script. */
+static char *_script_donothing()
+{
+	char *script = NULL;
+
+	xstrcat(script, "#!/bin/sh\n");
+	xstrcat(script, "# This script was created by sbatch -- does nothing.\n\n");
+	xstrcat(script, "exit 0;\n");
 
 	return script;
 }
@@ -1333,365 +1344,6 @@ static int _set_rlimit_env(void)
 	}
 
 	return rc;
-}
-
-static void _set_sbatch_pack_envs()
-{
-        typedef struct {
-	        const char *var;
-	        int num;
-	} pack_env_t;
-
-	pack_env_t *e;
-	char *packstr;
-	char name[64];
-	char packtmp[64];
-	char *dist = NULL, *lllp_dist = NULL;
-
-	info("DHP _set_sbatch_pack_envs: Here");
-
-        if (opt.group_number == -1)
-	        return;
-
-	pack_env_t packenv[] = {
-	  {"SLURM_ACCOUNT",                0},
-	  {"SLURM_ACCTG_FREQ",             1},
-	  {"SLURM_BLRTS_IMAGE",            2},
-	  {"SLURM_BURST_BUFFER",           3},
-	  {"SLURM_CHECKPOINT",             4},
-	  {"SLURM_CHECKPOINT_DIR",         5},
-	  {"SLURM_CNLOAD_IMAGE",           6},
-	  {"SLURM_CONN_TYPE",              7},
-	  {"SLURM_CORE_SPEC",              8},
-	  {"SLURM_CPUS_PER_TASK",          9},
-	  {"SLURM_CPU_FREQ_REQ",          10},
-	  {"SLURM_DEPENDENCY",            11},
-	  {"SLURM_DISTRIBUTION",          12},
-	  {"SLURM_EXCLUSIVE",             13},
-	  {"SLURM_EXPORT_ENV",            14},
-	  {"SLURM_GEOMETRY",              15},
-	  {"SLURM_GRES",                  16},
-	  {"SLURM_IMMEDIATE",             17},
-	  {"SLURM_IOLOAD_IMAGE",          18},
-	  {"SLURM_JOBID",                 19},
-	  {"SLURM_JOB_ID",                20},
-	  {"SLURM_JOB_NAME",              21},
-	  {"SLURM_LINUX_IMAGE",           22},
-	  {"SLURM_MEM_BIND",              23},
-	  {"SLURM_MEM_PER_CPU",	          24},
-	  {"SLURM_MLOADER_IMAGE",         25},
-	  {"SLURM_NETWORK",               26},
-	  {"SLURM_NNODES",                27},
-	  {"SLURM_NODELIST",              28},
-	  {"SLURM_NO_ROTATE",             29},
-	  {"SLURM_NTASKS",                30},
-	  {"SLURM_NPROCS",                31},
-	  {"SLURM_NSOCKETS_PER_NODE",     32},
-	  {"SLURM_NTASKS_PER_NODE",       33},
-	  {"SLURM_NTHREADS_PER_CORE",     34},
-	  {"SLURM_OPEN_MODE",             35},
-	  {"SLURM_OVERCOMMIT",            36},
-	  {"SLURM_PARTITION",             37},
-	  {"SLURM_POWER",                 38},
-	  {"SLURM_PROFILE",               39},
-	  {"SLURM_QOS",                   40},
-	  {"SLURM_RAMDISK_IMAGE",         41},
-	  {"SLURM_REQ_SWITCH",            42},
-	  {"SLURM_RESERVATION",           43},
-	  {"SLURM_SICP",                  44},
-	  {"SLURM_THREAD_SPEC",           45},
-	  {"SLURM_THREADS",               46},
-	  {"SLURM_WAIT",                  47},
-	  {"SLURM_WAIT4SWITCH",           48},
-	  {"SLURM_WCKEY",                 49},
-	  {NULL, -1}
-	};
-
-	e = packenv;
-	while (e->var) {
-	  sprintf(name, "%s_PACK_GROUP_%d", e->var, opt.group_number);
-
-	  switch (e->num) {
-	  case 0:   // SLURM_ACCOUNT
-	    if (opt.account != NULL) {
-	      if (setenvf(NULL, name, "%s", opt.account) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 1:   // SLURM_ACCTG_FREQ
-	    if (opt.acctg_freq != NULL) {
-	      if (setenvf(NULL, name, "%s", opt.acctg_freq) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 2:   // SLURM_BLRTS_IMAGE
-	    if (opt.blrtsimage) {
-	      if (setenvf(NULL, name, "%s", opt.blrtsimage) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 3:   // SLURM_BURST_BUFFER
-	    if (opt.burst_buffer != NULL) {
-	      if (setenvf(NULL, name, "%s", opt.burst_buffer) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 4:   // SLURM_CHECKPOINT
-	    if (opt.ckpt_interval_str != NULL) {
-	      if (setenvf(NULL, name, "%s", opt.ckpt_interval_str) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 5:   // SLURM_CHECKPOINT_DIR
-	    if (opt.ckpt_dir != NULL) {
-	      if (setenvf(NULL, name, "%s", opt.ckpt_dir) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 6:   // SLURM_CNLOAD_IMAGE
-	    if (opt.linuximage != NULL) {
-	      if (setenvf(NULL, name, "%s", opt.linuximage) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 7:   // SLURM_CONN_TYPE
-	    if (opt.conn_type[0] != (uint16_t) NO_VAL) {
-	      if (setenvf(NULL, name, "%s", opt.conn_type) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 8:   // SLURM_CORE_SPEC
-	    if (opt.core_spec != (uint16_t) NO_VAL) {
-	      if (setenvf(NULL, name, "%d", opt.core_spec) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 9:   // SLURM_CPUS_PER_TASK
-	    if(opt.cpus_per_task) {
-	      if (setenvf(NULL, name, "%s", opt.cpus_per_task) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 10:   // SLURM_CPU_FREQ_REQ
-	    cpu_freq_set_env(name, opt.cpu_freq_min, opt.cpu_freq_max,
-			     opt.cpu_freq_gov);
-	    break;
-	  case 11:  // SLURM_DEPENDENCY
-	    if (setenvf(NULL, name, "%s", opt.dependency) < 0)
-	      error("unable to set %s in environment", name);
-	    break;
-	  case 12:   // SLURM_DISTRIBUTION
-	    set_distribution(opt.distribution, &dist, &lllp_dist);
-	    if (dist != NULL) {
-	      if (setenvf(NULL, name, "%s", dist) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 13:   // SLURM_EXCLUSIVE
-	    if (setenvf(NULL, name, "%d", opt.shared) < 0)
-	      error("unable to set %s in environment", name);
-	    break;
-	  case 14:   // SLURM_EXPORT_ENV
-	    if(opt.export_env != NULL) {
-	      if (setenvf(NULL, name, "%s", opt.export_env) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 15:   // SLURM_GEOMETRY
-	    packstr = print_geometry(opt.geometry);
-	    if(packstr != NULL) {
-	      if (setenvf(NULL, name, "%s", packstr) < 0)
-		error("unable to set %s in environment", name);
-	      xfree(packstr);
-	    }
-	    break;
-	  case 16:   // SLURM_GRES
-	    if(opt.gres != NULL) {
-	      if (setenvf(NULL, name, "%s", opt.gres) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 17:   // SLURM_IMMEDIATE
-	    if(opt.immediate) {
-	      if (setenvf(NULL, name, "%d", opt.immediate) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 18:   // SLURM_IOLOAD_IMAGE
-	    if(opt.ramdiskimage) {
-	      if (setenvf(NULL, name, "%d", opt.ramdiskimage) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 19:   // SLURM_JOBID
-	    //	    if (job_id != (uint16_t) NO_VAL) {
-	    //	      if (setenvf(NULL, name, "%d", job_id) < 0)
-	    //		error("unable to set %s in environment", name);
-	    //	    }
-	    break;
-	  case 20:   // SLURM_JOB_ID
-	    //	    if (job_id != (uint16_t) NO_VAL) {
-	    //	      if (setenvf(NULL, name, "%d", job_id) < 0)
-	    //		error("unable to set %s in environment", name);
-	    //	    }
-	    break;
-	  case 21:   // SLURM_JOB_NAME
-	    if(opt.job_name != NULL) {
-	      if (setenvf(NULL, name, "%d", opt.job_name) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 22:   // SLURM_LINUX_IMAGE
-	    if(opt.linuximage) {
-	      if (setenvf(NULL, name, "%d", opt.linuximage) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 23:   // SLURM_MEM_BIND
-	    if (opt.mem_bind != NULL) {
-	      if (setenvf(NULL, name, "%s", packtmp, opt.mem_bind) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 24:   // SLURM_MEM_PER_CPU
-	    if(opt.mem_per_cpu) {
-	      if (setenvf(NULL, name, "%d", opt.mem_per_cpu) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 25:   // SLURM_MLOADER_IMAGE
-	    if(opt.mloaderimage) {
-	      if (setenvf(NULL, name, "%d", opt.mloaderimage) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 26:   // SLURM_NETWORK
-	    if(opt.network) {
-	      if (setenvf(NULL, name, "%d", opt.network) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 27:  // SLURM_NNODES
-	    if (setenvf(NULL, name, "%d", opt.min_nodes) < 0)
-	      error("unable to set %s in environment", name);
-	    break;
-	  case 28:  // SLURM_NODELIST
-	    if (opt.nodelist != NULL) {
-	      if (setenvf(NULL, name, "%s", opt.nodelist) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 29:   // SLURM_NO_ROTATE
-	    if (setenvf(NULL, name, "%s", opt.no_rotate) < 0)
-	      error("unable to set %s in environment", name);
-	    break;
-	  case 30:  // SLURM_NTASKS
-	    if (setenvf(NULL, name, "%d", opt.ntasks) < 0)
-	      error("unable to set %s in environment", name);
-	    break;
-	  case 31:  // SLURM_NPROCS
-	    if (setenvf(NULL, name, "%d", opt.ntasks) < 0)
-	      error("unable to set %s in environment", name);
-	    break;
-	  case 32:  // SLURM_NSOCKETS_PER_NODE
-	    if (setenvf(NULL, name, "%d", opt.ntasks_per_core) < 0)
-	      error("unable to set %s in environment", name);
-	    break;
-	  case 33:  // SLURM_NTASKS_PER_NODE
-	    if (opt.ntasks_per_node) {
-	      if (setenvf(NULL, name, "%d", opt.ntasks_per_node) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 34:  // SLURM_NTHREADS_PER_CORE
-	    if (setenvf(NULL, name, "%d", opt.ntasks_per_socket) < 0)
-	      error("unable to set %s in environment", name);
-	    break;
-	  case 35:   // SLURM_OPEN_MODE
-	    if (opt.open_mode) {
-	      if (opt.open_mode == OPEN_MODE_APPEND) {
-		if (setenvf(NULL, name, "%s", "a") < 0)
-		  error("unable to set %s in environment", name);
-	      }
-	      else {
-		if (setenvf(NULL, name, "%s", "t") < 0)
-		  error("unable to set %s in environment", name);
-	      }
-	    }
-	    break;
-	  case 36:   // SLURM_OVERCOMMIT
-#define tf_(b) (b == true) ? "true" : "false"
-	    if (setenvf(NULL, name, "%s", tf_(opt.overcommit)) < 0)
-	      error("unable to set %s in environment", name);
-	    break;
-	  case 37:  // SLURM_PARTITION
-	    if (setenvf(NULL, name, "%s", opt.partition) < 0)
-	      error("unable to set %s in environment", name);
-	    break;
-	  case 38:   // SLURM_POWER
-	    if (setenvf(NULL, name, "%s", power_flags_str(opt.power_flags)) < 0)
-	      error("unable to set %s in environment", name);
-	    break;
-	  case 39:  // SLURM_PROFILE
-	    if (setenvf(NULL, name, "%d", opt.profile) < 0)
-	      error("unable to set %s in environment", name);
-	    break;
-	  case 40:   // SLURM_QOS
-	    if (opt.qos != NULL) {
-	      if (setenvf(NULL, name, "%s", opt.qos) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 41:   // SLURM_RAMDISK_IMAGE
-	    if(opt.ramdiskimage) {
-	      if (setenvf(NULL, name, "%d", opt.ramdiskimage) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 42:   // SLURM_REQ_SWITCH
-	    if (setenvf(NULL, name, "%d", opt.req_switch) < 0)
-	      error("unable to set %s in environment", name);
-	    break;
-	  case 43:   // SLURM_RESERVATION
-	    if(opt.reservation != NULL) {
-	      if (setenvf(NULL, name, "%s", opt.reservation) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 44:   // SLURM_SICP
-	    if (setenvf(NULL, name, "%d", opt.sicp_mode) < 0)
-	      error("unable to set %s in environment", name);
-	    break;
-	  case 45:   // SLURM_THREAD_SPEC
-	    if (setenvf(NULL, name, "%d", opt.core_spec) < 0)
-	      error("unable to set %s in environment", name);
-	    break;
-	  case 46:   // SLURM_THREADS
-	    if (opt.threads_per_core != (uint16_t) NO_VAL) {
-	      if (setenvf(NULL, name, "%d", opt.threads_per_core) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 47:   // SLURM_WAIT
-	    if (opt.wait_all_nodes != (uint16_t) NO_VAL) {
-	      if (setenvf(NULL, name, "%d", opt.wait_all_nodes) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  case 48:   // SLURM_WAIT4SWITCH
-	    if (setenvf(NULL, name, "%d", opt.wait4switch) < 0)
-	      error("unable to set %s in environment", name);
-	    break;
-	  case 49:   // SLURM_WCKEY
-	    if (opt.wckey != NULL) {
-	      if (setenvf(NULL, name, "%d", opt.wckey) < 0)
-		error("unable to set %s in environment", name);
-	    }
-	    break;
-	  }
-	  e++;
-	}
-	info("DHP _set_sbatch_pack_envs: Exit Here");
 }
 
 static void _set_sbatch_pack_envs()

@@ -1054,7 +1054,7 @@ _parse_pack_group(const char *pack_group)
 		xfree(opt.groupidx);
 		opt.groupidx = (uint32_t *) xmalloc(opt.ngrpidx * sizeof(uint32_t));
 		opt.groupidx[0] = grp;
-		info("JPCK: groupidx[0]=%d", 0);
+		debug("JPCK: groupidx[0]=%d", 0);
 		return;
 	}
 
@@ -1070,7 +1070,7 @@ _parse_pack_group(const char *pack_group)
 			if (nr < 0)
 				goto error;
 			for (i=0; i<nr; i++) {
-				info("JPCK: nr=%d range[%d] lo=%ld,hi=%ld,width=%d",nr,i,ranges[i].lo,ranges[i].hi,ranges[i].width);
+				debug("JPCK: nr=%d range[%d] lo=%ld,hi=%ld,width=%d",nr,i,ranges[i].lo,ranges[i].hi,ranges[i].width);
 			}
 		}
 	}
@@ -1084,7 +1084,7 @@ _parse_pack_group(const char *pack_group)
 	for (i=0; i < nr; i++) {
 		for (j=ranges[i].lo; j<=ranges[i].hi; j++) {
 			opt.groupidx[k] = j;
-			info("JPCK: groupidx[%d]=%d", k, j);
+			debug("JPCK: groupidx[%d]=%d", k, j);
 			k++;
 		}
 	}
@@ -2027,7 +2027,7 @@ static void _set_options(const int argc, char **argv)
 		case LONG_OPT_PACK_GROUP:
 			xfree(opt.pack_group);
 			opt.pack_group = xstrdup(optarg);
-			info("JPCK: PACK-GROUP srun-opt pack_group=%s",opt.pack_group);
+			debug("JPCK: PACK-GROUP srun-opt pack_group=%s",opt.pack_group);
 			_parse_pack_group(opt.pack_group);
 			break;
 		case LONG_OPT_DELAY_BOOT:

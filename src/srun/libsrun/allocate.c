@@ -669,6 +669,9 @@ info("1 allocate_nodes_jobpack desc[%u].pack_job_env[%u].resp->job_id is %u", gr
 			break;
 		}
 	}
+	if (!resp) {
+		fatal("JPCK: ***RBS*** failed to allocate packleader");
+	}
 //	pack_job_env[0].job_id = resp->job_id;
 	desc[0].pack_job_env[0].job_id = resp->job_id;
 //	_copy_resp_struct(pack_job_env[group_number].resp, resp);
@@ -742,9 +745,7 @@ info("4 allocate_nodes_jobpack desc[%u].pack_job_env[0].resp->job_id is %u", des
 				goto relinquish;
 			}
 			/* save updated opt for pack-member */
-//			_copy_opt_struct(pack_job_env[job_index].opt, &opt);
 			_copy_opt_struct(desc[desc_index].pack_job_env[0].opt, &opt);
-info("3 allocate_nodes_jobpack desc[%u].pack_job_env[0].opt->jobid is %d", desc_index, desc[desc_index].pack_job_env[0].opt->jobid);		/* wjb */
 #endif
 		} else if (destroy_job) {
 				goto relinquish;
@@ -762,7 +763,7 @@ info("3 allocate_nodes_jobpack desc[%u].pack_job_env[0].opt->jobid is %d", desc_
 relinquish:
 	if (resp) {
 		if (!destroy_job)
-info("## probably need to check for packleader & loop for all pack jobs here ##");
+//info("## probably need to check for packleader & loop for all pack jobs here ##");
 			slurm_complete_job(resp->job_id, 1);
 		slurm_free_resource_allocation_response_msg(resp);
 	}

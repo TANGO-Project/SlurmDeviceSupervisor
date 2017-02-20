@@ -1206,9 +1206,11 @@ env_array_for_batch_job(char ***dest, const batch_job_launch_msg_t *batch,
 
 	cluster_name = slurm_get_cluster_name();
 	if (cluster_name) {
-		env_array_append_fmt(dest, "SLURM_CLUSTER_NAME", "%s",
+	        newenv = env_jobpack("SLURM_CLUSTER_NAME", group_number);
+		env_array_append_fmt(dest, newenv, "%s",
 				     cluster_name);
 		xfree(cluster_name);
+		xfree(newenv);
 	}
 
 	env_array_overwrite_fmt(dest, "SLURM_JOB_ID", "%u", batch->job_id);
@@ -1219,22 +1221,30 @@ env_array_for_batch_job(char ***dest, const batch_job_launch_msg_t *batch,
 					"%u", step_layout_req.num_hosts);
 	}
 	if (batch->array_task_id != NO_VAL) {
-		env_array_overwrite_fmt(dest, "SLURM_ARRAY_JOB_ID", "%u",
+	        newenv = env_jobpack("SLURM_ARRAY_JOB_ID", group_number);
+		env_array_overwrite_fmt(dest, newenv, "%u",
 					batch->array_job_id);
-		env_array_overwrite_fmt(dest, "SLURM_ARRAY_TASK_ID", "%u",
+		xfree(newenv);
+
+	        newenv = env_jobpack("SLURM_ARRAY_TASK_ID", group_number);
+		env_array_overwrite_fmt(dest, newenv, "%u",
 					batch->array_task_id);
+		xfree(newenv);
 	}
 	env_array_overwrite_fmt(dest, "SLURM_JOB_NODELIST", "%s", batch->nodes);
 	env_array_overwrite_fmt(dest, "SLURM_JOB_PARTITION", "%s",
 				batch->partition);
 	env_array_overwrite_fmt(dest, "SLURM_NODE_ALIASES", "%s",
 				batch->alias_list);
+	xfree(newenv);
 
 	tmp = uint32_compressed_to_str(batch->num_cpu_groups,
 				       batch->cpus_per_node,
 				       batch->cpu_count_reps);
-	env_array_overwrite_fmt(dest, "SLURM_JOB_CPUS_PER_NODE", "%s", tmp);
+	newenv = env_jobpack("SLURM_JOB_CPUS_PER_NODE", group_number);
+	env_array_overwrite_fmt(dest, newenv, "%s", tmp);
 	xfree(tmp);
+	xfree(newenv);
 
 	env_array_overwrite_fmt(dest, "ENVIRONMENT", "BATCH");
 	if (node_name)
@@ -1291,17 +1301,24 @@ env_array_for_batch_job(char ***dest, const batch_job_launch_msg_t *batch,
 	tmp = _uint16_array_to_str(step_layout->node_cnt,
 				   step_layout->tasks);
 	slurm_step_layout_destroy(step_layout);
-	env_array_overwrite_fmt(dest, "SLURM_TASKS_PER_NODE", "%s", tmp);
+
+	newenv = env_jobpack("SLURM_TASKS_PER_NODE", group_number);
+	env_array_overwrite_fmt(dest, newenv, "%s", tmp);
 	xfree(tmp);
+	xfree(newenv);
 
 	if (batch->pn_min_memory & MEM_PER_CPU) {
 		uint64_t tmp_mem = batch->pn_min_memory & (~MEM_PER_CPU);
+		newenv = env_jobpack("SLURM_MEM_PER_CPU", group_number);
 		env_array_overwrite_fmt(dest, "SLURM_MEM_PER_CPU", "%"PRIu64"",
 					tmp_mem);
+		xfree(newenv);
 	} else if (batch->pn_min_memory) {
 		uint64_t tmp_mem = batch->pn_min_memory;
+		newenv = env_jobpack("SLURM_MEM_PER_NODE", group_number);
 		env_array_overwrite_fmt(dest, "SLURM_MEM_PER_NODE", "%"PRIu64"",
 					tmp_mem);
+		xfree(newenv);
 	}
 
 	/* Set the SLURM_JOB_ACCOUNT,  SLURM_JOB_QOS
@@ -1309,24 +1326,30 @@ env_array_for_batch_job(char ***dest, const batch_job_launch_msg_t *batch,
 	 * the controller.
 	 */
 	if (batch->account) {
+		newenv = env_jobpack("SLURM_JOB_ACCOUNT", group_number);
 		env_array_overwrite_fmt(dest,
-					"SLURM_JOB_ACCOUNT",
+					newenv,
 					"%s",
 					batch->account);
+		xfree(newenv);
 	}
 
 	if (batch->qos) {
+		newenv = env_jobpack("SLURM_JOB_QOS", group_number);
 		env_array_overwrite_fmt(dest,
-					"SLURM_JOB_QOS",
+					newenv,
 					"%s",
 					batch->qos);
+		xfree(newenv);
 	}
 
 	if (batch->resv_name) {
+		newenv = env_jobpack("SLURM_JOB_RESERVATION", group_number);
 		env_array_overwrite_fmt(dest,
-					"SLURM_JOB_RESERVATION",
+					newenv,
 					"%s",
 					batch->resv_name);
+		xfree(newenv);
 	}
 
 	return SLURM_SUCCESS;
@@ -2216,4 +2239,40 @@ char **env_array_user_default(const char *username, int timeout, int mode,
 	}
 
 	return env;
+}
+
+/*
+ * Convert an ENV name to pack group format if running pack groups
+ */
+char *env_jobpack(const char *envname, uint32_t group_number)
+{
+        char *newenv = NULL;
+
+	if (group_number == -1) {
+	        newenv = xmalloc(strlen(envname) + 1);
+		strcpy(newenv, envname);
+	}
+	else {
+	        newenv = xmalloc(strlen(envname) + 16);
+		sprintf(newenv, "%s_PACK_GROUP_%d", envname, group_number);
+	}
+	return (newenv);
+}
+
+/*
+ * Convert an ENV name to pack group format if running pack groups
+ */
+char *env_jobpack(const char *envname, uint32_t group_number)
+{
+        char *newenv = NULL;
+
+	if (group_number == -1) {
+	        newenv = xmalloc(strlen(envname) + 1);
+		strcpy(newenv, envname);
+	}
+	else {
+	        newenv = xmalloc(strlen(envname) + 16);
+		sprintf(newenv, "%s_PACK_GROUP_%d", envname, group_number);
+	}
+	return (newenv);
 }

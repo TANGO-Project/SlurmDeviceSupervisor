@@ -178,7 +178,7 @@ int _build_env_structs(int ac, char **av)
 	int index;
 	info("in _build_env_structs ac contains %u", ac);
 	for (index = 0; index < ac; index++) {
-		info ("av[%u] is %s", index, av[index]);
+		info ("av[%u] is %s\n", index, av[index]);
 	}
 */
 
@@ -195,9 +195,6 @@ pack_job_env = xmalloc(sizeof(pack_job_env_t) * pack_desc_count);
 		pack_job_env[i].packleader = false;
 		pack_job_env[i].pack_job = false;
 		pack_job_env[i].job_id = 0;
-//		pack_job_env[i].script_name = NULL;
-//		pack_job_env[i].script_body = NULL;
-
 	}
 	return rc;
 }
@@ -221,16 +218,16 @@ int _identify_job_descriptions(int ac, char **av)
 	pack_job_id = xstrdup("");
 
 
+/*
 	int index3;
-	printf("in_identify_job_descriptions ac contains %u", ac);
+	printf("in_identify_job_descriptions ac contains %u\n", ac);
 	for (index3 = 0; index3 < ac; index3++) {
-		printf("av[%u] is %s", index3, av[index3]);
+		printf("av[%u] is %s\n", index3, av[index3]);
 	}
-
+*/
 
 	while (current < ac){
 		newcmd = xmalloc(sizeof(char *) * (ac + 1));
-//		newcmd[0] = salloc_str;
 		newcmd[0] = xstrdup(av[0]);
 		for (i = 1; i < (ac + 1); i++) {
 			newcmd[i] = NULL;
@@ -297,11 +294,12 @@ int _identify_job_descriptions(int ac, char **av)
 
 	pack_job_env[job_index].ac = j;
 	pack_job_env[job_index].av = newcmd_cpy;
-int index1;
+/*int index1;
 for (index1=0; index1 < j; index1++)
-	printf("pack_job_env[%u].av[%u] = %s\n", job_index, index1, pack_job_env[job_index].av[index1]);	/* wjb */
+	printf("pack_job_env[%u].av[%u] = %s\n", job_index, index1, pack_job_env[job_index].av[index1]);
+*/
 	job_index++;
-info("job_index contains %u exiting_identify_job_descriptions\n", job_index);					/* wjb */
+
 	for (i = 0; i < ac; i++) {
 	        if(newcmd[i] != NULL)
 		        xfree(newcmd[i]);
@@ -368,6 +366,7 @@ int main(int argc, char **argv)
 	int i, rc = 0;
 	static char *msg = "Slurm job queue full, sleeping and retrying.";
 	slurm_allocation_callbacks_t callbacks;
+	char* listjobids = NULL;   //dhp
 
 	slurm_conf_init(NULL);
 	log_init(xbasename(argv[0]), logopt, 0, NULL);
@@ -810,6 +809,9 @@ int main_jobpack(int argc, char *argv[])
 	int job_index;
 	static char *msg = "Slurm job queue full, sleeping and retrying.";
 	slurm_allocation_callbacks_t callbacks;
+	int numpacklen = 0;
+	char* lastcomma;        //dhp
+	char* workptr = NULL;   //dhp
 
 	slurm_conf_init(NULL);
 	log_init(xbasename(argv[0]), logopt, 0, NULL);
@@ -836,14 +838,9 @@ info("on entr env == NULL");
 
 //info("******************** entering first loop **********************");		/* wjb */
 	for (job_index = pack_desc_count; job_index > 0; job_index--) {
-//	int index1;
-//		for (index1=0; index1 < pack_job_env[job_index].ac; index1++)
-//			printf("pack_job_env[%u].av[%u] = %s\n", job_index, index1, pack_job_env[job_index].av[index1]);	/* wjb */
 		group_number = job_index - 1;
 		packleader = pack_job_env[group_number].packleader;
 		packjob = pack_job_env[group_number].pack_job;
-info("packleader is %u packjob is %u", packleader, packjob);				/* wjb */
-//			if (pack_job_id == NULL)
 		if (packleader == true) {
 
 			if ((strcmp(pack_job_id, "") == 0))
@@ -880,7 +877,6 @@ info("packleader is %u packjob is %u", packleader, packjob);				/* wjb */
 	}
 
 	if (opt.get_user_env_time >= 0) {
-info("opt.get_user_env_time >= 0 for group number %u", group_number);		/* wjb */
 		char *user = uid_to_string(opt.uid);
 		if (strcmp(user, "nobody") == 0) {
 			error("Invalid user id %u: %m", (uint32_t)opt.uid);
@@ -979,7 +975,6 @@ info("opt.get_user_env_time >= 0 for group number %u", group_number);		/* wjb */
 	before = time(NULL);
 	retries = 0;
 	if (packjob == true) {
-info("making allocation request with group_number of %u", group_number);	/* wjb */
 		while ((alloc = slurm_allocate_pack_resources(&desc,
 		        opt.immediate, _pending_callback)) == NULL) {
 			if (((errno != ESLURM_ERROR_ON_DESC_TO_RECORD_COPY) &&
@@ -992,7 +987,6 @@ info("making allocation request with group_number of %u", group_number);	/* wjb 
 			sleep (++retries);
 		}
 	} else if (packleader == true) {
-info("making allocation request with group_number of %u", group_number);	/* wjb */
 		while ((alloc = slurm_allocate_resources_blocking(&desc,
 			opt.immediate, _pending_callback)) == NULL) {
 			if (((errno != ESLURM_ERROR_ON_DESC_TO_RECORD_COPY) &&
@@ -1009,7 +1003,7 @@ info("making allocation request with group_number of %u", group_number);	/* wjb 
 
 		_copy_opt_struct(pack_job_env[group_number].opt, &opt);
 		_copy_job_desc_msg(pack_job_env[group_number].desc, &desc);
-}			/*        end of first loop				wjb */
+}
 //info("******************** exited first loop **********************");		/* wjb */
 
 	/* become the user after the allocation has been requested. */
@@ -1075,6 +1069,7 @@ info("making allocation request with group_number of %u", group_number);	/* wjb 
 		 */
 		goto relinquish;
 	}
+
 //info("#########################entering loop 2 #############################");			/* wjb */
 	for (group_number = 0; group_number < pack_desc_count; group_number++) {
 		_copy_opt_struct(&opt, pack_job_env[group_number].opt);
@@ -1084,7 +1079,6 @@ info("making allocation request with group_number of %u", group_number);	/* wjb 
 	} else {
 		env = NULL;
 	}
-info("** Prior to calling existing allocation opt.jobid was %u updated to %u ***", opt.jobid, pack_job_env[group_number].job_id);		/* wjb */
 		opt.jobid = pack_job_env[group_number].job_id;
 		alloc = existing_allocation();
 		_copy_alloc_struct(pack_job_env[group_number].alloc, alloc);
@@ -1121,6 +1115,8 @@ info("** Prior to calling existing allocation opt.jobid was %u updated to %u ***
 		xfree(cluster_name);
 	}
 
+	xstrfmtcat(workptr, "%d", alloc->job_id);   //dhp
+	xstrcat(workptr, ",");                      //dhp
 
 	env_array_set_environment(env, group_number);
 }					/* wjb end of 2nd for loop */
@@ -1128,6 +1124,20 @@ info("** Prior to calling existing allocation opt.jobid was %u updated to %u ***
 //		_copy_opt_struct(&opt, pack_job_env[0].opt);
 //		_copy_job_desc_msg(&desc, pack_job_env[0].desc);
 	env_array_free(env);
+
+	if(workptr != NULL) {  //dhp
+	        lastcomma = strrchr(workptr, ',');
+		*lastcomma = '\0';
+	}
+	setenv("SLURM_LISTJOBIDS", workptr, 1);
+        if(workptr != NULL) xfree(workptr);
+
+        numpacklen = snprintf(NULL, 0, "%d", pack_desc_count);
+        workptr = xmalloc(numpacklen + 1);
+        sprintf(workptr, "%d", pack_desc_count);
+        setenv("SLURM_NUMPACK", workptr, 1);
+        xfree(workptr);  // dhp end
+
 	pthread_mutex_lock(&allocation_state_lock);
 	if (allocation_state == REVOKED) {
 		error("Allocation was revoked for job %u before command could "
@@ -1537,7 +1547,6 @@ static void _pending_callback(uint32_t job_id)
 	pending_job_id = job_id;
 	if (packjob) {
 		pack_job_env[group_number].job_id = job_id;
-info("saving pending jobid %u in pack_job_env[%u].job_id", job_id, group_number);		/* wjb */
 		xstrfmtcat(pack_job_id,":%u", job_id);
 	}
 }
@@ -1683,7 +1692,6 @@ static void _set_rlimits(char **env)
 	char env_name[25] = "SLURM_RLIMIT_";
 	char *env_value, *p;
 	struct rlimit r;
-	//unsigned long env_num;
 	rlim_t env_num;
 
 	for (rli=get_slurm_rlimits_info(); rli->name; rli++) {

@@ -4056,6 +4056,7 @@ extern int job_allocate(job_desc_msg_t * job_specs, int immediate,
 				 &job_ptr, submit_uid, err_msg,
 				 protocol_version);
 	*job_pptr = job_ptr;
+
 	if (error_code) {
 		if (job_ptr && (immediate || will_run)) {
 			/* this should never really happen here */
@@ -4222,6 +4223,7 @@ extern int job_allocate(job_desc_msg_t * job_specs, int immediate,
 		       job_ptr->job_id, job_ptr->nodes);
 		rebuild_job_part_list(job_ptr);
 	}
+
 	return SLURM_SUCCESS;
 }
 
@@ -5019,11 +5021,14 @@ static int _job_complete(uint32_t job_id, uid_t uid, bool requeue,
  * RET - 0 on success, otherwise ESLURM error code
  * global: job_list - pointer global job list
  *	last_job_update - time of last job table update
+ * Note: true job completion is _job_complete.
+ *       This is now a wrapper to handle job_pack completion.
  */
 extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 			bool node_fail, uint32_t job_return_code)
 {
 	int rc;
+	bool isleader = false;
 	List pack_depend;
 	ListIterator depend_iter;
 	struct depend_spec *ldr_dep_ptr;
@@ -5032,10 +5037,13 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 
 	job_ptr = find_job_record(job_id);
 	if (job_ptr == NULL) {
-		info("JPCK: RBS job_complete failed to find job=%d (assume ESLURM_ALREADY_DONE)", job_id);
+		debug("JPCK: RBS job_complete failed to find job=%d (assume ESLURM_ALREADY_DONE)", job_id);
 		return ESLURM_ALREADY_DONE;
 	}
 
+	/*
+	 * Check for a job_pack leader. If found, complete members too.
+	 */
 	if (job_ptr->details != NULL) {
 		pack_depend = job_ptr->details->depend_list;
 		if (pack_depend) {
@@ -5044,19 +5052,26 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 					list_next(depend_iter))) {
 				if (ldr_dep_ptr->depend_type ==
 							SLURM_DEPEND_PACK) {
-					info("JPCK: RBS: not completing pack %d, will wait for it's leader",ldr_dep_ptr->job_id);
+					debug("JPCK: RBS: not completing pack %d, will wait for it's leader",ldr_dep_ptr->job_id);
 					return SLURM_SUCCESS;
 				}
 				if (ldr_dep_ptr->depend_type !=
 							SLURM_DEPEND_PACKLEADER)
 					continue;
+				isleader = true;
+				debug("JPCK: RBS: found leader=%d in completion",ldr_dep_ptr->job_id);
 				mbr_job = ldr_dep_ptr->job_ptr;
+				/*
+				 * job_ptr is a pack leader.
+				 * mbr_job is one of its members,
+				 *         complete mbr_job
+				 */
 				if (mbr_job->job_state == JOB_COMPLETE
 				    || mbr_job->job_state == JOB_COMPLETING) {
-					info("JPCK: RBS: skipping pack %d, already complete",ldr_dep_ptr->job_id);
+					debug("JPCK: RBS: skipping pack member %d, already complete",ldr_dep_ptr->job_id);
 					continue;
 				}
-				info("JPCK: Complete pack jobid=%d",
+				debug("JPCK: Complete pack member jobid=%d",
 						ldr_dep_ptr->job_id);
 				rc = _job_complete(ldr_dep_ptr->job_id, uid,
 							  false, false,
@@ -5067,12 +5082,12 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 /* RBS: TODO -- this is okay for standalong srun.
  *              revisit for step-launch srun. Hopefully is is okay,
  *              or something else obvious breaks. */
-						info("JPCK: pack job %d is "
+						debug("JPCK: pack job %d is "
 						      "already complete",
 						      ldr_dep_ptr->job_id);
 
 					} else {
-						info("JPCK: Failed to complete "
+						debug("JPCK: Failed to complete "
 						      "pack job %d",
 						      ldr_dep_ptr->job_id);
 					}
@@ -5080,12 +5095,14 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 			}
 			list_iterator_destroy(depend_iter);
 		}
-		if (job_ptr->job_state == JOB_COMPLETE
-		    || job_ptr->job_state == JOB_COMPLETING) {
-			info("JPCK: RBS: skipping job pack leader %d, already complete",ldr_dep_ptr->job_id);
-			return SLURM_SUCCESS;
+		if (isleader) {
+			if (job_ptr->job_state == JOB_COMPLETE
+			    || job_ptr->job_state == JOB_COMPLETING) {
+				debug("JPCK: RBS: skipping job pack leader %d, already complete",ldr_dep_ptr->job_id);
+				return SLURM_SUCCESS;
+			}
+			debug("JPCK: Completing job pack leader=%d", job_id);
 		}
-		info("JPCK: Completing job pack leader=%d", job_id);
 	}
 	*/
 	return _job_complete(job_id, uid, false, false, job_return_code);
@@ -7544,7 +7561,10 @@ extern void job_validate_mem(struct job_record *job_ptr)
 void job_time_limit(void)
 {
 	ListIterator job_iterator;
+	ListIterator dep_iter;
+	struct depend_spec *dep_ptr;
 	struct job_record *job_ptr;
+	struct job_record *dep_job;
 	time_t now = time(NULL);
 	time_t old = now - ((slurmctld_conf.inactive_limit * 4 / 3) +
 			    slurmctld_conf.msg_timeout + 1);
@@ -7716,10 +7736,31 @@ void job_time_limit(void)
 				last_job_update = now;
 				info("Time limit exhausted for JobId=%u",
 				     job_ptr->job_id);
+				debug("JPCK: RBS -- Time limit exhausted for JobId=%u",
+				     job_ptr->job_id);
 				_job_timed_out(job_ptr);
 				job_ptr->state_reason = FAIL_TIMEOUT;
 				xfree(job_ptr->state_desc);
 				goto time_check;
+			}	
+			if ((job_ptr->details == NULL) ||
+				    (job_ptr->details->depend_list == NULL))
+					continue;
+				dep_iter = list_iterator_create(job_ptr->details->depend_list);
+				while ((dep_ptr = list_next(dep_iter))) {
+					if (dep_ptr->depend_type != SLURM_DEPEND_PACKLEADER) {
+						continue;
+					}
+					debug("JPCK: ***RBS*** killing pack member=%d "
+			                     "because leader time exhausted",
+			                     dep_ptr->job_id);
+					dep_job = dep_ptr->job_ptr;
+					if (dep_job == NULL)
+						continue;
+					_job_timed_out(dep_job);
+				}
+				list_iterator_destroy(dep_iter);
+				continue;
 			}
 		}
 
