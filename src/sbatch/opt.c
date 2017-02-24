@@ -189,6 +189,7 @@ enum wrappers {
 #define LONG_OPT_DEADLINE        0x166
 #define LONG_OPT_BURST_BUFFER_FILE 0x167
 #define LONG_OPT_DELAY_BOOT      0x168
+#define LONG_OPT_RESV_PORT       0x169
 
 extern bool packjob;
 extern bool packleader;
@@ -425,7 +426,10 @@ static void _opt_default(void)
 	opt.job_flags = 0;
 
 	opt.mcs_label		= NULL;
+	
 	opt.delay_boot      = NO_VAL;
+	
+	opt.resv_port   = 0;
 }
 
 /* Read specified file's contents into a buffer.
@@ -879,6 +883,7 @@ static struct option long_options[] = {
 	{"wait-all-nodes",required_argument, 0, LONG_OPT_WAIT_ALL_NODES},
 	{"wckey",         required_argument, 0, LONG_OPT_WCKEY},
 	{"wrap",          required_argument, 0, LONG_OPT_WRAP},
+	{"resv-port",     no_argument,       0, LONG_OPT_RESV_PORT},
 	{NULL,            0,                 0, 0}
 };
 
@@ -1970,6 +1975,8 @@ static void _set_options(int argc, char **argv)
 			break;
 		case LONG_OPT_SPREAD_JOB:
 			opt.job_flags |= SPREAD_JOB;
+		case LONG_OPT_RESV_PORT:
+			opt.resv_port = 1;
 			break;
 		case LONG_OPT_USE_MIN_NODES:
 			opt.job_flags |= USE_MIN_NODES;

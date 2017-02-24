@@ -994,6 +994,8 @@ static int _fill_job_desc_from_opts(job_desc_msg_t *desc)
 		desc->bitflags = opt.job_flags;
 	if (opt.mcs_label)
 		desc->mcs_label = xstrdup(opt.mcs_label);
+	if (opt.resv_port)
+	        desc->resv_port = 1;
 
 	return 0;
 }

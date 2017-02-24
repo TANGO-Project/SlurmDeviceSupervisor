@@ -92,6 +92,7 @@
 #include "src/slurmctld/srun_comm.h"
 #include "src/slurmctld/state_save.h"
 #include "src/slurmctld/powercapping.h"
+#include "src/slurmctld/port_mgr.h"
 
 #define _DEBUG 0
 #ifndef CORRESPOND_ARRAY_TASK_CNT
@@ -2332,6 +2333,26 @@ extern batch_job_launch_msg_t *build_launch_job_msg(struct job_record *job_ptr,
 	return launch_msg_ptr;
 }
 
+static char *_resv_ports_jobpack(struct job_record *job_ptr)
+{
+	char *resv_ports;
+
+	job_ptr->resv_port_cnt = job_ptr->node_cnt;
+	int i = resv_port_alloc_jobpack(job_ptr);
+	if (i != SLURM_SUCCESS) {
+	        error("failed to reserve node ports assigned to job %u",
+		      job_ptr->job_id);
+		return NULL;
+	}
+	else {
+	        resv_ports = xstrdup(job_ptr->resv_ports);
+		debug("job %u reserved port(s) %s", job_ptr->job_id,
+		      job_ptr->resv_ports);
+	}
+
+	return resv_ports;
+}
+
 static void _add_jobpack_envs(char **member_env, int numpack, int ntasks,
 			      char *list_jobids, struct job_record *job_ptr,
 			      batch_job_launch_msg_t *launch_msg_ptr)
@@ -2360,6 +2381,7 @@ static void _add_jobpack_envs(char **member_env, int numpack, int ntasks,
 	env_array_append_fmt(&member_env, "SLURM_NNODES",
 			     "%d", nnodes_pack);
 
+	ntasks += launch_msg_ptr->ntasks;
 	if (ntasks) {
 	        /* add SLURM_NTASKS to member_env */
 	        env_array_append_fmt(&member_env, "SLURM_NTASKS",
@@ -2442,6 +2464,10 @@ static char ** _check_for_jobpack_envs(struct job_record *job_ptr,
 			group_number = atoi(tmp);
 		}
 
+		if (job_ptr->resv_port_flag)
+		        launch_msg_ptr->resv_ports =
+			  _resv_ports_jobpack(dep_job_ptr);
+
 		/* populate member_env with launch env list */
 		env_array_for_batch_job(&member_env,
 					launch_msg_ptr,
@@ -2501,6 +2527,10 @@ extern void launch_job(struct job_record *job_ptr)
 
 	_add_jobpack_envs (member_env, numpack, ntasks, list_jobids,
 			   job_ptr, launch_msg_ptr);
+
+	if (job_ptr->resv_port_flag)
+	        launch_msg_ptr->resv_ports =
+		  _resv_ports_jobpack(job_ptr);
 
 	agent_arg_ptr = (agent_arg_t *) xmalloc(sizeof(agent_arg_t));
 	agent_arg_ptr->protocol_version = protocol_version;

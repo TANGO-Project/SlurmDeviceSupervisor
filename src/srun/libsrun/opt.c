@@ -772,14 +772,22 @@ static void _opt_env_pack(uint32_t group_number)
 {
 	char       *val = NULL;
 	env_vars_t *e   = env_vars;
-	char *name;
+	char *name, *batch;
 
 	debug("_opt_env_pack: group_number = %d", group_number);
 
+	batch = getenv("SLURM_BATCH_RESV_PORTS");
 	while (e->var) {
 	        name = xmalloc(strlen(e->var) + 16);
 	        sprintf(name, "%s_PACK_GROUP_%d", e->var, group_number);
 		if ((val = getenv(name)) != NULL) {
+		        /* prevent a bug where sbatch had set SLURM_RESV_PORTS;
+			   we do not want srun to know about it */
+		        if (batch && strcmp(e->var, "SLURM_RESV_PORTS")==0) {
+			        xfree(name);
+				e++;
+			        continue;
+			}
 		        debug("_opt_env_pack: name = %s, value = %s", name, val);
 		        _process_env_var(e, val);
 		}
@@ -2984,6 +2992,7 @@ static void _help(void)
 
         printf (
 "Usage: srun job_description(0) [ : job_description(1)] [...] [ : job_description(n)] \n"
+"            Each job_descriptiong is [OPTIONS...] executable [args...]\n"
 "\n"
 "Parallel run options:\n"
 "  -A, --account=name          charge job to specified account\n"

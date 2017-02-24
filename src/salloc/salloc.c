@@ -514,6 +514,7 @@ int main(int argc, char **argv)
 	callbacks.job_suspend = _job_suspend_handler;
 	callbacks.user_msg = _user_msg_handler;
 	callbacks.node_fail = _node_fail_handler;
+
 	/* create message thread to handle pings and such from slurmctld */
 	msg_thr = slurm_allocation_msg_thr_create(&desc.other_port,
 						  &callbacks);
@@ -954,6 +955,7 @@ int main_jobpack(int argc, char *argv[])
 		callbacks.job_suspend = _job_suspend_handler;
 		callbacks.user_msg = _user_msg_handler;
 		callbacks.node_fail = _node_fail_handler;
+
 		/* create message thread to handle pings and such from
 		 * slurmctld */
 		msg_thr = slurm_allocation_msg_thr_create(&desc.other_port,

@@ -94,6 +94,7 @@
 #include "src/slurmctld/licenses.h"
 #include "src/slurmctld/locks.h"
 #include "src/slurmctld/node_scheduler.h"
+#include "src/slurmctld/port_mgr.h"
 #include "src/slurmctld/preempt.h"
 #include "src/slurmctld/proc_req.h"
 #include "src/slurmctld/reservation.h"
@@ -1830,6 +1831,10 @@ static int _load_job_state(Buf buffer, uint16_t protocol_version)
 	job_ptr->wckey        = wckey;
 	xstrtolower(job_ptr->wckey);
 	wckey                 = NULL;	/* reused, nothing left to free */
+	resv_port_jobpack_free(job_ptr);
+	xfree(job_ptr->resv_port_array);
+	xfree(job_ptr->resv_ports);
+	job_ptr->resv_ports   = NULL;
 	xfree(job_ptr->network);
 	job_ptr->network      = network;
 	network               = NULL;  /* reused, nothing left to free */
@@ -2071,6 +2076,9 @@ unpack_error:
 	xfree(tres_fmt_req_str);
 	xfree(tres_req_str);
 	xfree(wckey);
+	resv_port_jobpack_free(job_ptr);
+	xfree(job_ptr->resv_port_array);
+	xfree(job_ptr->resv_ports);
 	select_g_select_jobinfo_free(select_jobinfo);
 	checkpoint_free_jobinfo(check_job);
 	if (job_ptr) {
@@ -5073,6 +5081,9 @@ static int _job_complete(uint32_t job_id, uid_t uid, bool requeue,
 	if (job_comp_flag) {	/* job was running */
 		build_cg_bitmap(job_ptr);
 		deallocate_nodes(job_ptr, false, suspended, false);
+		resv_port_jobpack_free(job_ptr);
+		xfree(job_ptr->resv_port_array);
+		xfree(job_ptr->resv_ports);
 	}
 
 	info("%s: %s done", __func__, jobid2str(job_ptr, jbuf, sizeof(jbuf)));
@@ -7229,6 +7240,9 @@ _copy_job_desc_to_job_record(job_desc_msg_t * job_desc,
 	job_ptr->bit_flags = job_desc->bitflags;
 	job_ptr->bit_flags &= ~BACKFILL_TEST;
 	job_ptr->ckpt_interval = job_desc->ckpt_interval;
+	job_ptr->resv_port_flag = false;
+	if (job_desc->resv_port)
+	        job_ptr->resv_port_flag = true;
 	job_ptr->spank_job_env = job_desc->spank_job_env;
 	job_ptr->spank_job_env_size = job_desc->spank_job_env_size;
 	job_desc->spank_job_env = (char **) NULL; /* nothing left to free */
@@ -8378,6 +8392,10 @@ static void _list_delete_job(void *job_entry)
 	step_list_purge(job_ptr);
 	select_g_select_jobinfo_free(job_ptr->select_jobinfo);
 	xfree(job_ptr->wckey);
+	resv_port_jobpack_free(job_ptr);
+	xfree(job_ptr->resv_port_array);
+	xfree(job_ptr->resv_ports);
+
 	if (job_array_size > job_count) {
 		error("job_count underflow");
 		job_count = 0;

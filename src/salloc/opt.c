@@ -2157,6 +2157,7 @@ static void _help(void)
 
         printf (
 "Usage: salloc job_description(0) [ : job_description(1)] [...] [ : job_description(n)] \n"
+"              Each job_descriptiong is [OPTIONS...] executable [args...]\n"
 "\n"
 "Parallel run options:\n"
 "  -A, --account=name          charge job to specified account\n"

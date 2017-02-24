@@ -666,6 +666,7 @@ int srun(int ac, char **av)
 		tmp = xmalloc(n + 1);
 		sprintf(tmp, "%d", nodecnt_mpi);
 		setenv("SLURM_NNODES_MPI", tmp, 1);
+		xfree(tmp);
 
 		env->partition = job->partition;
 		/* If we didn't get the allocation don't overwrite the
@@ -680,6 +681,7 @@ int srun(int ac, char **av)
 		tmp = xmalloc(n + 1);
 		sprintf(tmp, "%d", taskcnt_mpi);
 		setenv("SLURM_NTASKS_MPI", tmp, 1);
+		xfree(tmp);
 
 		env->jobid = job->jobid;
 		env->stepid = job->stepid;
@@ -1155,7 +1157,8 @@ static void _enhance_env_jobpack(bool got_alloc)
 	int nodecnt_mpi = 0;
 	int taskcnt_mpi = 0;
 	hostlist_t hl = NULL;
-	char *tmp;
+	char *tmp, *val;
+	int jobpack_flag = 0;
 
 	/* For each job description, enhance environment for job */
 	for (i = 0; i < pack_desc_count; i++) {
@@ -1205,7 +1208,12 @@ static void _enhance_env_jobpack(bool got_alloc)
 						   &tasks);
 
 				env->select_jobinfo = job->select_jobinfo;
-				env->nodelist = job->nodelist;
+				if ((tmp = getenv ("SLURM_NUMPACK"))) {
+				        if (atoi(tmp) > 1)
+					        jobpack_flag = 1;
+				}
+				if (jobpack_flag == 0)
+				        env->nodelist = job->nodelist;
 				slurm_step_ctx_t *step_ctx = job->step_ctx;
 				job_step_create_response_msg_t *step_resp = step_ctx->step_resp;
 				slurm_step_layout_t *layout = step_resp->step_layout;
@@ -1219,9 +1227,11 @@ static void _enhance_env_jobpack(bool got_alloc)
 				/* If we didn't get the allocation don't
 				* overwrite the previous info.
 				*/
-				if (got_alloc)
-					env->nhosts = job->nhosts;
-				env->ntasks = job->ntasks;
+				if (jobpack_flag == 0) {
+				        if (got_alloc)
+					        env->nhosts = job->nhosts;
+					env->ntasks = job->ntasks;
+				}
 				env->task_count =
 					_uint16_array_to_str(job->nhosts,
 							     tasks);
@@ -1261,6 +1271,13 @@ static void _enhance_env_jobpack(bool got_alloc)
 			step_callbacks.step_signal   = launch_g_fwd_signal;
 			memcpy(opt_ptr, &opt, sizeof(opt_t));
 		}
+		/* Set the following env (if not already set by salloc)
+		   for use in prolog if needed */
+		tmp = xmalloc(30);
+		sprintf(tmp, "SLURM_NODELIST_PACK_GROUP_%d", i);
+		if ((val = getenv (tmp)) == NULL)
+		        setenv(tmp, env->nodelist, 1);
+		xfree(tmp);
 	}
 
 	/* Set SLURM_XXX_MPI envs */
@@ -1274,12 +1291,22 @@ static void _enhance_env_jobpack(bool got_alloc)
 		tmp = xmalloc(n + 1);
 		sprintf(tmp, "%d", nodecnt_mpi);
 		setenv("SLURM_NNODES_MPI", tmp, 1);
+		xfree(tmp);
 	}
 	if (taskcnt_mpi) {
 	        n = snprintf(NULL, 0, "%d", taskcnt_mpi);
 		tmp = xmalloc(n + 1);
 		sprintf(tmp, "%d", taskcnt_mpi);
 		setenv("SLURM_NTASKS_MPI", tmp, 1);
+		xfree(tmp);
+	}
+	/* Make sure SLURM_NUMPACK exists if not already set by salloc */
+	if ((val = getenv ("SLURM_NUMPACK")) == NULL) {
+	        n = snprintf(NULL, 0, "%d", pack_desc_count);
+		tmp = xmalloc(n + 1);
+		sprintf(tmp, "%d", pack_desc_count);
+	        setenv("SLURM_NUMPACK", tmp, 1);
+		xfree(tmp);
 	}
 }
 

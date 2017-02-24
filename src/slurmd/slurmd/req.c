@@ -151,6 +151,8 @@ typedef struct {
 	uint32_t spank_job_env_size;
 	uid_t uid;
 	char *user_name;
+	char **supp_job_env;
+	uint32_t supp_job_env_size;
 } job_env_t;
 
 static int  _abort_step(uint32_t job_id, uint32_t step_id);
@@ -1452,6 +1454,8 @@ _rpc_launch_tasks(slurm_msg_t *msg)
 	if (first_job_run) {
 		int rc;
 		job_env_t job_env;
+		char *tmp, *val;
+		int i, gn;
 
 		slurm_cred_insert_jobid(conf->vctx, req->job_id);
 		_add_job_running_prolog(req->job_id);
@@ -1470,6 +1474,49 @@ _rpc_launch_tasks(slurm_msg_t *msg)
 		job_env.spank_job_env_size = req->spank_job_env_size;
 		job_env.uid = req->uid;
 		job_env.user_name = req->user_name;
+		/* fetch & append some JOBPACK related envs from req
+		   so they will be available to prolog */
+		if ((val = getenvp(req->env, "SLURM_NUMPACK")) != NULL) {
+			env_array_append(&job_env.supp_job_env,
+					 "SLURM_NUMPACK", val);
+			job_env.supp_job_env_size =
+			        envcount(job_env.supp_job_env);
+
+		        int numpack = atoi(val);
+			for (i=0; i<numpack; i++) {
+			        tmp = xmalloc(30);
+				sprintf(tmp, "SLURM_NODELIST_PACK_GROUP_%d", i);
+				if ((val = getenvp(req->env, tmp)) != NULL) {
+				        env_array_append(&job_env.supp_job_env,
+							 tmp, val);
+					job_env.supp_job_env_size =
+					        envcount(job_env.supp_job_env);
+					if (strcmp(val, job_env.node_list) == 0)
+					        gn = i;
+				}
+				sprintf(tmp, "SLURM_RESV_PORTS_PACK_GROUP_%d",
+					i);
+				if ((val = getenvp(req->env, tmp)) != NULL) {
+				        env_array_append(&job_env.supp_job_env,
+							 tmp, val);
+					job_env.supp_job_env_size =
+					        envcount(job_env.supp_job_env);
+				}
+				xfree(tmp);
+			}
+			env_array_append_fmt(&job_env.supp_job_env,
+					     "SLURM_GROUP_NUMBER", "%d", gn);
+			job_env.supp_job_env_size =
+			        envcount(job_env.supp_job_env);
+		}
+		if ((val = getenvp(req->env,
+				   "SLURM_STEP_RESV_PORTS")) != NULL) {
+			env_array_append(&job_env.supp_job_env,
+					 "SLURM_STEP_RESV_PORTS", val);
+			job_env.supp_job_env_size =
+			        envcount(job_env.supp_job_env);
+		}
+
 		rc =  _run_prolog(&job_env, req->cred);
 		if (rc) {
 			int term_sig, exit_status;
@@ -5774,6 +5821,11 @@ _build_env(job_env_t *job_env)
 				      (const char **) job_env->spank_job_env);
 	}
 
+	if (job_env->supp_job_env_size) {
+		env_array_merge(&env,
+				      (const char **) job_env->supp_job_env);
+	}
+
 	slurm_mutex_lock(&conf->config_mutex);
 	setenvf(&env, "SLURMD_NODENAME", "%s", conf->node_name);
 	setenvf(&env, "SLURM_CONF", conf->conffile);
@@ -5797,6 +5849,7 @@ _build_env(job_env_t *job_env)
 
 	setenvf(&env, "SLURM_JOBID", "%u", job_env->jobid);
 	setenvf(&env, "SLURM_UID",   "%u", job_env->uid);
+
 	if (job_env->node_list)
 		setenvf(&env, "SLURM_NODELIST", "%s", job_env->node_list);
 

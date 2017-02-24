@@ -1506,7 +1506,7 @@ typedef struct job_descriptor {	/* For submit, allocate, and update requests */
 				  * default=0 (no limit) */
 	uint32_t pn_min_tmp_disk;/* minimum tmp disk per node,
 				  * default=0 */
-
+        uint8_t resv_port;       /* jobpack resv-port for nodes flag */
 /*
  * The following parameters are only meaningful on a Blue Gene
  * system at present. Some will be of value on other system. Don't remove these

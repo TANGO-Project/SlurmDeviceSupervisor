@@ -789,6 +789,12 @@ struct job_record {
 	uint32_t wait4switch; /* Maximum time to wait for minimum switches */
 	bool     best_switch; /* true=min number of switches met           */
 	time_t wait4switch_start; /* Time started waiting for switch       */
+
+        /* Reserved port data used for JobPack MPI support */
+        bool resv_port_flag;            /* notify job_scheduler */
+	int *resv_port_array;		/* reserved port indexes */
+	uint16_t resv_port_cnt;		/* count of ports reserved per node */
+	char *resv_ports;		/* ports reserved for job */
 };
 
 /* Job dependency specification, used in "depend_list" within job_record */

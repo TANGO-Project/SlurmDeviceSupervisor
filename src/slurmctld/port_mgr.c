@@ -53,6 +53,8 @@ bitstr_t **port_resv_table = (bitstr_t **) NULL;
 int        port_resv_cnt   = 0;
 int        port_resv_min   = 0;
 int        port_resv_max   = 0;
+int        port_resv_cnt_jobpack = 0;
+int        last_port_alloc_jobpack = 0;
 
 static void _dump_resv_port_info(void);
 static void _make_all_resv(void);
@@ -173,6 +175,7 @@ extern int reserve_port_config(char *mpi_params)
 				FREE_NULL_BITMAP(port_resv_table[i]);
 			xfree(port_resv_table);
 			port_resv_cnt = 0;
+			port_resv_cnt_jobpack = 0;
 			port_resv_min = port_resv_max = 0;
 		}
 		return SLURM_SUCCESS;
@@ -229,7 +232,13 @@ extern int resv_port_alloc(struct step_record *step_ptr)
 	if (dims == -1)
 		dims = slurmdb_setup_cluster_name_dims();
 
-	if (step_ptr->resv_port_cnt > port_resv_cnt) {
+	static int hport = 0;
+
+	hport = MAX(hport, port_resv_cnt_jobpack);
+	if (hport > 0)
+	        last_port_alloc = hport;
+
+	if ((step_ptr->resv_port_cnt + port_resv_cnt_jobpack) > port_resv_cnt) {
 		info("step %u.%u needs %u reserved ports, but only %d exist",
 		     step_ptr->job_ptr->job_id, step_ptr->step_id,
 		     step_ptr->resv_port_cnt, port_resv_cnt);
@@ -303,4 +312,105 @@ extern void resv_port_free(struct step_record *step_ptr)
 	debug("freed ports %s for step %u.%u",
 	      step_ptr->resv_ports,
 	      step_ptr->job_ptr->job_id, step_ptr->step_id);
+}
+
+/* Reserve port(s) for JobPack MPI support. Ports are reserved for each node
+ * allocated to a job.
+ * NOTE: We keep track of last port reserved and go round-robin through full
+ *       set of available ports. This helps avoid re-using busy ports when
+ *       restarting job steps.
+ * RET SLURM_SUCCESS or an error code */
+extern int resv_port_alloc_jobpack(struct job_record *job_ptr)
+{
+	int i, port_inx;
+	int *port_array = NULL;
+	char port_str[16], *tmp_str;
+	hostlist_t hl;
+
+	if (job_ptr->resv_port_cnt > port_resv_cnt) {
+		info("job %u needs %u reserved ports, but only %d exist",
+		     job_ptr->job_id, job_ptr->resv_port_cnt, port_resv_cnt);
+		return ESLURM_PORTS_INVALID;
+	}
+
+	port_resv_cnt_jobpack += job_ptr->resv_port_cnt;
+
+	/* Identify available ports */
+	port_array = xmalloc(sizeof(int) * job_ptr->resv_port_cnt);
+	port_inx = 0;
+	for (i=0; i<port_resv_cnt; i++) {
+		if (++last_port_alloc_jobpack >= port_resv_cnt)
+			last_port_alloc_jobpack = 0;
+		if (bit_overlap(job_ptr->node_bitmap,
+				port_resv_table[last_port_alloc_jobpack]))
+			continue;
+		port_array[port_inx++] = last_port_alloc_jobpack;
+		if (port_inx >= job_ptr->resv_port_cnt)
+			break;
+	}
+	if (port_inx < job_ptr->resv_port_cnt) {
+		info("insufficient ports for job %u to reserve (%d of %u)",
+		     job_ptr->job_id, port_inx, job_ptr->resv_port_cnt);
+		xfree(port_array);
+		return ESLURM_PORTS_BUSY;
+	}
+
+	/* Reserve selected ports */
+	hl = hostlist_create(NULL);
+	for (i=0; i<port_inx; i++) {
+		bit_or(port_resv_table[port_array[i]],
+		       job_ptr->node_bitmap);
+		port_array[i] += port_resv_min;
+		snprintf(port_str, sizeof(port_str), "%d", port_array[i]);
+		hostlist_push_host(hl, port_str);
+	}
+	hostlist_sort(hl);
+	job_ptr->resv_ports = hostlist_ranged_string_xmalloc(hl);
+	hostlist_destroy(hl);
+	job_ptr->resv_port_array = port_array;
+
+	if (job_ptr->resv_ports[0] == '[') {
+		/* Remove brackets from hostlist */
+		i = strlen(job_ptr->resv_ports);
+		job_ptr->resv_ports[i-1] = '\0';
+		tmp_str = xmalloc(i);
+		strcpy(tmp_str, job_ptr->resv_ports + 1);
+		xfree(job_ptr->resv_ports);
+		job_ptr->resv_ports = tmp_str;
+	}
+
+	debug("reserved ports %s for job %u",
+	      job_ptr->resv_ports,
+	      job_ptr->job_id);
+
+	return SLURM_SUCCESS;
+}
+
+/* Release reserved ports for a job
+ * RET SLURM_SUCCESS or an error code */
+extern void resv_port_jobpack_free(struct job_record *job_ptr)
+{
+	int i, j;
+
+	if (job_ptr->resv_port_array == NULL)
+		return;
+
+	bit_not(job_ptr->node_bitmap);
+	for (i=0; i<job_ptr->resv_port_cnt; i++) {
+		if ((job_ptr->resv_port_array[i] < port_resv_min) ||
+		    (job_ptr->resv_port_array[i] > port_resv_max))
+			continue;
+		j = job_ptr->resv_port_array[i] - port_resv_min;
+		bit_and(port_resv_table[j], job_ptr->node_bitmap);
+
+	}
+	bit_not(job_ptr->node_bitmap);
+	xfree(job_ptr->resv_port_array);
+
+	port_resv_cnt_jobpack = 0;
+	last_port_alloc_jobpack = 0;
+
+	debug("freed ports %s for job %u",
+	      job_ptr->resv_ports,
+	      job_ptr->job_id);
 }

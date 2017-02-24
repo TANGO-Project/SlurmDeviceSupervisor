@@ -54,4 +54,12 @@ extern int resv_port_alloc(struct step_record *step_ptr);
  * RET SLURM_SUCCESS or an error code */
 extern void resv_port_free(struct step_record *step_ptr);
 
+/* Reserve ports for a jobpack job
+ * RET SLURM_SUCCESS or an error code */
+extern int resv_port_alloc_jobpack(struct job_record *job_ptr);
+
+/* Release reserved ports for a job
+ * RET SLURM_SUCCESS or an error code */
+extern void resv_port_jobpack_free(struct job_record *job_ptr);
+
 #endif	/* !_HAVE_PORT_MGR_H */

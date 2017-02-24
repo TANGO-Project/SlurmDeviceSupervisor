@@ -80,12 +80,9 @@ if [file exists $local_globals_file] {
 # Specify the slurm install directory.
 # Used to locate binaries, libraries, and header files.
 #
-cset slurm_dir   "/app/slurm/nlk/install/dev-arrm2-common/"
-cset build_dir   "/app/slurm/nlk/build/dev-arrm2-common/"
-cset src_dir     "/app/slurm/nlk/git/new/"
-#cset slurm_dir   "/app/slurm/nlk/install/schedmd/"
-#cset build_dir   "/app/slurm/nlk/build/schedmd/"
-#cset src_dir     "/app/slurm/nlk/git/dev/"
+cset slurm_dir   "/usr"
+cset build_dir   "../../"
+cset src_dir     "../../"
 cset sacctmgr    "${slurm_dir}/bin/sacctmgr"
 cset sacct       "${slurm_dir}/bin/sacct"
 cset salloc      "${slurm_dir}/bin/salloc"
@@ -129,7 +126,7 @@ cset partition ""
 #cset mpicc	"/home/jette/mpich2-install/bin/mpicc"
 #cset use_pmi	1
 # OR for other versions of MPICH, use this
-cset mpicc       "/opt/mpi/bullxmpi/1.2.8.1/bin/mpicc"
+cset mpicc       "/usr/local/bin/mpicc"
 cset use_pmi	0
 #cset upcc       "/usr/local/bin/upcc"
 cset upcc       "/usr/bin/xlupc"

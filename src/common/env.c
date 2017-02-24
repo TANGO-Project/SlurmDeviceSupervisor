@@ -1359,6 +1359,13 @@ env_array_for_batch_job(char ***dest, const batch_job_launch_msg_t *batch,
 		xfree(newenv);
 	}
 
+	if (batch->resv_ports) {
+	        newenv = env_jobpack("SLURM_RESV_PORTS", group_number);
+		env_array_overwrite_fmt(dest, newenv, "%s", batch->resv_ports);
+		xfree(newenv);
+		env_array_append(dest, "SLURM_BATCH_RESV_PORTS", "1");
+	}
+
 	return SLURM_SUCCESS;
 }
 
@@ -1400,6 +1407,7 @@ env_array_for_step(char ***dest,
 	char *tmp, *tpn;
 	uint32_t node_cnt = step->step_layout->node_cnt;
 	uint32_t cluster_flags = slurmdb_setup_cluster_flags();
+	int jobpack_flag = 0;
 
 	tpn = _uint16_array_to_str(step->step_layout->node_cnt,
 				   step->step_layout->tasks);
@@ -1455,10 +1463,16 @@ env_array_for_step(char ***dest,
 	env_array_overwrite_fmt(dest, "SLURM_STEPID", "%u", step->job_step_id);
 
 	if (!preserve_env) {
-		env_array_overwrite_fmt(dest, "SLURM_NNODES",
-					"%u", node_cnt);
-		env_array_overwrite_fmt(dest, "SLURM_NTASKS", "%u",
-					step->step_layout->task_cnt);
+	        if ((tmp = getenv ("SLURM_NUMPACK"))) {
+		        if (atoi(tmp) > 1)
+			        jobpack_flag = 1;
+		}
+		if (jobpack_flag == 0) {
+		        env_array_overwrite_fmt(dest, "SLURM_NNODES",
+						"%u", node_cnt);
+			env_array_overwrite_fmt(dest, "SLURM_NTASKS", "%u",
+						step->step_layout->task_cnt);
+		}
 		/* keep around for old scripts */
 		env_array_overwrite_fmt(dest, "SLURM_NPROCS",
 					"%u", step->step_layout->task_cnt);
