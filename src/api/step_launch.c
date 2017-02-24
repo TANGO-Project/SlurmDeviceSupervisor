@@ -314,7 +314,6 @@ int slurm_step_launch (slurm_step_ctx_t *ctx,
 		launch.flags |= LAUNCH_PARALLEL_DEBUG;
 
 	launch.tasks_to_launch = ctx->step_resp->step_layout->tasks;
-
 	launch.global_task_ids = ctx->step_resp->step_layout->tids;
 
 	launch.select_jobinfo  = ctx->step_resp->select_jobinfo;

@@ -91,6 +91,7 @@ typedef struct pmi2_tree_info {
 	uint32_t *children_kvs_seq; /* sequence number of children nodes */
 } pmi2_tree_info_t;
 
+
 extern pmi2_job_info_t job_info;
 extern pmi2_tree_info_t tree_info;
 extern char tree_sock_addr[];

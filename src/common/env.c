@@ -341,7 +341,6 @@ int setup_env(env_t *env, bool preserve_env)
 	uint32_t cluster_flags = slurmdb_setup_cluster_flags();
 	slurm_ctl_conf_t *conf;
 
-
 	if (env == NULL)
 		return SLURM_ERROR;
 
