@@ -2312,7 +2312,6 @@ static void _set_pbs_options(int argc, char **argv)
 					}
 				}	
 			opt.nice = (int) tmp_nice;
-			opt.nice = (int) tmp_nice;
 			break;
 			}
 		}

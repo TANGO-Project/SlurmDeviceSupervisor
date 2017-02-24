@@ -340,7 +340,6 @@ int setup_env(env_t *env, bool preserve_env)
 	char *dist = NULL, *lllp_dist = NULL;
 	char addrbuf[INET_ADDRSTRLEN];
 	uint32_t cluster_flags = slurmdb_setup_cluster_flags();
-	slurm_ctl_conf_t *conf;
 
 	if (env == NULL)
 		return SLURM_ERROR;
@@ -780,6 +779,13 @@ int setup_env(env_t *env, bool preserve_env)
 		rc = SLURM_FAILURE;
 	}
 
+	if (env->comm_port
+	    && setenvf (&env->env, "SLURM_SRUN_COMM_PORT", "%u",
+			env->comm_port)) {
+		error ("Can't set SLURM_SRUN_COMM_PORT env variable");
+		rc = SLURM_FAILURE;
+	}
+
 	if (env->cli) {
 
 		slurm_print_slurm_addr (env->cli, addrbuf, INET_ADDRSTRLEN);
@@ -870,12 +876,6 @@ int setup_env(env_t *env, bool preserve_env)
 			rc = SLURM_FAILURE;
 		}
 	}
-
-	conf = slurm_conf_lock();
-	setenvf(&env->env, "SLURM_WORKING_CLUSTER", "%s:%d:%d",
-		conf->control_addr, conf->slurmctld_port,
-		SLURM_PROTOCOL_VERSION);
-	slurm_conf_unlock();
 
 	return rc;
 }

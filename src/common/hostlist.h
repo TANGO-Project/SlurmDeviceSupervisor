@@ -566,7 +566,7 @@ ssize_t hostset_ranged_string(hostset_t set, size_t n, char *buf);
  *
  * Return number of ranges created, or -1 on error.
  */
-int parse_range_list(char *str,
+int _parse_range_list(char *str,
 		     range_t * *ranges, int *capacity,
 		     int max_capacity, int dims);
 

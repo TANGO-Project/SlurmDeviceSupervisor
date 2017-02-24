@@ -329,6 +329,7 @@ int eio_handle_mainloop(eio_handle_t *eio)
 		/* See if we've been told to shut down by eio_signal_shutdown */
 		if (pollfds[nfds-1].revents & POLLIN)
 			_eio_wakeup_handler(eio);
+
 		_poll_dispatch(pollfds, nfds - 1, map, eio->obj_list);
 
 		slurm_mutex_lock(&eio->shutdown_mutex);
@@ -438,6 +439,7 @@ _poll_dispatch(struct pollfd *pfds, unsigned int nfds, eio_obj_t *map[],
 	       List objList)
 {
 	int i;
+
 	for (i = 0; i < nfds; i++) {
 		if (pfds[i].revents > 0)
 			_poll_handle_event(pfds[i].revents, map[i], objList);
@@ -522,7 +524,6 @@ eio_obj_t *
 eio_obj_create(int fd, struct io_operations *ops, void *arg)
 {
 	eio_obj_t *obj = xmalloc(sizeof(*obj));
-
 	obj->fd  = fd;
 	obj->arg = arg;
 	obj->ops = _ops_copy(ops);
@@ -559,6 +560,7 @@ void eio_new_initial_obj(eio_handle_t *eio, eio_obj_t *obj)
 {
 	xassert(eio != NULL);
 	xassert(eio->magic == EIO_MAGIC);
+
 	list_enqueue(eio->obj_list, obj);
 }
 

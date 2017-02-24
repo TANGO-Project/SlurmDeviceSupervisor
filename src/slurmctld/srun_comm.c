@@ -46,7 +46,6 @@
 #include "src/common/xmalloc.h"
 #include "src/common/xstring.h"
 #include "src/slurmctld/agent.h"
-#include "src/slurmctld/fed_mgr.h"
 #include "src/slurmctld/slurmctld.h"
 #include "src/slurmctld/srun_comm.h"
 
@@ -129,17 +128,6 @@ extern void srun_allocate (uint32_t job_id)
 				job_ptr->select_jobinfo);
 		msg_arg->error_code	= SLURM_SUCCESS;
 
-		if (!(fed_mgr_is_origin_job(job_ptr))) {
-			/* msg->working_cluster_rec is NULL'ed out before being
-			 * free'd in _purge_agent_args() */
-			msg_arg->working_cluster_rec = fed_mgr_cluster_rec;
-			msg_arg->node_addr =
-				xmalloc(sizeof(slurm_addr_t) *
-					job_ptr->node_cnt);
-			memcpy(msg_arg->node_addr, job_ptr->node_addr,
-			       (sizeof(slurm_addr_t) * job_ptr->node_cnt));
-		}
-
 		_srun_agent_launch(addr, job_ptr->alloc_node,
 				   RESPONSE_RESOURCE_ALLOCATION, msg_arg,
 				   job_ptr->start_protocol_ver);
@@ -153,7 +141,7 @@ extern void srun_allocate (uint32_t job_id)
 extern void srun_allocate_abort(struct job_record *job_ptr)
 {
 	if (job_ptr && job_ptr->alloc_resp_port && job_ptr->alloc_node
-		&&  job_ptr->resp_host) {
+	&&  job_ptr->resp_host) {
 		slurm_addr_t * addr;
 		srun_job_complete_msg_t *msg_arg;
 		addr = xmalloc(sizeof(struct sockaddr_in));
@@ -408,6 +396,7 @@ extern void srun_job_complete (struct job_record *job_ptr)
 	struct step_record *step_ptr;
 
 	xassert(job_ptr);
+
 	if (job_ptr->other_port && job_ptr->alloc_node && job_ptr->resp_host) {
 		addr = xmalloc(sizeof(struct sockaddr_in));
 		slurm_set_addr(addr, job_ptr->other_port, job_ptr->resp_host);

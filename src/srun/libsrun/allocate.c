@@ -959,16 +959,6 @@ job_desc_msg_create_from_opts (void)
 		j->mcs_label = opt.mcs_label;
 	j->wait_all_nodes = 1;
 
-	/* If can run on multiple clusters find the earliest run time
-	 * and run it there */
-	j->clusters = xstrdup(opt.clusters);
-	if (opt.clusters &&
-	    slurmdb_get_first_avail_cluster(j, opt.clusters,
-				&working_cluster_rec) != SLURM_SUCCESS) {
-		print_db_notok(opt.clusters, 0);
-		exit(error_exit);
-	}
-
 	return j;
 }
 

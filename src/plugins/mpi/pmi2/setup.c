@@ -292,7 +292,7 @@ static int
 _setup_stepd_tree_info(const stepd_step_rec_t *job, char ***env)
 {
 	hostlist_t hl;
-	char *srun_host;
+	char srun_host[64];
 	uint16_t port;
 	char *p;
 	int tree_width;
@@ -341,22 +341,25 @@ _setup_stepd_tree_info(const stepd_step_rec_t *job, char ***env)
 
 	tree_info.pmi_port = 0;	/* not used */
 
-	srun_host = getenvp(*env, "SLURM_SRUN_COMM_HOST");
-	if (!srun_host) {
+	p = getenvp(*env, "SLURM_SRUN_COMM_HOST");
+	if (!p) {
 		error("mpi/pmi2: unable to find srun comm ifhn in env");
 		return SLURM_ERROR;
+	} else {
+		strncpy(srun_host, p, 64);
 	}
 	p = getenvp(*env, PMI2_SRUN_PORT_ENV);
 	if (!p) {
 		error("mpi/pmi2: unable to find srun pmi2 port in env");
 		return SLURM_ERROR;
-	}
-	port = atoi(p);
-
+	} else {
+		port = atoi(p);
+		unsetenvp(*env, PMI2_SRUN_PORT_ENV);
+	}	
+	
 	tree_info.srun_addr = xmalloc(sizeof(slurm_addr_t));
 	slurm_set_addr(tree_info.srun_addr, port, srun_host);
 
-	unsetenvp(*env, PMI2_SRUN_PORT_ENV);
 
 	/* init kvs seq to 0. TODO: reduce array size */
 	tree_info.children_kvs_seq = xmalloc(sizeof(uint32_t) *
@@ -396,7 +399,7 @@ _setup_stepd_sockets(const stepd_step_rec_t *job, char ***env)
 	xstrsubstitute(spool, "%n", job->node_name);
 	xstrsubstitute(spool, "%h", job->node_name);
 	snprintf(sa.sun_path, sizeof(sa.sun_path), PMI2_SOCK_ADDR_FMT,
-		 spool, job->jobid, step_index);
+		 spool, job->mpi_jobid, step_index);
 	unlink(sa.sun_path);    /* remove possible old socket */
 	xfree(spool);
 
@@ -429,7 +432,6 @@ _setup_stepd_kvs(const stepd_step_rec_t *job, char ***env)
 	int rc = SLURM_SUCCESS, i = 0, pp_cnt = 0;
 	char *p, env_key[32], *ppkey, *ppval;
 
-	kvs_seq = 1;
 	rc = temp_kvs_init();
 	if (rc != SLURM_SUCCESS)
 		return rc;

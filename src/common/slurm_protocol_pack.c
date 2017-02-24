@@ -7991,7 +7991,6 @@ _pack_job_desc_msg(job_desc_msg_t * job_desc_ptr, Buf buffer,
 {
 
 	/* load the data values */
-
 	if (protocol_version >= SLURM_17_02_PROTOCOL_VERSION) {
 		packstr(job_desc_ptr->clusters, buffer);
 		pack16(job_desc_ptr->contiguous, buffer);
@@ -11425,7 +11424,6 @@ _pack_batch_job_launch_msg(batch_job_launch_msg_t * msg, Buf buffer,
 		packstr(msg->resv_name, buffer);
 		pack32(msg->profile, buffer);
 		packstr(msg->resv_ports, buffer);
-
 	} else {
 		error("_pack_batch_job_launch_msg: protocol_version "
 		      "%hu not supported", protocol_version);
@@ -11637,6 +11635,7 @@ _unpack_batch_job_launch_msg(batch_job_launch_msg_t ** msg, Buf buffer,
 		safe_unpackstr_xmalloc(&launch_msg_ptr->resv_ports,
 				       &uint32_tmp,
 				       buffer);
+
 	} else {
 		error("_unpack_batch_job_launch_msg: protocol_version "
 		      "%hu not supported", protocol_version);
