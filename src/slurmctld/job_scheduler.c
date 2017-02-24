@@ -127,6 +127,7 @@ static int	_valid_feature_list(struct job_record *job_ptr,
 				    List feature_list);
 static int	_valid_node_feature(char *feature, bool can_reboot);
 static char *   _resv_ports_jobpack(struct job_record *job_ptr);
+static void	_rports_del(void *x);
 #ifndef HAVE_FRONT_END
 static void *	_wait_boot(void *arg);
 #endif
@@ -2290,6 +2291,7 @@ extern batch_job_launch_msg_t *build_launch_job_msg(struct job_record *job_ptr,
 	launch_msg_ptr->spank_job_env_size = job_ptr->spank_job_env_size;
 	launch_msg_ptr->spank_job_env = xduparray(job_ptr->spank_job_env_size,
 						  job_ptr->spank_job_env);
+
 	/* Populate envs now for legacy job, later for jobpack */
 	if (job_ptr->pack_leader == 0) {
 		launch_msg_ptr->pelog_env_size = job_ptr->pelog_env_size;
@@ -2304,6 +2306,7 @@ extern batch_job_launch_msg_t *build_launch_job_msg(struct job_record *job_ptr,
 		job_complete(job_ptr->job_id, slurmctld_conf.slurm_user_id,
 			     false, true, 0);
 		return NULL;
+
 	}
 	launch_msg_ptr->job_mem = job_ptr->details->pn_min_memory;
 	launch_msg_ptr->num_cpu_groups = job_ptr->job_resrcs->cpu_array_cnt;
@@ -2509,7 +2512,6 @@ static void _add_jobpack_envs(char **member_env, int numpack, uint32_t ntasks,
 		xfree(tmp);
 	}
 	if (job_ptr == job_ptr_ldr)
-<<<<<<< HEAD
 		tmp = xstrdup("SLURM_NODELIST_PACK_GROUP_0");
 	else
 		tmp = xstrdup_printf("SLURM_NODELIST_PACK_GROUP_%d",
@@ -2530,6 +2532,8 @@ static void _add_jobpack_envs(char **member_env, int numpack, uint32_t ntasks,
 		job_ptr->pelog_env_size++;
 	}
 		strcpy(tmp, "SLURM_NODELIST_PACK_GROUP_0");
+=======
+>>>>>>> 6b87477... fix to export jobpack envs to prolog
 
 	xfree(tmp);
 

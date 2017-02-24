@@ -1186,8 +1186,7 @@ env_array_for_batch_job(char ***dest, const batch_job_launch_msg_t *batch,
 
 	_setup_particulars(cluster_flags, dest, batch->select_jobinfo);
 
-	if ((tmp = getenvp(*dest, "SLURM_GROUP_NUMBER")))
-	       group_number = atoi(tmp);
+	group_number = batch->group_number;
 
 	debug("env_array_for_batch_job: group_number = %d", group_number);
 

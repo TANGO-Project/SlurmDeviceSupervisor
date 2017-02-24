@@ -800,6 +800,8 @@ struct job_record {
 	char *resv_ports;		/* ports reserved for job */
         uint32_t group_number;          /* jobpack group number index */
         uint32_t numpack;               /* number of jobpack jobs */
+	char ** jobpack_env;            /* jobpack specific envs */
+	uint16_t jobpack_envc;          /* count of jobpack specific envs */
 };
 
 /* Job dependency specification, used in "depend_list" within job_record */

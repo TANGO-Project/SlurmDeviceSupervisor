@@ -1056,10 +1056,8 @@ typedef struct batch_job_launch_msg {
 	char **pelog_env;	/* other prolog/epilog job env variables */
 	uint32_t pelog_env_size;/* size of pelog_env */
 	char *resv_name;        /* job's reservation */
-	char **pelog_env;       /* prolog/epilog environment vars */
-	uint32_t pelog_env_size;
-	char *resv_ports;       /* reserve ports for jobpack nodes */
-	uint32_t group_number;  /* jobpack group number index */
+    char *resv_ports;       /* reserve ports for jobpack nodes */
+    uint32_t group_number;  /* jobpack group number index */
 } batch_job_launch_msg_t;
 
 typedef struct job_id_request_msg {

@@ -7222,9 +7222,17 @@ _read_data_array_from_file(int fd, char *file_name, char ***data,
 		xrealloc(buffer, pos);
 	}
 
+	/* Allocate extra space for jobpack specific environment variables */
+	if (job_ptr->jobpack_envc) {
+		for (j = 0; j < job_ptr->jobpack_envc; j++)
+			pos += (strlen(job_ptr->jobpack_env[j]) + 1);
+		xrealloc(buffer, pos);
+	}
+
 	/* We have all the data, now let's compute the pointers */
 	array_ptr = xmalloc(sizeof(char *) *
-			    (rec_cnt + job_ptr->details->env_cnt));
+			    (rec_cnt + job_ptr->details->env_cnt +
+			     job_ptr->jobpack_envc));
 	for (i = 0, pos = 0; i < rec_cnt; i++) {
 		array_ptr[i] = &buffer[pos];
 		pos += strlen(&buffer[pos]) + 1;
@@ -7266,6 +7274,43 @@ _read_data_array_from_file(int fd, char *file_name, char ***data,
 			if (i >= rec_cnt) {	/* add env to array end */
 				memcpy(&buffer[pos],
 				       job_ptr->details->env_sup[j], env_len);
+				array_ptr[rec_cnt++] = &buffer[pos];
+				pos += env_len;
+			}
+		}
+	}
+
+	/* Add jobpack specific environment variables */
+	if (job_ptr->jobpack_envc) {
+		char *tmp_chr;
+		int env_len, name_len;
+		for (j = 0; j < job_ptr->jobpack_envc; j++) {
+			tmp_chr = strchr(job_ptr->jobpack_env[j], '=');
+			if (tmp_chr == NULL) {
+				error("Invalid jobpack environment "
+				      "variable: %s",
+				      job_ptr->jobpack_env[j]);
+				continue;
+			}
+			env_len  = strlen(job_ptr->jobpack_env[j]) + 1;
+			name_len = tmp_chr - job_ptr->jobpack_env[j] + 1;
+			/* search for duplicate */
+			for (i = 0; i < rec_cnt; i++) {
+				if (xstrncmp(array_ptr[i],
+					     job_ptr->jobpack_env[j],
+					     name_len)) {
+					continue;
+				}
+				/* over-write duplicate */
+				memcpy(&buffer[pos],
+				       job_ptr->jobpack_env[j], env_len);
+				array_ptr[i] = &buffer[pos];
+				pos += env_len;
+				break;
+			}
+			if (i >= rec_cnt) {	/* add env to array end */
+				memcpy(&buffer[pos],
+				       job_ptr->jobpack_env[j], env_len);
 				array_ptr[rec_cnt++] = &buffer[pos];
 				pos += env_len;
 			}
@@ -8566,7 +8611,6 @@ static void _list_delete_job(void *job_entry)
 	struct job_record *job_ptr = (struct job_record *) job_entry;
 	struct job_record **job_pptr, *tmp_ptr;
 	int job_array_size, i;
-	char **ptr;
 
 	xassert(job_entry);
 	xassert (job_ptr->magic == JOB_MAGIC);
@@ -8665,10 +8709,9 @@ static void _list_delete_job(void *job_entry)
 	for (i = 0; i < job_ptr->spank_job_env_size; i++)
 		xfree(job_ptr->spank_job_env[i]);
 	xfree(job_ptr->spank_job_env);
-	if (job_ptr->pelog_env_size) {
-		for (ptr = job_ptr->pelog_env; *ptr != NULL; ptr++)
-			xfree(*ptr);
-	}
+	for (i = 0; i < job_ptr->pelog_env_size; i++)
+		xfree(job_ptr->pelog_env[i]);
+	xfree(job_ptr->pelog_env);
 	xfree(job_ptr->state_desc);
 	xfree(job_ptr->tres_alloc_cnt);
 	xfree(job_ptr->tres_alloc_str);

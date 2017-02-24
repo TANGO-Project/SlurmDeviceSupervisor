@@ -199,7 +199,6 @@ int _chk_jobpack_depends(job_step_info_t * step, int width, int right)
 	        if (job_ptr[i].job_id == step->job_id) break;
 	//	if (i == job_info_ptr->record_count)
 	//	        goto no_jobpack;
-//			info("DHP: dependency = %s", job_ptr[i].dependency);
 	if (!strncmp(job_ptr[i].dependency,
 		     "packleader", 10)) {
 	        jobids = xmalloc(strlen(&job_ptr[i].dependency[11]) + 1);

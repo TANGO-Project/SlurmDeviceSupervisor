@@ -4389,6 +4389,8 @@ static void _addto_jobpack_pelog_env(struct job_record **job_pptr)
 	if (jptr && jptr->details->depend_list == NULL)
 	        return;
 
+	env = env_array_create();
+
 	numpack = jptr->numpack;
 	env_array_append_fmt(&env, "SLURM_NUMPACK", "%d", numpack);
 
@@ -4440,6 +4442,7 @@ static void _addto_jobpack_pelog_env(struct job_record **job_pptr)
 
 	list_iterator_destroy(depend_iter);
 	xfree(tmp);
+	env_array_free(env);
 
 	*job_pptr = job_ptr;
 
@@ -4458,7 +4461,7 @@ static void _addto_jobpack_pelog_env_prolog (struct job_record **job_pptr)
 	struct depend_spec *dep_ptr;
 	struct job_record *dep_job_ptr;
 	struct job_record *job_ptr;
-	char **env = NULL;
+	char **env = env_array_create();
 	int numpack;
 	char *tmp;
 
@@ -4526,6 +4529,7 @@ static void _addto_jobpack_pelog_env_prolog (struct job_record **job_pptr)
 
 	list_iterator_destroy(depend_iter);
 	xfree(tmp);
+	env_array_free(env);
 
 	*job_pptr = job_ptr;
 
