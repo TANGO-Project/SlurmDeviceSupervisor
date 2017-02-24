@@ -4543,13 +4543,6 @@ extern int job_signal(uint32_t job_id, uint16_t signal, uint16_t flags,
 		     "uid %d", uid);
 		return ESLURM_ACCESS_DENIED;
 	}
-	/*
-	 * RBS -- JPCK
-	 * First pass, if SIGKILL, and member of job_pack, kill entire pack.
-	 * Ultimately, will want to support --pack-member to kill a single
-	 * pack member. This will require a protocol change in the
-	 * job_step_kill_msg
-	 */
 
 	if ((signal == SIGKILL) && (job_ptr->pack_leader != 0)) {
 		/* Is a job_pack, kill all the members, including the leader */
@@ -5153,10 +5146,8 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 	debug_flags = slurm_get_debug_flags();
 	job_ptr = find_job_record(job_id);
 	if (job_ptr == NULL) {
-		if (debug_flags & DEBUG_FLAG_JOB_PACK) {
-			info("JPCK: job_complete failed to find job=%d "
+		error("JPCK: job_complete failed to find job=%d "
 			     "(assume ESLURM_ALREADY_DONE)", job_id);
-		}
 		return ESLURM_ALREADY_DONE;
 	}
 
