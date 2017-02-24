@@ -575,7 +575,6 @@ extern void create_srun_job(srun_job_t **p_job, bool *got_alloc,
 	/* now global "opt" should be filled in and available,
 	 * create a job from opt
 	 */
-
 	if (opt.test_only) {
 		int rc = allocate_test();
 		if (rc) {
@@ -732,7 +731,6 @@ extern void create_srun_job(srun_job_t **p_job, bool *got_alloc,
 		 * on abnormal termination
 		 */
 		shepherd_fd = _shepherd_spawn(job, *got_alloc);
-
 	}
 
 	*p_job = job;

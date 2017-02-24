@@ -43,6 +43,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "src/api/slurm_pmi.h"
 #include "src/common/assoc_mgr.h"
 #include "src/common/bitstring.h"
 #include "src/common/forward.h"
@@ -8616,6 +8617,9 @@ _unpack_job_desc_msg(job_desc_msg_t ** job_desc_buffer_ptr, Buf buffer,
 		safe_unpackstr_array(&job_desc_ptr->spank_job_env,
 				     &job_desc_ptr->spank_job_env_size,
 				     buffer);
+		safe_unpackstr_array(&job_desc_ptr->pelog_env,
+				     &job_desc_ptr->pelog_env_size,
+				     buffer);
 		safe_unpackstr_xmalloc(&job_desc_ptr->script,
 				       &uint32_tmp, buffer);
 		safe_unpackstr_array(&job_desc_ptr->argv,
@@ -8783,9 +8787,6 @@ _unpack_job_desc_msg(job_desc_msg_t ** job_desc_buffer_ptr, Buf buffer,
 				     &job_desc_ptr->env_size, buffer);
 		safe_unpackstr_array(&job_desc_ptr->spank_job_env,
 				     &job_desc_ptr->spank_job_env_size,
-				     buffer);
-		safe_unpackstr_array(&job_desc_ptr->pelog_env,
-				     &job_desc_ptr->pelog_env_size,
 				     buffer);
 		safe_unpackstr_xmalloc(&job_desc_ptr->script,
 				       &uint32_tmp, buffer);
@@ -9357,6 +9358,11 @@ _pack_launch_tasks_request_msg(launch_tasks_request_msg_t * msg, Buf buffer,
 		pack16(msg->ntasks_per_board, buffer);
 		pack16(msg->ntasks_per_core, buffer);
 		pack16(msg->ntasks_per_socket, buffer);
+		pack32(msg->mpi_jobid, buffer);
+		pack32(msg->mpi_ntasks, buffer);
+		pack32(msg->mpi_nnodes, buffer);
+		pack32(msg->mpi_stepfnodeid, buffer);
+		pack32(msg->mpi_stepftaskid, buffer);
 		pack32(msg->uid, buffer);
 		packstr(msg->partition, buffer);
 		packstr(msg->user_name, buffer);
@@ -9379,11 +9385,15 @@ _pack_launch_tasks_request_msg(launch_tasks_request_msg_t * msg, Buf buffer,
 				     buffer);
 		}
 		pack16(msg->num_resp_port, buffer);
+		pack32(msg->packstepid[0], buffer);
+		pack32(msg->packstepid[1], buffer);
 		for (i = 0; i < msg->num_resp_port; i++)
 			pack16(msg->resp_port[i], buffer);
 		slurm_pack_slurm_addr(&msg->orig_addr, buffer);
 		packstr_array(msg->env, msg->envc, buffer);
 		packstr_array(msg->spank_job_env, msg->spank_job_env_size,
+			      buffer);
+		packstr_array(msg->pelog_env, msg->pelog_env_size,
 			      buffer);
 		packstr(msg->cwd, buffer);
 		pack16(msg->cpu_bind_type, buffer);
@@ -9497,6 +9507,8 @@ _unpack_launch_tasks_request_msg(launch_tasks_request_msg_t **
 				goto unpack_error;
 		}
 		safe_unpack16(&msg->num_resp_port, buffer);
+		safe_unpack32(&msg->packstepid[0], buffer);
+		safe_unpack32(&msg->packstepid[1], buffer);
 		if (msg->num_resp_port > 0) {
 			msg->resp_port = xmalloc(sizeof(uint16_t) *
 						 msg->num_resp_port);
@@ -9507,6 +9519,8 @@ _unpack_launch_tasks_request_msg(launch_tasks_request_msg_t **
 		safe_unpackstr_array(&msg->env, &msg->envc, buffer);
 		safe_unpackstr_array(&msg->spank_job_env,
 				     &msg->spank_job_env_size, buffer);
+		safe_unpackstr_array(&msg->pelog_env,
+				     &msg->pelog_env_size, buffer);
 		safe_unpackstr_xmalloc(&msg->cwd, &uint32_tmp, buffer);
 		safe_unpack16(&msg->cpu_bind_type, buffer);
 		safe_unpackstr_xmalloc(&msg->cpu_bind, &uint32_tmp, buffer);
@@ -9604,8 +9618,6 @@ _unpack_launch_tasks_request_msg(launch_tasks_request_msg_t **
 				goto unpack_error;
 		}
 		safe_unpack16(&msg->num_resp_port, buffer);
-		safe_unpack32(&msg->packstepid[0], buffer);
-		safe_unpack32(&msg->packstepid[1], buffer);
 		if (msg->num_resp_port > 0) {
 			msg->resp_port = xmalloc(sizeof(uint16_t) *
 						 msg->num_resp_port);

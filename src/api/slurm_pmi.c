@@ -136,6 +136,7 @@ static int _get_addr(void)
 	env_port = getenv("SLURM_SRUN_COMM_PORT");
 	if (!env_host || !env_port)
 		return SLURM_ERROR;
+
 	srun_port = (uint16_t) atol(env_port);
 	slurm_set_addr(&srun_addr, srun_port, env_host);
 	return SLURM_SUCCESS;

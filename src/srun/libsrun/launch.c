@@ -426,6 +426,7 @@ extern void launch_common_set_stdio_fds(srun_job_t *job,
 {
 	bool err_shares_out = false;
 	int file_flags;
+
 	if (opt.open_mode == OPEN_MODE_APPEND)
 		file_flags = O_CREAT|O_WRONLY|O_APPEND;
 	else if (opt.open_mode == OPEN_MODE_TRUNCATE)
@@ -461,7 +462,6 @@ extern void launch_common_set_stdio_fds(srun_job_t *job,
 				job->ifname->taskid);
 		}
 	}
-
 
 	/*
 	 * create stdout file descriptor

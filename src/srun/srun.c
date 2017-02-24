@@ -730,7 +730,6 @@ relaunch:
 	fini_srun(job, got_alloc, &global_rc, 0);
 
 	return (int)global_rc;
-
 }
 
 static int _file_bcast(void)

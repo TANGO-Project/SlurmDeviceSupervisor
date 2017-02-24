@@ -79,6 +79,7 @@ static void *_msg_thr_internal(void *arg)
 {
 	int signals[] = {SIGHUP, SIGINT, SIGQUIT, SIGPIPE, SIGTERM,
 			 SIGUSR1, SIGUSR2, 0};
+
 	debug("Entering _msg_thr_internal");
 	xsignal_block(signals);
 	slurm_mutex_lock(&msg_thr_start_lock);
@@ -224,15 +225,11 @@ static void _handle_ping(struct allocation_msg_thread *msg_thr,
 static void _handle_job_complete(struct allocation_msg_thread *msg_thr,
 				 slurm_msg_t *msg)
 {
-	//debug("******** JPCK MNP %d: entering _handle_job_complete", getpid());
 	srun_job_complete_msg_t *comp = (srun_job_complete_msg_t *)msg->data;
-	//debug("******** JPCK MNP %d: in _handle_job_complete, jobid=%d", getpid(), comp->job_id);
 	debug3("job complete message received");
 
 	if (msg_thr->callback.job_complete != NULL)
 		(msg_thr->callback.job_complete)(comp);
-
-	//debug("******** JPCK MNP %d: exiting _handle_job_complete", getpid());
 }
 
 static void _handle_suspend(struct allocation_msg_thread *msg_thr,

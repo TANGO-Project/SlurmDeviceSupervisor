@@ -585,7 +585,6 @@ send_kvs_fence_resp_to_clients(int rc, char *errmsg)
 	client_resp_t *resp;
 	char *msg;
 
-
 	resp = client_resp_new();
 	if ( is_pmi11() ) {
 		if (rc != 0 && errmsg != NULL) {

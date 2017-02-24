@@ -108,6 +108,7 @@ int p_mpi_hook_slurmstepd_task (const mpi_plugin_task_info_t *job,
 				char ***env)
 {
 	int i;
+
 	env_array_overwrite_fmt(env, "PMI_FD", "%u",
 				TASK_PMI_SOCK(job->ltaskid));
 

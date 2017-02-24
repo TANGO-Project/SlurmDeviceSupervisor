@@ -683,8 +683,10 @@ int PMI_Barrier( void )
 
 	if (pmi_debug)
 		fprintf(stderr, "In: PMI_Barrier\n");
+
 	if (pmi_init == 0)
 		return PMI_FAIL;
+
 	/* Simple operation without srun (no-op) */
 	if ((pmi_jobid == 0) && (pmi_stepid == 0))
 		return rc;
@@ -1378,12 +1380,10 @@ int PMI_KVS_Get( const char kvsname[], const char key[], char value[], int lengt
 	if (pmi_debug)
 		fprintf(stderr, "In: PMI_KVS_Get(%s)\n", key);
 
-	if ((kvsname == NULL) || (strlen(kvsname) > PMI_MAX_KVSNAME_LEN)) {
+	if ((kvsname == NULL) || (strlen(kvsname) > PMI_MAX_KVSNAME_LEN))
 		return PMI_ERR_INVALID_KVS;
-	}
-	if ((key == NULL) || (strlen(key) >PMI_MAX_KEY_LEN)) {
+	if ((key == NULL) || (strlen(key) >PMI_MAX_KEY_LEN))
 		return PMI_ERR_INVALID_KEY;
-	}
 	if (value == NULL)
 		return PMI_ERR_INVALID_VAL;
 
@@ -1407,7 +1407,6 @@ int PMI_KVS_Get( const char kvsname[], const char key[], char value[], int lengt
 			}
 			goto fini;
 		}
-
 		rc = PMI_ERR_INVALID_KEY;
 		goto fini;
 	}
@@ -1977,11 +1976,11 @@ inline static void _kvs_dump(void)
 	int i, j;
 
 	for (i=0; i<kvs_rec_cnt; i++) {
-		fprintf(stderr, "name=%s state=%u cnt=%u inx=%u\n",
+		info("name=%s state=%u cnt=%u inx=%u",
 			kvs_recs[i].kvs_name, kvs_recs[i].kvs_state,
 			kvs_recs[i].kvs_cnt, kvs_recs[i].kvs_inx);
 		for (j=0; j<kvs_recs[i].kvs_cnt; j++) {
-			fprintf(stderr, "  state=%u key=%s value=%s\n",
+			info("  state=%u key=%s value=%s",
 				kvs_recs[i].kvs_key_states[j],
 				kvs_recs[i].kvs_keys[j],
 				kvs_recs[i].kvs_values[j]);

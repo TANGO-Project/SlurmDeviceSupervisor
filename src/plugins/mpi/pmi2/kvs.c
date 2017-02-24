@@ -134,6 +134,7 @@ temp_kvs_init(void)
 
 	tasks_to_wait = 0;
 	children_to_wait = 0;
+
 	return SLURM_SUCCESS;
 }
 
@@ -142,6 +143,7 @@ temp_kvs_add(char *key, char *val)
 {
 	Buf buf;
 	uint32_t size;
+
 	if ( key == NULL || val == NULL )
 		return SLURM_SUCCESS;
 
@@ -157,7 +159,6 @@ temp_kvs_add(char *key, char *val)
 	temp_kvs_cnt += size;
 	free_buf(buf);
 
-	debug("******** JPCK MNP pid=%d tid=%d, exiting temp_kvs_add", getpid(), (int)pthread_self());
 	return SLURM_SUCCESS;
 }
 
@@ -166,7 +167,7 @@ temp_kvs_merge(Buf buf)
 {
 	char *data;
 	uint32_t offset, size;
-	debug("******** JPCK MNP pid=%d tid=%d, entering temp_kvs_merge", getpid(), (int)pthread_self());
+
 	size = remaining_buf(buf);
 	if (size == 0) {
 		return SLURM_SUCCESS;
@@ -181,7 +182,6 @@ temp_kvs_merge(Buf buf)
 	memcpy(&temp_kvs_buf[temp_kvs_cnt], &data[offset], size);
 	temp_kvs_cnt += size;
 
-	debug("******** JPCK MNP pid=%d tid=%d, exiting temp_kvs_merge", getpid(), (int)pthread_self());
 	return SLURM_SUCCESS;
 }
 
@@ -208,7 +208,6 @@ temp_kvs_send(void)
 	}
 	/* cmd included in temp_kvs_buf */
 	kvs_seq++; /* expecting new kvs after now */
-
 
 	while (1) {
 		if (retry == 1)

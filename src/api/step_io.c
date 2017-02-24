@@ -287,6 +287,7 @@ _server_read(eio_obj_t *obj, List objs)
 	struct server_io_info *s = (struct server_io_info *) obj->arg;
 	void *buf;
 	int n;
+
 	debug4("Entering _server_read");
 	if (s->in_msg == NULL) {
 		if (_outgoing_buf_free(s->cio)) {
@@ -397,6 +398,7 @@ _server_read(eio_obj_t *obj, List objs)
 			s->in_msg = NULL;
 			return SLURM_SUCCESS;
 		}
+
 		s->in_remaining -= n;
 		if (s->in_remaining > 0)
 			return SLURM_SUCCESS;
@@ -691,6 +693,7 @@ static int _file_read(eio_obj_t *obj, List objs)
 	void *ptr;
 	Buf packbuf;
 	int len;
+
 	debug2("Entering _file_read");
 	slurm_mutex_lock(&info->cio->ioservers_lock);
 	if (_incoming_buf_free(info->cio)) {
@@ -1107,7 +1110,6 @@ client_io_handler_create(slurm_step_io_fds_t fds,
 	 * overstressing the TCP/IP backoff/retry algorithm
 	 */
 	cio->num_listen = _estimate_nports(num_nodes, 48);
-
 	cio->listensock = (int *)xmalloc(cio->num_listen * sizeof(int));
 	cio->listenport = (uint16_t *)xmalloc(cio->num_listen*sizeof(uint16_t));
 
