@@ -1463,7 +1463,6 @@ typedef struct job_descriptor {	/* For submit, allocate, and update requests */
 	char **spank_job_env;	/* environment variables for job prolog/epilog
 				 * scripts as set by SPANK plugins */
 	uint32_t spank_job_env_size; /* element count in spank_env */
-	char *pack_group;	/* pack-members of job-group to use for step */
 	uint32_t task_dist;	/* see enum task_dist_state */
 	uint32_t time_limit;	/* maximum run time in minutes, default is
 				 * partition limit */
@@ -1650,7 +1649,6 @@ typedef struct job_info {
 	char *std_out;		/* pathname of job's stdout file */
 	time_t submit_time;	/* time of job submission */
 	time_t suspend_time;	/* time job last suspended or resumed */
-	char *pack_group;	/* group of tasks for job pack */
 	uint32_t time_limit;	/* maximum run time in minutes or INFINITE */
 	uint32_t time_min;	/* minimum run time in minutes or INFINITE */
 	uint16_t threads_per_core; /* threads per core required by job  */

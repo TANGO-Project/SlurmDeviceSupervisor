@@ -38,6 +38,10 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA.
 \*****************************************************************************/
 
+#ifdef HAVE_CONFIG_H
+#  include "config.h"
+#endif
+
 #include <ctype.h>
 #include <errno.h>
 #include <grp.h>
@@ -959,17 +963,12 @@ slurm_sprint_job_info ( job_info_t * job_ptr, int one_liner )
 	}
 
 	/****** Line 37 ******/
-	if (one_liner)
-		xstrcat(out, " ");
-	else
-		xstrcat(out, "\n   ");
-	snprintf(tmp_line, sizeof(tmp_line),
-		 "Power=%s",
-		 power_flags_str(job_ptr->power_flags));
-	xstrcat(out, tmp_line);
+	xstrcat(out, line_end);
+	xstrfmtcat(out, "Power=%s", power_flags_str(job_ptr->power_flags));
 
 	/****** Line 38 (optional) ******/
 	if (job_ptr->bitflags) {
+
 		xstrcat(out, line_end);
 		if (job_ptr->bitflags & GRES_ENFORCE_BIND)
 			xstrcat(out, "GresEnforceBind=Yes");
@@ -980,16 +979,6 @@ slurm_sprint_job_info ( job_info_t * job_ptr, int one_liner )
 		if (job_ptr->bitflags & SPREAD_JOB)
 			xstrcat(out, "SpreadJob=Yes");
 			
-	}
-	/****** Line 39 (optional) ******/
-	if (job_ptr->pack_group) {
-		if (one_liner)
-			xstrcat(out, " ");
-		else
-			xstrcat(out, "\n   ");
-		snprintf(tmp_line, sizeof(tmp_line), "pack-group=%s",
-			 job_ptr->pack_group);
-		xstrcat(out, tmp_line);
 	}
 
 	/****** Last line ******/

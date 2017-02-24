@@ -5,6 +5,8 @@
  *  Copyright (C) 2002-2007 The Regents of the University of California.
  *  Copyright (C) 2008-2010 Lawrence Livermore National Security.
  *  Portions Copyright (C) 2010-2016 SchedMD <https://www.schedmd.com>.
+ *  Portions related to job_pack copyright (C) 2015 Atos Inc.
+ * 	Written by Rod Schultz <rod.schultz@atos.net>.
  *  Produced at Lawrence Livermore National Laboratory (cf, DISCLAIMER).
  *  Written by Morris Jette <jette1@llnl.gov>
  *  CODE-OCEC-09-009. All rights reserved.
@@ -2737,15 +2739,10 @@ extern int select_nodes(struct job_record *job_ptr, bool test_only,
 	int debug_flags;
 
 
-	if (job_ptr->details == NULL) {
-		rc = select_nodes_pack(job_ptr, test_only, select_node_bitmap,
+	if (job_ptr->details == NULL
+	    || job_ptr->details->depend_list == NULL) {
+		return select_nodes_pack(job_ptr, test_only, select_node_bitmap,
 				unavail_node_str, err_msg);
-		return rc;
-	}
-	if (job_ptr->details->depend_list == NULL) {
-		rc = select_nodes_pack(job_ptr, test_only, select_node_bitmap,
-				unavail_node_str, err_msg);
-		return rc;
 	}
 
 	debug_flags = slurm_get_debug_flags();
@@ -2774,7 +2771,6 @@ extern int select_nodes(struct job_record *job_ptr, bool test_only,
 	if (rc != SLURM_SUCCESS) {
 		if (rc != ESLURM_JOB_PACK_BAD_MEMBER)
 			goto cleanup;
-		debug("JPCK: RBS -- bad_member -- allocate_packmembers returned%d for job %d", rc,job_ptr->job_id);
 		_deallocate_packmbrs(job_ptr);
 		goto cleanup;
 	}
@@ -4022,39 +4018,23 @@ extern void re_kill_job(struct job_record *job_ptr)
 static void _orphan_members(struct job_record *job_ptr)
 {
 	ListIterator depend_iter;
-	ListIterator mbr_iter;
-	List mbr_depend;
 	List pack_depend;
-
+	struct job_record *mbr_job_ptr;
 	struct depend_spec *ldr_dep_ptr;
-	struct job_record *mbr_ptr;
-	struct depend_spec *mbr_dep_ptr;
 
 	pack_depend = job_ptr->details->depend_list;
 	depend_iter = list_iterator_create(pack_depend);
 	while ((ldr_dep_ptr =
 		       (struct depend_spec *) list_next(depend_iter))) {
+		mbr_job_ptr = ldr_dep_ptr->job_ptr;
 		if (slurm_get_debug_flags() & DEBUG_FLAG_JOB_PACK) {
 			info("JPCK: job_pack (leader=%d) never runs, "
 			      "kill member %d", job_ptr->job_id,
-			      ldr_dep_ptr->job_ptr->job_id);
+			      mbr_job_ptr->job_id);
 		}
-		mbr_ptr = ldr_dep_ptr->job_ptr;
-		mbr_depend = mbr_ptr->details->depend_list;
-		if (mbr_depend == NULL)
-			continue;
-		mbr_iter = list_iterator_create(mbr_depend);
-		while ((mbr_dep_ptr =
-			  (struct depend_spec *) list_next(mbr_iter))) {
-			if (mbr_dep_ptr->depend_type
-					     != SLURM_DEPEND_PACK)
-				continue;
-			mbr_dep_ptr->pack_leader = NO_VAL;
-		}
-		list_iterator_destroy(mbr_iter);
+		mbr_job_ptr->pack_leader = 0;
 	}
 	list_iterator_destroy(depend_iter);
-
 }
 
 /*
@@ -4075,7 +4055,7 @@ static int _will_jpck_ldr_run(struct job_record *job_ptr, bitstr_t *bitmap,
 	struct depend_spec *ldr_dep_ptr;
 	int rc;
 	bitstr_t *avail_node_bitmap = NULL;
-	bitstr_t *member_bitmap = NULL;
+	bitstr_t *mbr_bitmap = NULL;
 	if (job_ptr->details == NULL)
 		goto legacy;
 	pack_depend = job_ptr->details->depend_list;
@@ -4098,10 +4078,10 @@ static int _will_jpck_ldr_run(struct job_record *job_ptr, bitstr_t *bitmap,
 		 * the members have already been allocated.
 		 */
 		if (ldr_dep_ptr->job_ptr->node_bitmap) {
-			FREE_NULL_BITMAP(member_bitmap);
-			member_bitmap = bit_copy(ldr_dep_ptr->job_ptr->node_bitmap);
-			bit_not(member_bitmap);
-			bit_and(avail_node_bitmap, member_bitmap);
+			FREE_NULL_BITMAP(mbr_bitmap);
+			mbr_bitmap = bit_copy(ldr_dep_ptr->job_ptr->node_bitmap);
+			bit_not(mbr_bitmap);
+			bit_and(avail_node_bitmap, mbr_bitmap);
 		} else {
 			if (slurm_get_debug_flags() & DEBUG_FLAG_JOB_PACK) {
 				info("JPCK: _will_jpck_ldr_run -- member=%d has"
@@ -4123,7 +4103,7 @@ static int _will_jpck_ldr_run(struct job_record *job_ptr, bitstr_t *bitmap,
 cleanup:
 	list_iterator_destroy(depend_iter);
 	FREE_NULL_BITMAP(avail_node_bitmap);
-	FREE_NULL_BITMAP(member_bitmap);
+	FREE_NULL_BITMAP(mbr_bitmap);
 
 	if (rc != SLURM_SUCCESS) {
 		_orphan_members(job_ptr);

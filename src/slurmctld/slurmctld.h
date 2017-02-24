@@ -534,7 +534,6 @@ struct job_details {
 	uint32_t task_dist;		/* task layout for this job. Only
 					 * useful when Consumable Resources
 					 * is enabled */
-	char *pack_group;		/* group of tasks in job pack */
 	uint32_t usable_nodes;		/* node count needed by preemption */
 	uint8_t whole_node;		/* WHOLE_NODE_REQUIRED: 1: --exclusive
 					 * WHOLE_NODE_USER: 2: --exclusive=user
@@ -814,7 +813,6 @@ struct	depend_spec {
 	uint16_t	depend_flags;	/* SLURM_FLAGS_* type */
 	uint32_t	job_id;		/* SLURM job_id */
 	struct job_record *job_ptr;	/* pointer to this job */
-	uint32_t	pack_leader;    /* SLURM job_id of packleader job */
 	uint16_t	alloc;		/* Member is allocated */
 	time_t          submit_time;    /* time pack member submitted */
 };

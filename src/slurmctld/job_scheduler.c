@@ -5,6 +5,8 @@
  *  Copyright (C) 2002-2007 The Regents of the University of California.
  *  Copyright (C) 2008-2010 Lawrence Livermore National Security.
  *  Portions Copyright (C) 2010-2016 SchedMD <https://www.schedmd.com>.
+ *  Portions related to job_pack copyright (C) 2015 Atos Inc.
+ *	Written by Rod Schultz <rod.schultz@atos.net>.
  *  Produced at Lawrence Livermore National Laboratory (cf, DISCLAIMER).
  *  Written by Morris Jette <jette1@llnl.gov>
  *  CODE-OCEC-09-009. All rights reserved.
@@ -2787,7 +2789,7 @@ extern int test_job_dependency(struct job_record *job_ptr)
 		} else if (dep_ptr->depend_type == SLURM_DEPEND_PACK) {
 			depends = true; /* member is always dependent. */
 			job_ptr->bit_flags |= KILL_INV_DEP;
-			if (dep_ptr->pack_leader == 0) {
+			if (job_ptr->pack_leader == 0) {
 				/* Check max orphan time */
 				orphan_et = (now - dep_ptr->submit_time);
 				if (orphan_et > MAX_PACKMEMBER_ORPHAN) {
@@ -2800,13 +2802,12 @@ extern int test_job_dependency(struct job_record *job_ptr)
 					failure = true;
 				}
 				break;
-			} else if ((dep_ptr->pack_leader != 0) &&
-				   (job_ptr->job_id > lpackmbr)) {
+			} else if (job_ptr->job_id > lpackmbr) {
 				if (debug_flags & DEBUG_FLAG_JOB_PACK) {
 					info("JPCK: Jobid=%d (%s) is a pack "
 					      "member. Leader=%d",
 					      job_ptr->job_id, job_ptr->name,
-					      dep_ptr->pack_leader);
+					      job_ptr->pack_leader);
 				}
 				lpackmbr = job_ptr->job_id;
 			}
@@ -3062,28 +3063,22 @@ static char *_xlate_array_dep(char *new_depend)
 static void _xref_packleader(struct job_record *job_ptr, List depend_list)
 {
 	/* Add cross-reference to packleader to its pack jobs */
-	ListIterator depend_iter, pack_iter;
-	struct depend_spec *dep_ptr, *ldr_dep_ptr;
+	ListIterator depend_iter;
+	struct depend_spec *ldr_dep_ptr;
 	struct job_record *dep_job_ptr;
-	List pack_depend;
-
+	job_ptr->pack_leader = job_ptr->job_id;
 	depend_iter = list_iterator_create(depend_list);
 	while ((ldr_dep_ptr = (struct depend_spec *) list_next(depend_iter))) {
-		dep_job_ptr = ldr_dep_ptr->job_ptr;
-		if (dep_job_ptr == NULL)
-			break;
-		pack_depend = dep_job_ptr->details->depend_list;
-		if (pack_depend == NULL)
-			break;
-		pack_iter = list_iterator_create(pack_depend);
-		dep_ptr = (struct depend_spec *) list_next(pack_iter);
-		if (dep_ptr != NULL)
-			dep_ptr->pack_leader = job_ptr->job_id;
-		xfree(dep_job_ptr->details->dependency);
-		dep_job_ptr->details->dependency = xstrdup("pack");
-		xstrfmtcat(dep_job_ptr->details->dependency, " packleader=%d",
-				dep_ptr->pack_leader);
-		list_iterator_destroy(pack_iter);
+		if (ldr_dep_ptr->depend_type == SLURM_DEPEND_PACKLEADER) {
+			dep_job_ptr = ldr_dep_ptr->job_ptr;
+			if (dep_job_ptr == NULL)
+				continue;
+			dep_job_ptr->pack_leader = job_ptr->job_id;
+			xfree(dep_job_ptr->details->dependency);
+			dep_job_ptr->details->dependency = xstrdup("pack");
+			xstrfmtcat(dep_job_ptr->details->dependency,
+					" packleader=%d", job_ptr->job_id);
+		}
 	}
 	list_iterator_destroy(depend_iter);
 }
