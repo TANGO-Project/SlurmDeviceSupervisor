@@ -609,7 +609,7 @@ allocate_nodes_jobpack(bool handle_signals)
 	}
 	callbacks.ping = _ping_handler;
 	callbacks.timeout = _timeout_handler;
-	callbacks.job_complete = _job_complete_handler;
+	callbacks.job_complete = NULL;
 	callbacks.job_suspend = NULL;
 	callbacks.user_msg = _user_msg_handler;
 	callbacks.node_fail = _node_fail_handler;

@@ -979,10 +979,6 @@ char *process_options_first_pass(int argc, char **argv)
 		char *fullpath;
 		char *cmd       = opt.script_argv[0];
 		int  mode       = R_OK;
-		if (packjob == true) {
-			info("Scripts for pack member jobs are ignored");
-			return NULL;
-		}
 		if ((fullpath = search_path(opt.cwd, cmd, true, mode, false))) {
 			xfree(opt.script_argv[0]);
 			opt.script_argv[0] = fullpath;

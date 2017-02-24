@@ -74,6 +74,7 @@ static slurm_preempt_ops_t ops;
 static plugin_context_t *g_context = NULL;
 static pthread_mutex_t	    g_context_lock = PTHREAD_MUTEX_INITIALIZER;
 static bool init_run = false;
+static uint64_t debug_flags = 0;
 
 /* *********************************************************************** */
 /*  TAG(                    _preempt_signal                             )  */
@@ -169,6 +170,7 @@ extern int slurm_preempt_init(void)
 		retval = SLURM_ERROR;
 		goto done;
 	}
+	debug_flags = slurm_get_debug_flags();
 	init_run = true;
 
 done:
@@ -199,27 +201,27 @@ extern int slurm_preempt_fini(void)
 /* *********************************************************************** */
 extern List slurm_find_preemptable_jobs(struct job_record *job_ptr)
 {
+	List candidates;
 	if (slurm_preempt_init() < 0)
 		return NULL;
+	if (job_ptr->pack_leader == 0)
+		return (*(ops.find_jobs))(job_ptr); /* Not member of job_pack */
 
-	List pack_depend;
-	ListIterator depend_iter;
-	struct depend_spec *dep_ptr;
-
-	/* test if job_pack member, if so, don't try and find preemptable */
-	if (job_ptr->details == NULL)
-		return (*(ops.find_jobs))(job_ptr);
-	pack_depend = job_ptr->details->depend_list;
-	if (pack_depend == NULL)
-		return (*(ops.find_jobs))(job_ptr);
-	depend_iter = list_iterator_create(pack_depend);
-	while ((dep_ptr = (struct depend_spec *) list_next(depend_iter))) {
-		if (dep_ptr->depend_type == SLURM_DEPEND_PACK) {
-			list_iterator_destroy(depend_iter);
-			return NULL;
+	if (job_ptr->pack_leader == job_ptr->job_id) {
+		/* leader can preempt */
+		candidates = (*(ops.find_jobs))(job_ptr);
+		if ((slurm_get_debug_flags() & DEBUG_FLAG_JOB_PACK)
+		    && candidates) {
+			info("JPCK: Pack leader %d found preemptable candidates"
+			     , job_ptr->job_id);
 		}
+		return candidates;
 	}
-	return (*(ops.find_jobs))(job_ptr);
+	if (slurm_get_debug_flags() & DEBUG_FLAG_JOB_PACK) {
+		info("JPCK: Pack member %d can't preempt any jobs",
+		     job_ptr->job_id);
+	}
+	return NULL; /* is member and can't preempt */
 }
 
 /*
