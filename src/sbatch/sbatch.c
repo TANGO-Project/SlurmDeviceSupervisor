@@ -934,8 +934,6 @@ static int _fill_job_desc_from_opts(job_desc_msg_t *desc)
 		_env_merge_filter(desc);
 		opt.get_user_env_time = 0;
 	}
-
-
 	if (opt.get_user_env_time >= 0) {
 		env_array_overwrite(&desc->environment,
 				    "SLURM_GET_USER_ENV", "1");

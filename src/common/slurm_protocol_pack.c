@@ -10116,7 +10116,7 @@ _unpack_prolog_launch_msg(
 	*msg = launch_msg_ptr;
 
 	if (protocol_version >= SLURM_17_02_PROTOCOL_VERSION) {
-<		safe_unpack32(&launch_msg_ptr->job_id, buffer);
+		safe_unpack32(&launch_msg_ptr->job_id, buffer);
 		safe_unpack32(&launch_msg_ptr->uid, buffer);
 		safe_unpack32(&launch_msg_ptr->gid, buffer);
 

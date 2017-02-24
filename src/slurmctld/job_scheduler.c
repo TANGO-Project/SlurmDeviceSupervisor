@@ -2296,6 +2296,7 @@ extern batch_job_launch_msg_t *build_launch_job_msg(struct job_record *job_ptr,
 		launch_msg_ptr->pelog_env_size = job_ptr->pelog_env_size;
 		launch_msg_ptr->pelog_env = xduparray(job_ptr->pelog_env_size,
 						      job_ptr->pelog_env);
+        }
 	launch_msg_ptr->environment = get_job_env(job_ptr,
 						  &launch_msg_ptr->envc);
 	if (launch_msg_ptr->environment == NULL) {
@@ -2540,7 +2541,6 @@ static void _add_jobpack_envs(char **member_env, int numpack, uint32_t ntasks,
 				     "%s", job_ptr->nodes);
 		job_ptr->pelog_env_size++;
 	}
-		strcpy(tmp, "SLURM_NODELIST_PACK_GROUP_0");
 	xfree(tmp);
 
 	/* add SLURM_LISTJOBIDS to member_env */
@@ -2565,9 +2565,7 @@ static void _add_jobpack_envs(char **member_env, int numpack, uint32_t ntasks,
 				"%d", nnodes_pack);
 	ntasks += launch_msg_ptr->ntasks;
 	if (ntasks)
-
 		env_array_overwrite_fmt(&member_env, "SLURM_NTASKS",
-
 					"%d", ntasks);
 	xfree(nodelist_pack);
 
@@ -3505,7 +3503,7 @@ static char *_xlate_array_dep(char *new_depend)
 	}
 
 	return new_array_dep;
-
+}
 /*
  * Add cross-reference to packleader to its pack jobs
  * IN job_ptr - job record of pack leader.
@@ -3626,6 +3624,7 @@ extern int update_job_dependency(struct job_record *job_ptr, char *new_depend)
  		/* test singleton dependency flag */
  		if ( strncasecmp(tok, "singleton", 9) == 0 ) {
 			depend_type = SLURM_DEPEND_SINGLETON;
+		}
 		/* Test for options that do not have a jobid list */
 		if (strncasecmp(tok,"pack", 4) == 0
 		    && strncasecmp(tok,"packl", 5) != 0) {

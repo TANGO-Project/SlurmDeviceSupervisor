@@ -1186,13 +1186,10 @@ static int _dump_job_state(void *x, void *arg)
 	pack16(dump_job_ptr->alloc_resp_port, buffer);
 	pack16(dump_job_ptr->other_port, buffer);
 	pack32(dump_job_ptr->pack_leader, buffer);
-
-
+	pack8(dump_job_ptr->power_flags, buffer);
 	pack32(dump_job_ptr->group_number, buffer);
 	pack32(dump_job_ptr->numpack, buffer);
 	pack16(dump_job_ptr->resv_port_cnt, buffer);
-
-	pack8(dump_job_ptr->power_flags, buffer);
 	pack16(dump_job_ptr->start_protocol_ver, buffer);
 	packdouble(dump_job_ptr->billable_tres, buffer);
 
@@ -1301,7 +1298,6 @@ static int _load_job_state(Buf buffer, uint16_t protocol_version)
 	uint16_t resv_port_cnt = 0;
 	acct_policy_limit_set_t limit_set;
 	uint16_t start_protocol_ver = SLURM_MIN_PROTOCOL_VERSION;
-	uint16_t uint16_tmp;
 	char *resv_ports = NULL;
 	char *nodes = NULL, *partition = NULL, *name = NULL, *resp_host = NULL;
 	char *account = NULL, *network = NULL, *mail_user = NULL;

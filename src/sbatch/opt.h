@@ -201,7 +201,6 @@ typedef struct {
 	bool pack_job;
 	uint32_t job_id;
 	opt_t *opt;
-//	env_t *env;
 	char *script_name;
 	void *script_body;
 	job_desc_msg_t *desc;

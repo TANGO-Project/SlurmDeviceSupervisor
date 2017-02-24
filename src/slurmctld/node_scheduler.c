@@ -1983,13 +1983,7 @@ _pick_best_nodes(struct node_set *node_set_ptr, int node_set_size,
 				avail_bitmap = bit_copy(total_bitmap);
 				bit_and(avail_bitmap, avail_node_bitmap);
 				job_ptr->details->pn_min_memory = orig_req_mem;
-				pick_code = select_g_job_test(job_ptr,
-				// RBS: Debug >>>>>
-				char* RBSnodes1 = bitmap2node_name_sortable(avail_bitmap, true);
-				debug("JPCK: b4 runnable_ever -- avail_bitmap "
-				     "jobid=%d RBSnodes=%s",
-				     job_ptr->job_id,RBSnodes1);
-				xfree(RBSnodes1);
+//pick_code = select_g_job_test(job_ptr,  nlk
 				pick_code = _will_jpck_ldr_run(job_ptr, false,
 						avail_bitmap,
 						min_nodes, max_nodes, req_nodes,
@@ -2007,7 +2001,7 @@ _pick_best_nodes(struct node_set *node_set_ptr, int node_set_size,
 							pn_min_memory =
 							smallest_min_mem;
 				}
-				debug("JPCK: after runnable ever -- avail  rc=%d", pick_code);
+
 
 
 				if (pick_code == SLURM_SUCCESS) {
@@ -2022,13 +2016,6 @@ _pick_best_nodes(struct node_set *node_set_ptr, int node_set_size,
 			}
 			if (!runable_ever) {
 				job_ptr->details->pn_min_memory = orig_req_mem;
-				// RBS: Debug >>>>>
-				char* RBSnodes2 = bitmap2node_name_sortable(total_bitmap, true);
-				debug("JPCK: b4 runnable_ever -- total_bitmap "
-				     "jobid=%d RBSnodes=%s",
-				     job_ptr->job_id,RBSnodes2);
-				xfree(RBSnodes2);
-				// RBS: Debug <<<<<
 				pick_code = _will_jpck_ldr_run(job_ptr, true,
 						total_bitmap,
 						min_nodes, max_nodes, req_nodes,
@@ -2047,7 +2034,6 @@ _pick_best_nodes(struct node_set *node_set_ptr, int node_set_size,
 							smallest_min_mem;
 				}
 
-				debug("JPCK: after runnable ever -- total  rc=%d", pick_code);
 				if (pick_code == SLURM_SUCCESS) {
 					FREE_NULL_BITMAP(possible_bitmap);
 					possible_bitmap = total_bitmap;

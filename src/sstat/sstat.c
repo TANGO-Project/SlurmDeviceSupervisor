@@ -294,10 +294,10 @@ int main(int argc, char **argv)
 					 step_ptr->job_steps[i].cpu_freq_min,
 					 step_ptr->job_steps[i].cpu_freq_max,
 					 step_ptr->job_steps[i].cpu_freq_gov,
+					 step_ptr->job_steps[i].packjobid,
+					 step_ptr->job_steps[i].packstepid,
 					 step_ptr->job_steps[i].
-					 start_protocol_ver);
-					 step_ptr->job_steps[i].packstepid[0],
-					 step_ptr->job_steps[i].packstepid[1]);
+					 start_protocol_ver);  //nlk
 			}
 			slurm_free_job_step_info_response_msg(step_ptr);
 			continue;
@@ -334,8 +334,9 @@ int main(int argc, char **argv)
 			req_cpufreq_max = step_info->cpu_freq_max;
 			req_cpufreq_gov = step_info->cpu_freq_gov;
 			use_protocol_ver = step_info->start_protocol_ver;
-			packjobid = step_info->job_steps[0].packstepid[0];
-			packstepid = step_info->job_steps[0].packstepid[1];
+			packjobid = step_info->job_steps[0].packstepid[0]; //nlk
+			packstepid = step_info->job_steps[0].packstepid[1]; //nlk
+
 		}
 
 		_do_stat(selected_step->jobid, stepid, nodelist,

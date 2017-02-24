@@ -1060,7 +1060,7 @@ void set_options(const int argc, char **argv)
 			}
 			opt.delay_boot = (uint32_t) i;
 			break;
-		case LONG_OPT_EXCLUSIVE:
+                case LONG_OPT_EXCLUSIVE:
 			if (optarg == NULL) {
 				opt.shared = JOB_SHARED_NONE;
 			} else if (!xstrcasecmp(optarg, "user")) {
@@ -1071,7 +1071,7 @@ void set_options(const int argc, char **argv)
 				error("invalid exclusive option %s", optarg);
 				exit(error_exit);
 			}
-			break;
+                        break;
 		case LONG_OPT_MINCPU:
 			opt.mincpus = parse_int("mincpus", optarg, true);
 			if (opt.mincpus < 0) {
@@ -1407,7 +1407,7 @@ void set_options(const int argc, char **argv)
 			opt.wait_all_nodes = strtol(optarg, NULL, 10);
 			break;
 		case LONG_OPT_CPU_FREQ:
-			if (cpu_freq_verify_cmdline(optarg, &opt.cpu_freq_min,
+		        if (cpu_freq_verify_cmdline(optarg, &opt.cpu_freq_min,
 					&opt.cpu_freq_max, &opt.cpu_freq_gov))
 				error("Invalid --cpu-freq argument: %s. "
 						"Ignored", optarg);
