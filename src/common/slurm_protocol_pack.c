@@ -9359,6 +9359,7 @@ _pack_launch_tasks_request_msg(launch_tasks_request_msg_t * msg, Buf buffer,
 		pack16(msg->ntasks_per_core, buffer);
 		pack16(msg->ntasks_per_socket, buffer);
 		pack32(msg->mpi_jobid, buffer);
+		pack32(msg->mpi_stepid, buffer);
 		pack32(msg->mpi_ntasks, buffer);
 		pack32(msg->mpi_nnodes, buffer);
 		pack32(msg->mpi_stepfnodeid, buffer);
@@ -9385,8 +9386,8 @@ _pack_launch_tasks_request_msg(launch_tasks_request_msg_t * msg, Buf buffer,
 				     buffer);
 		}
 		pack16(msg->num_resp_port, buffer);
-		pack32(msg->packstepid[0], buffer);
-		pack32(msg->packstepid[1], buffer);
+		pack32(msg->packjobid, buffer);
+		pack32(msg->packstepid, buffer);
 		for (i = 0; i < msg->num_resp_port; i++)
 			pack16(msg->resp_port[i], buffer);
 		slurm_pack_slurm_addr(&msg->orig_addr, buffer);
@@ -9507,8 +9508,8 @@ _unpack_launch_tasks_request_msg(launch_tasks_request_msg_t **
 				goto unpack_error;
 		}
 		safe_unpack16(&msg->num_resp_port, buffer);
-		safe_unpack32(&msg->packstepid[0], buffer);
-		safe_unpack32(&msg->packstepid[1], buffer);
+		safe_unpack32(&msg->packjobid, buffer);
+		safe_unpack32(&msg->packstepid, buffer);
 		if (msg->num_resp_port > 0) {
 			msg->resp_port = xmalloc(sizeof(uint16_t) *
 						 msg->num_resp_port);

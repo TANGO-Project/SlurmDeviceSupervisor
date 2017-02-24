@@ -319,7 +319,8 @@ _setup_mpi(stepd_step_rec_t *job, int ltaskid)
 	mpi_plugin_task_info_t minfo[1];
 
 	minfo->jobid = job->mpi_jobid;
-	minfo->stepid = job->stepid;
+//	minfo->stepid = job->stepid; // MNP obviated by following line
+	minfo->stepid = job->mpi_stepid;
 	minfo->nodeid = job->nodeid;
 	minfo->ntasks = job->mpi_ntasks;
 	minfo->nnodes = job->mpi_nnodes;
@@ -331,6 +332,7 @@ _setup_mpi(stepd_step_rec_t *job, int ltaskid)
 
 	/* set environment variables for PMI client */
 	env_array_overwrite_fmt(&job->env, "PMI_JOBID", "%u",minfo->jobid);
+	env_array_overwrite_fmt(&job->env, "PMI_STEPID", "%u",minfo->stepid);
 	env_array_overwrite_fmt(&job->env, "PMI_RANK", "%u", minfo->gtaskid);
 	env_array_overwrite_fmt(&job->env, "PMI_SIZE", "%u", minfo->ntasks);
 

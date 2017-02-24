@@ -70,6 +70,7 @@ typedef struct pmi2_job_info {
 	char *step_nodelist; /* list of nodes in this job step */
 	char *proc_mapping;  /* processor mapping */
 	char *pmi_jobid;     /* PMI job id */
+	char *pmi_stepid;     /* PMI step id */
 	char *spawner_jobid; /* spawner pmi job id */
 	char **job_env;	     /* environment of job. use in stepd */
 

@@ -604,6 +604,7 @@ extern int launch_p_step_launch(
 	launch_params.task_dist         = opt.distribution;
 	launch_params.num_tasks         = opt.ntasks;
 	launch_params.mpi_jobid         = opt.mpi_jobid;
+	launch_params.mpi_stepid        = opt.mpi_stepid;
 	launch_params.mpi_ntasks        = opt.mpi_ntasks;
 	launch_params.mpi_nnodes        = opt.mpi_nnodes;
 	launch_params.mpi_stepfnodeid   = opt.mpi_stepfnodeid;
@@ -619,8 +620,6 @@ extern int launch_p_step_launch(
 	launch_params.ntasks_per_board  = job->ntasks_per_board;
 	launch_params.ntasks_per_core   = job->ntasks_per_core;
 	launch_params.ntasks_per_socket = job->ntasks_per_socket;
-	launch_params.packstepid[0]     = opt.packstepid[0];
-	launch_params.packstepid[1]     = opt.packstepid[1];
 
 	if (opt.export_env)
 		launch_params.env = _build_user_env();

@@ -1879,6 +1879,7 @@ typedef struct {
 	uint32_t gid;
 	bool multi_prog;
 	uint32_t mpi_jobid;	/* MPI jobid (same for all steps) */
+	uint32_t mpi_stepid;	/* MPI stepid */
 	uint32_t mpi_ntasks;	/* number of MPI tasks for all steps */
 	uint32_t mpi_nnodes;	/* number of MPI nodes for all steps */
 	uint32_t mpi_stepfnodeid; /* first nodeid for this step */
@@ -1918,8 +1919,6 @@ typedef struct {
 	char **pelog_env;	/* other environment variables for job
 				   prolog/epilog */
 	uint32_t pelog_env_size; /* element count in pelog_env */
-	uint32_t packstepid[2]; /* jobid of srun first step of the jobpack
-				 * & stepid of jobpack member */
 } slurm_step_launch_params_t;
 
 typedef struct {

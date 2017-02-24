@@ -48,19 +48,6 @@
 typedef struct slurm_mpi_context *slurm_mpi_context_t;
 typedef void mpi_plugin_client_state_t;
 
-/* Pipes for MPI-related data for multi-step sruns */
-extern int *vector_pipe_out;
-extern int *vector_pipe_in;
-extern int *nnodes_pipe;
-extern int *pmi2port_pipe;
-extern int *pmi1port_pipe;
-
-/* srun globals */
-extern int srun_num_steps;	/* number of steps in this srun command */
-extern int srun_step_idx;	/* step index of this step */
-extern uint32_t packstepid[];	/* unique id for all steps in this srun */
-extern bool srun_mpi_combine;	/* --mpi-combine option */
-
 typedef struct {
 	uint32_t jobid;
 	uint32_t orig_jobid;

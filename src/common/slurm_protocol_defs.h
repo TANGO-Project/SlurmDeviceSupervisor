@@ -870,8 +870,8 @@ typedef struct launch_tasks_request_msg {
 	dynamic_plugin_data_t *select_jobinfo; /* select context, opaque data */
 	char *alias_list;	/* node name/address/hostnamne aliases */
 	char *partition;	/* partition that job is running in */
-	uint32_t packstepid[2]; /* jobid of srun first step of the jobpack
-				 * & stepid of jobpack member */
+	uint32_t packjobid;	/* jobid of srun first step */
+	uint32_t packstepid;	/* stepid of srun first step */
 } launch_tasks_request_msg_t;
 
 typedef struct task_user_managed_io_msg {

@@ -94,6 +94,7 @@ libcommon_la_SOURCES = 			\
 	slurm_route.c slurm_route.h	\
 	slurm_time.c slurm_time.h	\
 	slurm_topology.c slurm_topology.h \
+	srun_globals.c srun_globals.h	\
 	switch.c switch.h		\
 	macros.h			\
 	slurm_selecttype_info.c 	\

@@ -73,6 +73,7 @@
 #include "src/common/slurm_jobacct_gather.h"
 #include "src/common/slurm_protocol_api.h"
 #include "src/common/slurm_rlimits_info.h"
+#include "src/common/srun_globals.h"
 #include "src/common/switch.h"
 #include "src/common/uid.h"
 #include "src/common/xmalloc.h"
@@ -92,7 +93,6 @@
 #include "src/api/pmi_server.h"
 #include "src/api/step_ctx.h"
 #include "src/api/step_launch.h"
-#include "src/common/slurm_mpi.h"
 
 /********************
  * Global Variables *
@@ -704,8 +704,6 @@ int srun(int ac, char **av)
 	}
 	opt.mpi_ntasks = opt.ntasks;
 	opt.mpi_stepftaskid = 0;
-	opt.packstepid[0] = 0;
-	opt.packstepid[1] = 0;
 	setup_env(env, opt.preserve_env);
 	xfree(env->task_count);
 	xfree(env);
@@ -1102,6 +1100,7 @@ static void _create_srun_steps_jobpack(bool got_alloc)
 			}
 			opt_ptr = _get_opt(i, j);
 			opt_ptr->mpi_jobid = mpi_jobid;
+			opt_ptr->mpi_stepid = packstepid;
 			opt_ptr->mpi_ntasks = mpi_curtaskid;
 			if (!opt_ptr->mpi_combine) {
 				opt_ptr->mpi_ntasks = opt_ptr->ntasks;

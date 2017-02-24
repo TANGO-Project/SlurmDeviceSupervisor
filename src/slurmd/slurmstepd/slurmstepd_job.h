@@ -133,6 +133,7 @@ typedef struct {
 	uint32_t       array_job_id;  /* job array master job ID            */
 	uint32_t       array_task_id; /* job array ID                       */
 	uint32_t       mpi_jobid;  /* MPI jobid (same for all steps)        */
+	uint32_t       mpi_stepid; /* MPI stepid (same for all steps)        */
 	uint32_t       mpi_ntasks; /* number of MPI tasks for all steps     */
 	uint32_t       mpi_nnodes; /* number of MPI nodes for all steps     */
 	uint32_t       mpi_stepfnodeid; /* first MPI nodeid for this step   */

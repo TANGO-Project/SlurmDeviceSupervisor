@@ -61,6 +61,7 @@
 #include "src/common/slurm_protocol_defs.h"
 #include "src/common/timers.h"
 #include "src/common/switch.h"
+#include "src/common/srun_globals.h"
 #include "src/common/xmalloc.h"
 #include "src/common/xsignal.h"
 #include "src/common/xstring.h"
@@ -147,11 +148,11 @@ static job_step_create_request_msg_t *_create_step_request(
 	step_req->pn_min_memory = step_params->pn_min_memory;
 	step_req->srun_pid = (uint32_t) getpid();
 	step_req->time_limit = step_params->time_limit;
-	step_req->packstepid[0] = 0;
-	step_req->packstepid[1] = 0;
+	step_req->packjobid = 0;
+	step_req->packstepid = 0;
 	if (srun_step_idx != 0) {
-		step_req->packstepid[0] = packstepid[0];
-		step_req->packstepid[1] = packstepid[1];
+		step_req->packjobid = packjobid;
+		step_req->packstepid = packstepid;
 	}
 
 	return step_req;
@@ -211,9 +212,10 @@ slurm_step_ctx_create (const slurm_step_ctx_params_t *step_params)
 	ctx->launch_state->slurmctld_socket_fd = sock;
 
 	if (srun_step_idx==0) {
-		packstepid[0] = step_req->job_id;
-		packstepid[1] = step_resp->job_step_id;
+		packjobid = step_req->job_id;
+		packstepid = step_resp->job_step_id;
 	}
+	ctx->mpi_stepid = packstepid;
 fail:
 	errno = errnum;
 	return (slurm_step_ctx_t *)ctx;
@@ -329,9 +331,10 @@ slurm_step_ctx_create_timeout (const slurm_step_ctx_params_t *step_params,
 	ctx->launch_state->slurmctld_socket_fd = sock;
 
 	if (srun_step_idx==0) {
-		packstepid[0] = step_req->job_id;
-		packstepid[1] = step_resp->job_step_id;
+		packjobid = step_req->job_id;
+		packstepid = step_resp->job_step_id;
 	}
+	ctx->mpi_stepid = packstepid;
 fail:
 	errno = errnum;
 	return (slurm_step_ctx_t *)ctx;
@@ -407,12 +410,11 @@ slurm_step_ctx_create_no_alloc (const slurm_step_ctx_params_t *step_params,
 
 	ctx->launch_state = step_launch_state_create(ctx);
 	ctx->launch_state->slurmctld_socket_fd = sock;
-
 	if (srun_step_idx==0) {
-		packstepid[0] = step_req->job_id;
-		packstepid[1] = step_resp->job_step_id;
+		packjobid = step_req->job_id;
+		packstepid = step_resp->job_step_id;
 	}
-
+	ctx->mpi_stepid = packstepid;
 	_job_fake_cred(ctx);
 
 fail:

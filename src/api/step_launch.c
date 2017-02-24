@@ -74,6 +74,7 @@
 #include "src/common/slurm_protocol_defs.h"
 #include "src/common/slurm_time.h"
 #include "src/common/strlcpy.h"
+#include "src/common/srun_globals.h"
 #include "src/common/uid.h"
 #include "src/common/xmalloc.h"
 #include "src/common/xstring.h"
@@ -271,6 +272,7 @@ int slurm_step_launch (slurm_step_ctx_t *ctx,
 	launch.nnodes		= ctx->step_resp->step_layout->node_cnt;
 	launch.ntasks		= ctx->step_resp->step_layout->task_cnt;
 	launch.mpi_jobid	= params->mpi_jobid;
+	launch.mpi_stepid	= params->mpi_stepid;
 	launch.mpi_ntasks	= params->mpi_ntasks;
 	launch.mpi_nnodes	= params->mpi_nnodes;
 	if (!launch.mpi_nnodes)
@@ -309,6 +311,8 @@ int slurm_step_launch (slurm_step_ctx_t *ctx,
 	launch.options          = job_options_create();
 	launch.complete_nodelist =
 		xstrdup(ctx->step_resp->step_layout->node_list);
+	launch.packjobid        = packjobid;
+	launch.packstepid       = packstepid;
 	spank_set_remote_options (launch.options);
 	if (params->parallel_debug)
 		launch.flags |= LAUNCH_PARALLEL_DEBUG;
@@ -370,6 +374,7 @@ int slurm_step_launch (slurm_step_ctx_t *ctx,
 
 	launch.num_resp_port = ctx->launch_state->num_resp_port;
 	launch.resp_port = xmalloc(sizeof(uint16_t) * launch.num_resp_port);
+
 	for (i = 0; i < launch.num_resp_port; i++) {
 		launch.resp_port[i] = ctx->launch_state->resp_port[i];
 	}
@@ -498,8 +503,8 @@ int slurm_step_launch_add (slurm_step_ctx_t *ctx,
 	launch.options          = job_options_create();
 	launch.complete_nodelist =
 		xstrdup(ctx->step_resp->step_layout->node_list);
-	launch.packstepid[0]    = params->packstepid[0];
-	launch.packstepid[1]    = params->packstepid[1];
+	launch.packjobid        = packjobid;
+	launch.packstepid       = packstepid;
 
 	spank_set_remote_options (launch.options);
 	if (params->parallel_debug)
@@ -911,7 +916,8 @@ struct step_launch_state *step_launch_state_create(slurm_step_ctx_t *ctx)
 	sls->abort = false;
 	sls->abort_action_taken = false;
 	sls->mpi_info->jobid = ctx->mpi_jobid;
-	sls->mpi_info->stepid = ctx->step_resp->job_step_id;
+	sls->mpi_info->stepid = ctx->step_resp->job_step_id; // MNP obviated by following line
+	sls->mpi_info->stepid = ctx->mpi_stepid;
 	sls->mpi_info->step_layout = layout;
 	sls->mpi_state = NULL;
 	slurm_mutex_init(&sls->lock);

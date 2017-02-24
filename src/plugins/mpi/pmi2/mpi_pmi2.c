@@ -114,6 +114,8 @@ int p_mpi_hook_slurmstepd_task (const mpi_plugin_task_info_t *job,
 
 	env_array_overwrite_fmt(env, "PMI_JOBID", "%s",
 				job_info.pmi_jobid);
+	env_array_overwrite_fmt(env, "PMI_STEPID", "%s",
+				job_info.pmi_stepid);
 	env_array_overwrite_fmt(env, "PMI_RANK", "%u", job->gtaskid);
 	env_array_overwrite_fmt(env, "PMI_SIZE", "%u", job->ntasks);
 	if (job_info.spawn_seq) { /* PMI1.1 needs this env-var */

@@ -43,7 +43,6 @@
 #include "src/common/hostlist.h"
 #include "src/common/log.h"
 #include "src/common/macros.h"
-#include "src/common/slurm_mpi.h"
 #include "src/common/pack.h"
 #include "src/common/slurm_protocol_defs.h"
 #include "src/common/slurm_protocol_pack.h"

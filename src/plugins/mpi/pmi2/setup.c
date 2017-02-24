@@ -63,6 +63,7 @@
 #include "src/common/net.h"
 #include "src/common/proc_args.h"
 #include "src/common/slurm_mpi.h"
+#include "src/common/srun_globals.h"
 #include "src/common/xstring.h"
 #include "src/slurmd/slurmstepd/slurmstepd_job.h"
 #include "src/slurmd/common/reverse_tree_math.h"
@@ -178,7 +179,7 @@ _setup_stepd_job_info(const stepd_step_rec_t *job, char ***env)
 
 	memset(&job_info, 0, sizeof(job_info));
 	job_info.jobid  = job->mpi_jobid;
-	job_info.stepid = job->stepid;
+	job_info.stepid = job->mpi_stepid;
 	job_info.nodeid = job->nodeid;
 	job_info.ntasks = job->mpi_ntasks;
 	job_info.nnodes = job->mpi_nnodes;
@@ -205,13 +206,20 @@ _setup_stepd_job_info(const stepd_step_rec_t *job, char ***env)
 		job_info.spawn_seq = 0;
 		job_info.spawner_jobid = NULL;
 	}
+	p = getenvp(*env, PMI2_PMI_STEPID_ENV);
+	if (p) {
+		job_info.pmi_stepid = xstrdup(p);
+		unsetenvp(*env, PMI2_PMI_STEPID_ENV);
+	} else {
+		xstrfmtcat(job_info.pmi_stepid, "%u", job->mpi_stepid);
+	}
 	p = getenvp(*env, PMI2_PMI_JOBID_ENV);
 	if (p) {
 		job_info.pmi_jobid = xstrdup(p);
 		unsetenvp(*env, PMI2_PMI_JOBID_ENV);
 	} else {
 		xstrfmtcat(job_info.pmi_jobid, "%u.%u", job->mpi_jobid,
-			   job->stepid);
+			   job->mpi_stepid);
 	}
 	p = getenvp(*env, PMI2_STEP_NODES_ENV);
 	if (!p) {
@@ -258,9 +266,6 @@ _setup_stepd_job_info(const stepd_step_rec_t *job, char ***env)
 	} else {
 		job_info.resv_ports = xstrdup(p);
 		info("%s: SLURM_STEP_RESV_PORTS found %s", __func__, p);
-	}
-
-	for (i = 0; i < job->node_tasks; i++) {
 	}
 	return SLURM_SUCCESS;
 }
@@ -372,7 +377,7 @@ _setup_stepd_sockets(const stepd_step_rec_t *job, char ***env)
 	xstrsubstitute(spool, "%n", job->node_name);
 	xstrsubstitute(spool, "%h", job->node_name);
 	snprintf(sa.sun_path, sizeof(sa.sun_path), PMI2_SOCK_ADDR_FMT,
-				job->mpi_jobid, job->stepid);
+				job->mpi_jobid, job->mpi_stepid);
 	unlink(sa.sun_path);    /* remove possible old socket */
 	if (bind(tree_sock, (struct sockaddr *)&sa, SUN_LEN(&sa)) < 0) {
 		error("mpi/pmi2: failed to bind tree socket: %m");
@@ -663,6 +668,12 @@ _setup_srun_job_info(const mpi_plugin_client_info_t *job)
 	job_info.proc_mapping = _get_proc_mapping(job);
 	if (job_info.proc_mapping == NULL) {
 		return SLURM_ERROR;
+	}
+	p = getenv(PMI2_PMI_STEPID_ENV);
+	if (p) {		/* spawned */
+		job_info.pmi_stepid = xstrdup(p);
+	} else {
+		xstrfmtcat(job_info.pmi_stepid, "%u", job->stepid);
 	}
 	p = getenv(PMI2_PMI_JOBID_ENV);
 	if (p) {		/* spawned */
@@ -1004,6 +1015,5 @@ pmi2_setup_srun(const mpi_plugin_client_info_t *job, char ***env)
 			return rc;
 	}
 
-	debug("******** MNP pid=%d, exiting pmi2_setup_srun", getpid());
 	return SLURM_SUCCESS;
 }

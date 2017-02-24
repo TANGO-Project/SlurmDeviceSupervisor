@@ -610,6 +610,8 @@ _setup_exec_srun(spawn_req_t *req)
 				job_info.pmi_jobid);
 	env_array_overwrite_fmt(&env, PMI2_PMI_JOBID_ENV, "%s-%u",
 				job_info.pmi_jobid, req->seq);
+	env_array_overwrite_fmt(&env, PMI2_PMI_STEPID_ENV, "%s",
+				job_info.pmi_stepid);
 	env_array_overwrite_fmt(&env, PMI2_SPAWN_SEQ_ENV, "%u", req->seq);
 	env_array_overwrite_fmt(&env, PMI2_SPAWNER_PORT_ENV, "%hu",
 				tree_info.pmi_port);

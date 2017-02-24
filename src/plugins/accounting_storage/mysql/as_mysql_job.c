@@ -1082,8 +1082,8 @@ extern int as_mysql_step_start(mysql_conn_t *mysql_conn,
 
 	step_name = slurm_add_slash_to_quotes(step_ptr->name);
 
-		packjobid = step_ptr->packstepid[0];
-		packstepid = step_ptr->packstepid[1];
+		packjobid = step_ptr->packjobid;
+		packstepid = step_ptr->packstepid;
 
 	/* we want to print a -1 for the requid so leave it a
 	   %d */
@@ -1332,8 +1332,8 @@ extern int as_mysql_step_complete(mysql_conn_t *mysql_conn,
 			   ave_cpu,	/* ave cpu */
 			   jobacct->act_cpufreq,
 			   jobacct->energy.consumed_energy,
-			   step_ptr->packstepid[0],
-			   step_ptr->packstepid[1]);
+			   step_ptr->packjobid,
+			   step_ptr->packstepid);
 	}
 
 	/* id_step has to be %d here to handle the -2 -1 for the batch and

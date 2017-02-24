@@ -45,6 +45,7 @@
 #include "src/common/xstring.h"
 #include "src/common/plugin.h"
 #include "src/common/plugrack.h"
+#include "src/common/srun_globals.h"
 #include "src/common/xsignal.h"
 #include "src/api/step_ctx.h"
 
@@ -211,8 +212,6 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 		opt.mpi_stepfnodeid = 0;
 	}
 	mpi_curnodecnt += job->nhosts;
-	opt.packstepid[0] = packstepid[0];
-	opt.packstepid[1] = packstepid[1];
 	job->ctx_params.task_count = opt.ntasks;
 
 	if (opt.mem_per_cpu != NO_VAL64)
@@ -312,6 +311,7 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 		job->ctx_params.name = opt.cmd_name;
 	job->ctx_params.features = opt.constraints;
 	job->ctx_params.mpi_jobid = opt.mpi_jobid;
+	job->ctx_params.mpi_stepid = packstepid;
 
 	debug("requesting job %u, user %u, nodes %u including (%s)",
 	      job->ctx_params.job_id, job->ctx_params.uid,
@@ -344,6 +344,7 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 				info("Job step created");
 
 			job->step_ctx->mpi_jobid = opt.mpi_jobid;
+			job->step_ctx->mpi_stepid = opt.mpi_stepid;
 			slurm_step_ctx_t *step_ctx = job->step_ctx;
 			job_step_create_response_msg_t *step_resp =
 					step_ctx->step_resp;

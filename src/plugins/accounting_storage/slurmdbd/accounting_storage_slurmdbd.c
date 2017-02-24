@@ -2717,8 +2717,8 @@ extern int jobacct_storage_p_step_start(void *db_conn,
 	req.job_id      = step_ptr->job_ptr->job_id;
 	req.name        = step_ptr->name;
 	req.nodes       = node_list;
-	req.packstepid[0] = step_ptr->packstepid[0];
-	req.packstepid[1] = step_ptr->packstepid[1];
+	req.packstepid[0] = step_ptr->packjobid;
+	req.packstepid[1] = step_ptr->packstepid;
 	if (step_ptr->step_node_bitmap) {
 		req.node_inx = bit_fmt(temp_bit, sizeof(temp_bit),
 				       step_ptr->step_node_bitmap);
@@ -2800,8 +2800,8 @@ extern int jobacct_storage_p_step_complete(void *db_conn,
 #endif
 
 	req.job_id      = step_ptr->job_ptr->job_id;
-	req.packstepid[0] = step_ptr->packstepid[0];
-	req.packstepid[1] = step_ptr->packstepid[1];
+	req.packstepid[0] = step_ptr->packjobid;
+	req.packstepid[1] = step_ptr->packstepid;
 	req.req_uid     = step_ptr->requid;
 	if (step_ptr->start_time > step_ptr->job_ptr->resize_time)
 		req.start_time = step_ptr->start_time;
