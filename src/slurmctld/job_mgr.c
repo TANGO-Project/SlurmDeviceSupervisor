@@ -8170,30 +8170,29 @@ void job_time_limit(void)
 				goto time_check;
 			}	
 			if ((job_ptr->details == NULL) ||
-				    (job_ptr->details->depend_list == NULL))
-					continue;
-				dep_iter = list_iterator_create(
+				(job_ptr->details->depend_list == NULL))
+				continue;
+			dep_iter = list_iterator_create(
 						job_ptr->details->depend_list);
-				while ((dep_ptr = list_next(dep_iter))) {
-					if (dep_ptr->depend_type
-						!= SLURM_DEPEND_PACKLEADER)
-						continue;
-					if (slurm_get_debug_flags() &
+			while ((dep_ptr = list_next(dep_iter))) {
+				if (dep_ptr->depend_type
+					!= SLURM_DEPEND_PACKLEADER)
+					continue;
+				if (slurm_get_debug_flags() &
 							DEBUG_FLAG_JOB_PACK) {
-						info("JPCK: killing pack member"
-						     "=%d (leader time "
-						     "exhausted",
-						     dep_ptr->job_id);
-					}
-					dep_job = dep_ptr->job_ptr;
-					if (dep_job == NULL)
-						continue;
-					_job_timed_out(dep_job);
+					info("JPCK: killing pack member"
+					     "=%d (leader time "
+					     "exhausted",
+					     dep_ptr->job_id);
 				}
+				dep_job = dep_ptr->job_ptr;
+				if (dep_job == NULL)
+						continue;
+				_job_timed_out(dep_job);
+			}
 				list_iterator_destroy(dep_iter);
 				continue;
-			}
-		}
+		}	
 
 		if (job_ptr->resv_ptr &&
 		    (job_ptr->resv_ptr->end_time + resv_over_run)
