@@ -165,7 +165,7 @@ int mpi_hook_slurmstepd_prefork (const stepd_step_rec_t *job, char ***env)
 {
 	if (mpi_hook_slurmstepd_init(env) == SLURM_ERROR)
 		return SLURM_ERROR;
-	
+
 	return (*(ops.slurmstepd_prefork))(job, env);
 }
 
@@ -173,7 +173,7 @@ int mpi_hook_slurmstepd_task (const mpi_plugin_task_info_t *job, char ***env)
 {
 	if (mpi_hook_slurmstepd_init(env) == SLURM_ERROR)
 		return SLURM_ERROR;
-	
+
 	return (*(ops.slurmstepd_init))(job, env);
 }
 

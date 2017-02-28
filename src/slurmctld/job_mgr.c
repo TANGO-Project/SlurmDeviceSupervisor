@@ -12188,9 +12188,6 @@ static int _update_job(struct job_record *job_ptr, job_desc_msg_t * job_specs,
 	if (error_code != SLURM_SUCCESS)
 		goto fini;
 
-/*	if (job_specs->pack_group) {
-		job_ptr->details->pack_group = job_specs->pack_group;
-	} */
 	if (job_specs->begin_time) {
 		if (IS_JOB_PENDING(job_ptr) && detail_ptr) {
 			char time_str[32];
