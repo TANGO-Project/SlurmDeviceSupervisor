@@ -1741,7 +1741,7 @@ static int _env_array_putenv(const char *string)
 				       value, ENV_BUFSIZE)) &&
 	    (setenv(name, value, 1) != -1))
 		rc = 1;
-	info("DHP env.c: calling setenv with: name=%s, value=%s",name,value); //dhp
+
 	xfree(value);
 	return rc;
 }
