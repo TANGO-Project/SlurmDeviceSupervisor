@@ -1180,15 +1180,6 @@ static void _slurm_rpc_allocate_resources(slurm_msg_t * msg)
 				cpu_array_cnt));
 		}
 
-		if (job_ptr->details->env_cnt) {
-			alloc_msg.env_size = job_ptr->details->env_cnt;
-			alloc_msg.environment = xmalloc(sizeof(char *) *
-							alloc_msg.env_size);
-			for (i = 0; i < alloc_msg.env_size; i++) {
-				alloc_msg.environment[i] =
-					xstrdup(job_ptr->details->env_sup[i]);
-			}
-		}
 		alloc_msg.error_code     = error_code;
 		alloc_msg.job_id         = job_ptr->job_id;
 		alloc_msg.node_cnt       = job_ptr->node_cnt;
@@ -1240,7 +1231,6 @@ static void _slurm_rpc_allocate_resources(slurm_msg_t * msg)
 		if (job_ptr->resv_name)
 			alloc_msg.resv_name = xstrdup(job_ptr->resv_name);
 
-
 		/* This check really isn't needed, but just doing it
 		 * to be more complete.
 		 */
@@ -1259,13 +1249,10 @@ static void _slurm_rpc_allocate_resources(slurm_msg_t * msg)
 		if (slurm_send_node_msg(msg->conn_fd, &response_msg) < 0)
 			_kill_job_on_msg_fail(job_ptr->job_id);
 
+		slurm_free_resource_allocation_response_msg_members(&alloc_msg);
+
 		schedule_job_save();	/* has own locks */
 		schedule_node_save();	/* has own locks */
-
-		if (!alloc_msg.node_cnt) /* didn't get an allocation */
-			queue_job_scheduler();
-
-		slurm_free_resource_allocation_response_msg_members(&alloc_msg);
 	} else {	/* allocate error */
 		if (do_unlock) {
 			unlock_slurmctld(job_write_lock);
@@ -2035,7 +2022,6 @@ static void _slurm_rpc_complete_job_allocation(slurm_msg_t * msg)
 
 	/* do RPC call */
 	/* Mark job and/or job step complete */
-
 	error_code = job_complete(comp_msg->job_id, uid,
 				  false, false, comp_msg->job_rc);
 	if (error_code)
@@ -2982,9 +2968,6 @@ static void _slurm_rpc_job_alloc_info_lite(slurm_msg_t * msg)
 
 		slurm_send_node_msg(msg->conn_fd, &response_msg);
 
-		/* NULL out msg->working_cluster_rec because it's pointing to
-		 * the actual memory */
-		job_info_resp_msg.working_cluster_rec = NULL;
 		slurm_free_resource_allocation_response_msg_members(
 			&job_info_resp_msg);
 	}

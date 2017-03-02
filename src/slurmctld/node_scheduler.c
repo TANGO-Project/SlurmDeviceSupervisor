@@ -2002,8 +2002,6 @@ _pick_best_nodes(struct node_set *node_set_ptr, int node_set_size,
 							smallest_min_mem;
 				}
 
-
-
 				if (pick_code == SLURM_SUCCESS) {
 					runable_ever  = true;
 					if (bit_set_count(avail_bitmap) <=

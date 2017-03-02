@@ -3066,6 +3066,7 @@ extern void print_job_dependency(struct job_record *job_ptr)
 			dep_str = "expand";
 		else
 			dep_str = "unknown";
+
 		if (dep_ptr->array_task_id == INFINITE)
 			info("  %s:%u_* %s",
 			     dep_str, dep_ptr->job_id, dep_flags);

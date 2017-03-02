@@ -4134,8 +4134,6 @@ slurmdbd_pack_step_start_msg(dbd_step_start_msg_t *msg, uint16_t rpc_version,
 		pack32(msg->node_cnt, buffer);
 		pack_time(msg->start_time, buffer);
 		pack_time(msg->job_submit_time, buffer);
-		pack32(msg->packjobid, buffer);
-		pack32(msg->packstepid, buffer);
 		pack32(msg->req_cpufreq_min, buffer);
 		pack32(msg->req_cpufreq_max, buffer);
 		pack32(msg->req_cpufreq_gov, buffer);
@@ -4164,6 +4162,8 @@ slurmdbd_unpack_step_start_msg(dbd_step_start_msg_t **msg,
 		safe_unpack32(&msg_ptr->node_cnt, buffer);
 		safe_unpack_time(&msg_ptr->start_time, buffer);
 		safe_unpack_time(&msg_ptr->job_submit_time, buffer);
+		safe_unpack32(&msg_ptr->packjobid, buffer);
+		safe_unpack32(&msg_ptr->packstepid, buffer);
 		safe_unpack32(&msg_ptr->req_cpufreq_min, buffer);
 		safe_unpack32(&msg_ptr->req_cpufreq_max, buffer);
 		safe_unpack32(&msg_ptr->req_cpufreq_gov, buffer);
@@ -4186,8 +4186,6 @@ slurmdbd_unpack_step_start_msg(dbd_step_start_msg_t **msg,
 		safe_unpack32(&msg_ptr->node_cnt, buffer);
 		safe_unpack_time(&msg_ptr->start_time, buffer);
 		safe_unpack_time(&msg_ptr->job_submit_time, buffer);
-		safe_unpack32(&msg_ptr->packjobid, buffer);
-		safe_unpack32(&msg_ptr->packstepid, buffer);
 		safe_unpack32(&msg_ptr->req_cpufreq_min, buffer);
 		safe_unpack32(&msg_ptr->req_cpufreq_max, buffer);
 		safe_unpack32(&msg_ptr->req_cpufreq_gov, buffer);

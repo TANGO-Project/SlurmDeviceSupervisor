@@ -63,7 +63,7 @@ typedef struct {
 	uint32_t ntasks; /* total number of tasks in current job      */
 	uint32_t ltasks; /* number of tasks on *this* (local) node    */
 
-	uint32_t gtaskid;/* global task rank within the job step      */
+	uint32_t gtaskid;/* global task rank within the MPI app       */
 	int      ltaskid;/* task rank within the local node           */
 
 	slurm_addr_t *self;

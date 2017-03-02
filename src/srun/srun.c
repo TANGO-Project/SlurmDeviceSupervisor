@@ -94,29 +94,12 @@
 #include "src/api/step_ctx.h"
 #include "src/api/step_launch.h"
 
-/********************
- * Global Variables *
- ********************/
-
-#if defined (HAVE_DECL_STRSIGNAL) && !HAVE_DECL_STRSIGNAL
-#  ifndef strsignal
-extern char *strsignal(int);
-#  endif
-#endif /* defined HAVE_DECL_STRSIGNAL && !HAVE_DECL_STRSIGNAL */
-
 #ifndef OPEN_MPI_PORT_ERROR
 /* This exit code indicates the launched Open MPI tasks could
  *	not open the reserved port. It was already open by some
  *	other process. */
 #define OPEN_MPI_PORT_ERROR 108
 #endif
-
-#define MAX_RETRIES 20
-#define MAX_ENTRIES 50
-
-#define	TYPE_NOT_TEXT	0
-#define	TYPE_TEXT	1
-#define	TYPE_SCRIPT	2
 
 static struct termios termdefaults;
 static uint32_t global_rc = 0;
