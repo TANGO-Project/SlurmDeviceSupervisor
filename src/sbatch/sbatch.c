@@ -472,6 +472,7 @@ static int main_jobpack(int argc, char *argv[])
 	int script_size = 0;
 	int retries = 0;
 	int job_index;
+	char *nnodes = NULL;
 
 	slurm_conf_init(NULL);
 	log_init(xbasename(argv[0]), logopt, 0, NULL);
@@ -479,6 +480,11 @@ static int main_jobpack(int argc, char *argv[])
 	_set_exit_code();
 	if (spank_init_allocator() < 0) {
 		error("Failed to initialize plugin stack");
+		exit(error_exit);
+	}
+	nnodes = getenv("SLURM_NNODES");
+	if(nnodes) {
+		error("Jobpack sbatch not allowed within an existing allocation");
 		exit(error_exit);
 	}
 
