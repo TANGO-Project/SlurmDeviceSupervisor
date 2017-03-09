@@ -1859,8 +1859,8 @@ static void _set_options(const int argc, char **argv)
 				opt.priority = NO_VAL - 1;
 			} else {
 				priority = strtoll(optarg, NULL, 10);
-			if (_check_jobpack__opt("--priority")) {
-				long long priority = strtoll(optarg, NULL, 10);
+			if (_check_jobpack__opt("--priority")) 
+				priority = strtoll(optarg, NULL, 10);
 				if (priority < 0) {
 					error("Priority must be >= 0");
 					exit(error_exit);

@@ -10436,13 +10436,11 @@ static int _update_job(struct job_record *job_ptr, job_desc_msg_t * job_specs,
 	if (error_code != SLURM_SUCCESS)
 		return error_code;
 
-	admin = validate_operator(uid);
-
 	memset(&acct_policy_limit_set, 0, sizeof(acct_policy_limit_set_t));
 	acct_policy_limit_set.tres = tres;
 
-	if ((authorized = admin || assoc_mgr_is_user_acct_coord(
-		     acct_db_conn, uid, job_ptr->account))) {
+	if (authorized ||
+	    assoc_mgr_is_user_acct_coord(acct_db_conn, uid, job_ptr->account)) {
 		/* set up the acct_policy if we are authorized */
 		for (tres_pos = 0; tres_pos < slurmctld_tres_cnt; tres_pos++)
 			acct_policy_limit_set.tres[tres_pos] = ADMIN_SET_LIMIT;
@@ -10667,15 +10665,6 @@ static int _update_job(struct job_record *job_ptr, job_desc_msg_t * job_specs,
 				     job_ptr->job_id);
 			}
 		}
-	}
-	if (error_code != SLURM_SUCCESS)
-		goto fini;
-
-	if (job_specs->burst_buffer) {
-		/* burst_buffer contents are validated at job submit time and
-		 * data is possibly being staged at later times. It can not
-		 * be changed. */
-		error_code = ESLURM_NOT_SUPPORTED;
 	}
 	if (error_code != SLURM_SUCCESS)
 		goto fini;
@@ -13761,14 +13750,14 @@ extern bool job_independent(struct job_record *job_ptr, int will_run)
 		if (job_ptr->bit_flags & KILL_INV_DEP) {
 			_kill_dependent(job_ptr);
 		} else if (job_ptr->bit_flags & NO_KILL_INV_DEP) {
-			debug("%s: %s job dependency condition never satisfied",
+			debug("%s: %s job dependency never satisfied",
 			      __func__, jobid2str(job_ptr, jbuf, sizeof(jbuf)));
 			job_ptr->state_reason = WAIT_DEP_INVALID;
 			xfree(job_ptr->state_desc);
 		} else if (kill_invalid_dep) {
 			_kill_dependent(job_ptr);
 		} else {
-			debug("%s: %s dependency condition never satisfied",
+			debug("%s: %s job dependency never satisfied",
 			      __func__, jobid2str(job_ptr, jbuf, sizeof(jbuf)));
 			job_ptr->state_reason = WAIT_DEP_INVALID;
 			xfree(job_ptr->state_desc);

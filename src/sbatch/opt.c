@@ -1696,19 +1696,21 @@ static void _set_options(int argc, char **argv)
 			verify_conn_type(optarg, opt.conn_type);
 			break;
 		case LONG_OPT_BEGIN:
+			opt.begin = parse_time(optarg, 0);
 			if (_check_jobpack__opt("--begin")) {
-				opt.begin = parse_time(optarg, 0);
+				
 				if (errno == ESLURM_INVALID_TIME_VALUE) {
 					error("Invalid time specification %s",
 					optarg);
 					exit(error_exit);
 				}
-				if (opt.begin == 0) {
-					error("Invalid time specification %s",
-					      optarg);
-					exit(error_exit);
-				}
 			}
+			if (opt.begin == 0) {
+				error("Invalid time specification %s",
+				      optarg);
+				exit(error_exit);
+			}
+			
 			break;
 		case LONG_OPT_MAIL_TYPE:
 			opt.mail_type |= parse_mail_type(optarg);
@@ -1941,6 +1943,7 @@ static void _set_options(int argc, char **argv)
 			xfree(opt.time_min_str);
 			if (_check_jobpack__opt("--time-min"))
 				opt.time_min_str = xstrdup(optarg);
+
 			break;
 		case LONG_OPT_GRES:
 			if (!xstrcasecmp(optarg, "help") ||
@@ -2309,10 +2312,11 @@ static void _set_pbs_options(int argc, char **argv)
 							"non-negative, value ignored");
 						tmp_nice = 0;
 					}
-				}
-			}
+				}	
+			opt.nice = (int) tmp_nice;
 			opt.nice = (int) tmp_nice;
 			break;
+			}
 		}
 		case 'q':
 			xfree(opt.partition);

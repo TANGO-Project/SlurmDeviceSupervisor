@@ -165,7 +165,6 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 					 sig_atomic_t *destroy_job)
 {
 	int i, j, rc;
-	int j,k; 
 	unsigned long step_wait = 0;
 	uint16_t base_dist, slurmctld_timeout;
 

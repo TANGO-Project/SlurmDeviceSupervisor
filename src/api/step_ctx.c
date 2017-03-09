@@ -336,8 +336,6 @@ slurm_step_ctx_create_timeout (const slurm_step_ctx_params_t *step_params,
 		packstepid = step_resp->job_step_id;
 	}
 	ctx->mpi_stepid = packstepid;
-fail:
-	errno = errnum;
 	return (slurm_step_ctx_t *)ctx;
 }
 

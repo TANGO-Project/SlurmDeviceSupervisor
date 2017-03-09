@@ -26619,14 +26619,7 @@ $as_echo X"$file" |
 
     cat <<_LT_EOF >> "$cfgfile"
 #! $SHELL
-<<<<<<< HEAD
 # Generated automatically by $as_me ($PACKAGE) $VERSION
-=======
-
-# `$ECHO "$ofile" | sed 's%^.*/%%'` - Provide generalized library-building support services.
-# Generated automatically by $as_me ($PACKAGE$TIMESTAMP) $VERSION
-# Libtool was configured on host `(hostname || uname -n) 2>/dev/null | sed 1q`:
->>>>>>> cca921f...  update for Makefiles and latest rebase
 # NOTE: Changes made to this file will be lost: look at ltmain.sh.
 #
 #   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005,
