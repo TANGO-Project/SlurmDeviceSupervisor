@@ -800,18 +800,23 @@ _cancel_job_id (void *ci)
 	}
 	if (error_code) {
 		error_code = slurm_get_errno();
-		if ((opt.verbose > 0) ||
-		    ((error_code != ESLURM_ALREADY_DONE) &&
-		     (error_code != ESLURM_INVALID_JOB_ID))) {
-			error("Kill job error on job id %s: %s",
-			      cancel_info->job_id_str,
-			      slurm_strerror(slurm_get_errno()));
+		if (error_code == ESLURM_JOB_PACK_CANCEL_MEMBER) {
+			info("Use scancel --pack-member=%s to cancel a "
+			     "pack_member", cancel_info->job_id_str);
+		} else {
+			if ((opt.verbose > 0) ||
+			    ((error_code != ESLURM_ALREADY_DONE) &&
+			     (error_code != ESLURM_INVALID_JOB_ID))) {
+				error("Kill job error on job id %s: %s",
+				      cancel_info->job_id_str,
+				      slurm_strerror(slurm_get_errno()));
+			}
+			if (((error_code == ESLURM_ALREADY_DONE) ||
+			     (error_code == ESLURM_INVALID_JOB_ID)) &&
+			    (cancel_info->sig == SIGKILL)) {
+				error_code = 0;	/* Ignore error if job done */
+			}
 		}
-		if (((error_code == ESLURM_ALREADY_DONE) ||
-		     (error_code == ESLURM_INVALID_JOB_ID)) &&
-		    (cancel_info->sig == SIGKILL)) {
-			error_code = 0;	/* Ignore error if job done */
-		}	
 	}
 
 	/* Purposely free the struct passed in here, so the caller doesn't have

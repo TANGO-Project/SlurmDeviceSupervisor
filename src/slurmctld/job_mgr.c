@@ -4456,7 +4456,12 @@ static int _job_signal(struct job_record *job_ptr, uint16_t signal,
 
 /*
  * kill_job_pack - signal all jobs in the job_pack
- * IN job_id - id of the job to be signaled
+ *
+ * This function is currently only used to send SIGKILL to all member
+ * of a job pack, when SIGKILL is sent to any one member of the pack.
+ *
+ * IN pack_id - id of the pack leader of a job pack
+ * IN job_ptr - pointer to job record of the original job to be signaled
  * IN signal - signal to send, SIGKILL == cancel the job
  * IN flags  - see KILL_JOB_* flags in slurm.h
  * IN uid - uid of requesting user
@@ -4475,9 +4480,10 @@ static int _kill_job_pack(uint32_t pack_id, struct job_record *job_ptr,
 	if ((pack_ptr == NULL)
 	    || (pack_ptr->details == NULL)
 	    || (pack_ptr->details->depend_list == NULL)) {
+		/* Didn't find the leader, just kill the orginator */
 		return _job_signal(job_ptr, signal, flags, uid, preempt);
 	}
-
+	/* Iterate throiugh the members of the leader, killing them */
 	dep_iter = list_iterator_create(pack_ptr->details->depend_list);
 	dep_ptr = (struct depend_spec *) list_next(dep_iter);
 	while (dep_ptr != NULL) {
@@ -4500,6 +4506,7 @@ static int _kill_job_pack(uint32_t pack_id, struct job_record *job_ptr,
 	}
 	list_iterator_destroy(dep_iter);
 
+	/* Finally, kill the leader */
 	if (debug_flags & DEBUG_FLAG_JOB_PACK) {
 		info("JPCK: kill job_pack --leader=%d org_job_signalled=%d",
 		      pack_id, job_ptr->job_id);
@@ -4551,7 +4558,6 @@ extern int job_signal(uint32_t job_id, uint16_t signal, uint16_t flags,
 	}
 	return _job_signal(job_ptr, signal, flags, uid, preempt);
 }
-
 
 /*
  * job_str_signal - signal the specified job
@@ -5153,13 +5159,17 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 
 	/*
 	 * Check for a job_pack leader. If found, complete members too.
+	 * job_ptr represents job originally requested to complete
 	 */
 	if (job_ptr->details != NULL && job_ptr->details->depend_list!=NULL) {
+		/* Iterate over originators depend list, looking for members */
 		dpnd_iter = list_iterator_create(job_ptr->details->depend_list);
 		while ((ldr_dep_ptr = (struct depend_spec *)
 				      list_next(dpnd_iter))) {
 			if (ldr_dep_ptr->depend_type == SLURM_DEPEND_PACK) {
 				if (job_ptr->batch_flag > 0) {
+					/* Originator is member is a sbatch
+					 * or salloc. have to wait for leader */
 					if (debug_flags & DEBUG_FLAG_JOB_PACK) {
 						info("JPCK: pack member "
 						     "%d waiting for leader %d "
@@ -5168,6 +5178,8 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 					}
 					return SLURM_SUCCESS;
 				} else {
+					/* Originator is member is
+					 * stand-alone-srun, can complete now */
 					if (debug_flags & DEBUG_FLAG_JOB_PACK) {
 						info("JPCK: pack member %d "
 						    "(leader %d) is completing",
@@ -7397,7 +7409,6 @@ _copy_job_desc_to_job_record(job_desc_msg_t * job_desc,
 		detail_ptr->std_out = xstrdup(job_desc->std_out);
 	if (job_desc->work_dir)
 		detail_ptr->work_dir = xstrdup(job_desc->work_dir);
-
 	if (job_desc->begin_time > time(NULL))
 		detail_ptr->begin_time = job_desc->begin_time;
 	job_ptr->select_jobinfo =
@@ -9483,7 +9494,7 @@ void purge_old_job(void)
 			if (job_ptr->bit_flags & KILL_INV_DEP) {
 				_kill_dependent(job_ptr);
 			} else if (job_ptr->bit_flags & NO_KILL_INV_DEP) {
-				debug("%s: %s job dependency never satisfied",
+				debug("%s: %s job dependency condition never satisfied",
 				      __func__,
 				      jobid2str(job_ptr, jbuf, sizeof(jbuf)));
 				job_ptr->state_reason = WAIT_DEP_INVALID;
@@ -9491,7 +9502,7 @@ void purge_old_job(void)
 			} else if (kill_invalid_dep) {
 				_kill_dependent(job_ptr);
 			} else {
-				debug("%s: %s job dependency never satisfied",
+				debug("%s: %s job dependency condition never satisfied",
 				      __func__,
 				      jobid2str(job_ptr, jbuf, sizeof(jbuf)));
 				job_ptr->state_reason = WAIT_DEP_INVALID;
@@ -10107,11 +10118,13 @@ static int _update_job(struct job_record *job_ptr, job_desc_msg_t * job_specs,
 	if (error_code != SLURM_SUCCESS)
 		return error_code;
 
+	admin = validate_operator(uid);
+
 	memset(&acct_policy_limit_set, 0, sizeof(acct_policy_limit_set_t));
 	acct_policy_limit_set.tres = tres;
 
-	if (authorized ||
-	    assoc_mgr_is_user_acct_coord(acct_db_conn, uid, job_ptr->account)) {
+	if ((authorized = admin || assoc_mgr_is_user_acct_coord(
+		     acct_db_conn, uid, job_ptr->account))) {
 		/* set up the acct_policy if we are authorized */
 		for (tres_pos = 0; tres_pos < slurmctld_tres_cnt; tres_pos++)
 			acct_policy_limit_set.tres[tres_pos] = ADMIN_SET_LIMIT;
@@ -10336,6 +10349,15 @@ static int _update_job(struct job_record *job_ptr, job_desc_msg_t * job_specs,
 				     job_ptr->job_id);
 			}
 		}
+	}
+	if (error_code != SLURM_SUCCESS)
+		goto fini;
+
+	if (job_specs->burst_buffer) {
+		/* burst_buffer contents are validated at job submit time and
+		 * data is possibly being staged at later times. It can not
+		 * be changed. */
+		error_code = ESLURM_NOT_SUPPORTED;
 	}
 	if (error_code != SLURM_SUCCESS)
 		goto fini;
@@ -13412,14 +13434,14 @@ extern bool job_independent(struct job_record *job_ptr, int will_run)
 		if (job_ptr->bit_flags & KILL_INV_DEP) {
 			_kill_dependent(job_ptr);
 		} else if (job_ptr->bit_flags & NO_KILL_INV_DEP) {
-			debug("%s: %s job dependency never satisfied",
+			debug("%s: %s job dependency condition never satisfied",
 			      __func__, jobid2str(job_ptr, jbuf, sizeof(jbuf)));
 			job_ptr->state_reason = WAIT_DEP_INVALID;
 			xfree(job_ptr->state_desc);
 		} else if (kill_invalid_dep) {
 			_kill_dependent(job_ptr);
 		} else {
-			debug("%s: %s job dependency never satisfied",
+			debug("%s: %s dependency condition never satisfied",
 			      __func__, jobid2str(job_ptr, jbuf, sizeof(jbuf)));
 			job_ptr->state_reason = WAIT_DEP_INVALID;
 			xfree(job_ptr->state_desc);
@@ -16138,16 +16160,19 @@ uint32_t get_pack_nodelist(uint32_t job_id,  char **nodelist)
 		error("failed to find job_record for job_id=%d", job_id);
 		return 0;
 	}
+	/* Alway start with bit map of originator */
 	job_node_bitmap = bit_copy(job_ptr->node_bitmap);
 	if (job_ptr->details == NULL)
 		goto legacy;
 	pack_depend = job_ptr->details->depend_list;
 	if (pack_depend == NULL)
 		goto legacy;
+	/* Iterate through dependencies, if any SLURM_DEPEND_PACKLEADER types,
+	 * then we are a leader, and or in their allocations */
 	depend_iter = list_iterator_create(pack_depend);
 	while ((ldr_dep_ptr = (struct depend_spec *) list_next(depend_iter))) {
 		if (ldr_dep_ptr->depend_type != SLURM_DEPEND_PACKLEADER)
-			goto legacy;
+			continue;
 		/* We are the packleader. If we've gotten here,
 		 * the members have already been allocated.
 		 */

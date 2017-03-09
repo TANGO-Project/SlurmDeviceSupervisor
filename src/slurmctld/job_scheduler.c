@@ -101,7 +101,7 @@
 #define BUILD_TIMEOUT 2000000	/* Max build_job_queue() run time in usec */
 #define MAX_FAILED_RESV 10
 #define MAX_RETRIES 10
-#define MAX_PACKMEMBER_ORPHAN 180 /* Max time pack member waits for leader */
+#define MAX_PACKMEMBER_ORPHAN 60 /* Max time pack member waits for leader */
 typedef struct epilog_arg {
 	char *epilog_slurmctld;
 	uint32_t job_id;
@@ -1961,6 +1961,7 @@ next_task:
 		} else if (error_code ==
 			    (ESLURM_REQUESTED_NODE_CONFIG_UNAVAILABLE)
 			   || (error_code == ESLURM_JOB_PACK_BAD_MEMBER)
+			   || (error_code == ESLURM_JOB_PACK_BAD_DEPENDENCY)
 			   || (error_code == ESLURM_JOB_PACK_NEVER_RUN)) {
 			if (job_ptr->part_ptr_list) {
 				debug("JobId=%u non-runnable in partition %s: "
@@ -2289,6 +2290,11 @@ extern batch_job_launch_msg_t *build_launch_job_msg(struct job_record *job_ptr,
 	launch_msg_ptr->spank_job_env_size = job_ptr->spank_job_env_size;
 	launch_msg_ptr->spank_job_env = xduparray(job_ptr->spank_job_env_size,
 						  job_ptr->spank_job_env);
+	/* Populate envs now for legacy job, later for jobpack */
+	if (job_ptr->pack_leader == 0) {
+		launch_msg_ptr->pelog_env_size = job_ptr->pelog_env_size;
+		launch_msg_ptr->pelog_env = xduparray(job_ptr->pelog_env_size,
+						      job_ptr->pelog_env);
 	launch_msg_ptr->environment = get_job_env(job_ptr,
 						  &launch_msg_ptr->envc);
 	if (launch_msg_ptr->environment == NULL) {
@@ -2330,6 +2336,10 @@ extern batch_job_launch_msg_t *build_launch_job_msg(struct job_record *job_ptr,
 	if (job_ptr->resv_name) {
 		launch_msg_ptr->resv_name = xstrdup(job_ptr->resv_name);
 	}
+	if (job_ptr->pack_leader)
+		launch_msg_ptr->group_number = job_ptr->group_number;
+	else
+		launch_msg_ptr->group_number = -1;
 
 	return launch_msg_ptr;
 }
@@ -2361,8 +2371,7 @@ static void _list_resv_ports_jobpack(struct job_record *job_ptr, List rports)
 	struct job_record *dep_job_ptr;
 	batch_job_launch_msg_t *launch_msg_ptr;
 	uint16_t protocol_version = (uint16_t) NO_VAL;
-	char *val, *ports;
-	uint32_t gn;
+	char *ports;
 
 	if (job_ptr->details == NULL) {
 		return;
@@ -2393,26 +2402,41 @@ static void _list_resv_ports_jobpack(struct job_record *job_ptr, List rports)
 		if (launch_msg_ptr == NULL)
 			return;
 
-		if ((val = getenvp(launch_msg_ptr->environment,
-				   "SLURM_GROUP_NUMBER")))
-			gn = atoi(val);
-
 		if (dep_job_ptr->resv_port_flag) {
-		        ports = _resv_ports_jobpack(dep_job_ptr);
-			char *tmp = xmalloc(strlen(ports) + 6);
-			sprintf(tmp, "%d=%s", gn, ports);
-			list_append(rports, tmp);
+			ports = _resv_ports_jobpack(dep_job_ptr);
+			if (ports != NULL) {
+				char *tmp = xmalloc(strlen(ports) + 6);
+				sprintf(tmp, "%d=%s", dep_job_ptr->group_number,
+					ports);
+				xfree(ports);
+				list_append(rports, tmp);
+			}
+			else
+				info ("You specified --resv-port but you have "
+				      "no ports configured.");
 		}
 		slurmctld_free_batch_job_launch_msg(launch_msg_ptr);
 	}
+	/* now the pack leader */
 	if (job_ptr->resv_port_flag) {
-	        ports = _resv_ports_jobpack(job_ptr);
-		char *tmp = xmalloc(strlen(ports) + 6);
-		sprintf(tmp, "0=%s", ports);
-		list_append(rports, tmp);
+		ports = _resv_ports_jobpack(job_ptr);
+		if (ports != NULL) {
+			char *tmp = xmalloc(strlen(ports) + 6);
+			sprintf(tmp, "0=%s", ports);
+			xfree(ports);
+			list_append(rports, tmp);
+		}
+		else
+			info ("You specified --resv-port but you have no ports "
+			      "configured.");
 	}
 
 	return;
+}
+
+static void _rports_del(void *x)
+{
+	xfree(x);
 }
 
 static void _add_jobpack_envs(char **member_env, int numpack, uint32_t ntasks,
@@ -2421,10 +2445,10 @@ static void _add_jobpack_envs(char **member_env, int numpack, uint32_t ntasks,
 			      struct job_record *job_ptr_ldr, List rports)
 {
         struct job_record *jp;
-	uint32_t member_envc;
 	uint32_t nnodes_pack;
 	char *nodelist_pack;
-	int i, j;
+	int i;
+	bool found = false;
 	ListIterator it;
 	char *val, *key1, *key2, *delim, *tmp;
 
@@ -2432,72 +2456,159 @@ static void _add_jobpack_envs(char **member_env, int numpack, uint32_t ntasks,
 	numpack++;  /* add 1 for legacy job or packleader job */
 	env_array_append_fmt(&member_env, "SLURM_NUMPACK",
 			     "%d", numpack);
+	/* for prolog/epilog; replace or add env */
+	for (i=0; i<job_ptr->pelog_env_size && !found; i++) {
+		if (!xstrncmp(job_ptr->pelog_env[i], "SLURM_NUMPACK", 13)) {
+			env_array_overwrite_fmt(&job_ptr->pelog_env,
+						"SLURM_NUMPACK", "%d", numpack);
+			found = true;
+		}
+	}
+	if (!found) {
+		env_array_append_fmt(&job_ptr->pelog_env, "SLURM_NUMPACK",
+				     "%d", numpack);
+		job_ptr->pelog_env_size++;
+	}
+
+	/* for prolog/epilog; replace or add env for packleader jobid*/
+	for (i=0; i<job_ptr->pelog_env_size && !found; i++) {
+		if (!xstrncmp(job_ptr->pelog_env[i],"SLURM_PACKLEADERID", 13)) {
+			env_array_overwrite_fmt(&job_ptr->pelog_env,
+						"SLURM_PACKLEADERID", "%d",
+						job_ptr->pack_leader);
+			found = true;
+		}
+	}
+	if (!found) {
+		env_array_append_fmt(&job_ptr->pelog_env, "SLURM_PACKLEADERID",
+				     "%d", job_ptr->pack_leader);
+		job_ptr->pelog_env_size++;
+	}
+
+	/* add/replace other env vars for prolog/epilog */
+	for (i=0; i<numpack; i++) {
+		tmp = xstrdup_printf("SLURM_NODELIST_PACK_GROUP_%d", i);
+		if ((val = getenvp(member_env, tmp))) {
+			int j;
+			found = false;
+			for (j=0; j<job_ptr->pelog_env_size && !found; j++) {
+				if (!xstrncmp(job_ptr->pelog_env[i], tmp,
+					      strlen(tmp))) {
+					env_array_overwrite_fmt(
+						       &job_ptr->pelog_env,
+						       tmp, "%s", val);
+					found = true;
+				}
+			}
+			if (!found) {
+				env_array_append_fmt(&job_ptr->pelog_env,
+						     tmp, "%s", val);
+				job_ptr->pelog_env_size++;
+			}
+		}
+		xfree(tmp);
+	}
+	if (job_ptr == job_ptr_ldr)
+		tmp = xstrdup("SLURM_NODELIST_PACK_GROUP_0");
+	else
+		tmp = xstrdup_printf("SLURM_NODELIST_PACK_GROUP_%d",
+				     job_ptr->group_number);
+
+	/* prolog/epilog env add/replace */
+	found = false;
+	for (i=0; i<job_ptr->pelog_env_size && !found; i++) {
+		if (!xstrncmp(job_ptr->pelog_env[i], tmp, strlen(tmp))) {
+			env_array_overwrite_fmt(&job_ptr->pelog_env, tmp,
+						"%s", job_ptr->nodes);
+			found = true;
+		}
+	}
+	if (!found) {
+		env_array_append_fmt(&job_ptr->pelog_env, tmp,
+				     "%s", job_ptr->nodes);
+		job_ptr->pelog_env_size++;
+	}
+	xfree(tmp);
 
 	/* add SLURM_LISTJOBIDS to member_env */
 	env_array_append_fmt(&member_env, "SLURM_LISTJOBIDS",
 			     "%s", list_jobids);
 
         /* add SLURM_PACK_GROUP to member env */
-	char *packptr = xmalloc(32);
-        sprintf(packptr, "[0-%d]", (numpack-1));
+	char *packptr = xstrdup_printf("[0-%d]", (numpack-1));
 	env_array_append_fmt(&member_env, "SLURM_PACK_GROUP",
 			     "%s", packptr);
-        xfree(packptr);
+	xfree(packptr);
 
 	/* add SLURM_NODELIST, SLURM_NNODES & SLURM_NTASKS to member_env */
 	if (job_ptr == job_ptr_ldr) jp = job_ptr;
 	else jp = job_ptr_ldr;
+
 	nnodes_pack = get_pack_nodelist(jp->job_id, &nodelist_pack);
 	env_array_overwrite_fmt(&member_env, "SLURM_NODELIST",
 				"%s", nodelist_pack);
+
 	env_array_overwrite_fmt(&member_env, "SLURM_NNODES",
 				"%d", nnodes_pack);
-	xfree(nodelist_pack);
-
 	ntasks += launch_msg_ptr->ntasks;
-	if (ntasks) {
-	        env_array_overwrite_fmt(&member_env, "SLURM_NTASKS",
+	if (ntasks)
+		env_array_overwrite_fmt(&member_env, "SLURM_NTASKS",
 					"%d", ntasks);
-	}
+	xfree(nodelist_pack);
 
 	/* add rports */
 	it = list_iterator_create(rports);
 	while ((val = list_next(it))) {
-	  info("DHP sched: val = %s", val);
-	        key1 = xstrdup(val);
+		key1 = xstrdup(val);
 		delim = strchr(key1, '=');
 		if (delim) {
-		        delim[0] = '\0';
+			delim[0] = '\0';
 			key2 = xstrdup(delim+1);
-			tmp = xmalloc(100);
-			sprintf (tmp, "SLURM_RESV_PORTS_PACK_GROUP_%d",
-				 atoi(key1));
+			tmp = xstrdup_printf("SLURM_RESV_PORTS_PACK_GROUP_%d",
+					     atoi(key1));
 			env_array_append_fmt(&member_env, tmp, "%s", key2);
+			/* for prolog/epilog env add/replace */
+			found = false;
+			for (i=0; i<job_ptr->pelog_env_size && !found; i++) {
+				if (!xstrncmp(job_ptr->pelog_env[i], tmp,
+					      strlen(tmp))) {
+					env_array_overwrite_fmt(
+							  &job_ptr->pelog_env,
+							  tmp, "%s", key2);
+					found = true;
+				}
+			}
+			if (!found) {
+				env_array_append_fmt(&job_ptr->pelog_env,
+						     tmp, "%s", key2);
+				job_ptr->pelog_env_size++;
+			}
 			xfree(tmp);
-			xfree(key1);
 			xfree(key2);
 		}
+		xfree(key1);
 	}
 	list_iterator_destroy(it);
 
-	/* remove other job's SLURM_GROUP_NUMBER */
-	unsetenvp(member_env, "SLURM_GROUP_NUMBER");
+	job_ptr->jobpack_env = env_array_create();
+	env_array_merge (&job_ptr->jobpack_env, (const char **) member_env);
+	job_ptr->jobpack_envc = envcount(job_ptr->jobpack_env);
+	env_array_free (member_env);
 
-	member_envc = envcount(member_env);
-	if (member_envc) {
-		xrealloc(launch_msg_ptr->environment,
-			 sizeof(char *) * (launch_msg_ptr->envc +
-					   member_envc));
-		j = launch_msg_ptr->envc;
-		for(i=0; i<member_envc; i++)
-		        launch_msg_ptr->environment[j++] = member_env[i];
-		launch_msg_ptr->envc += member_envc;
-		/*
-		char **ptr;
-		for (ptr = member_env; *ptr != NULL; ptr++)
-		        xfree(*ptr);
-		xfree(member_env);
-		*/
+	if (job_ptr->pelog_env_size > 0) {
+		launch_msg_ptr->pelog_env_size = job_ptr->pelog_env_size;
+		launch_msg_ptr->pelog_env = xduparray(job_ptr->pelog_env_size,
+						      job_ptr->pelog_env);
+	}
+
+	launch_msg_ptr->environment = get_job_env(job_ptr,
+						  &launch_msg_ptr->envc);
+	if (launch_msg_ptr->environment == NULL) {
+		error("%s: environment missing or corrupted aborting job %u",
+		      __func__, job_ptr->job_id);
+		slurm_free_job_launch_msg(launch_msg_ptr);
+		job_complete(job_ptr->job_id, getuid(), false, true, 0);
+		return;
 	}
 }
 
@@ -2511,11 +2622,10 @@ static char ** _check_for_jobpack_envs(struct job_record *job_ptr,
 	struct job_record *dep_job_ptr;
 	batch_job_launch_msg_t *launch_msg_ptr;
 	uint16_t protocol_version = (uint16_t) NO_VAL;
-	char **member_env = NULL;
+	char **member_env = env_array_create();
 	char *tmp = NULL;
 	char *ntaskmember = NULL;
 	int packcnt = 0;
-	uint32_t group_number = -1;
 
 	if (job_ptr->details == NULL) {
 		return NULL;
@@ -2550,15 +2660,6 @@ static char ** _check_for_jobpack_envs(struct job_record *job_ptr,
 		xstrfmtcat(*list_jobids, ",%d", dep_job_ptr->job_id);
 		packcnt++;
 
-		/* add SLURM_GROUP_NUMBER to member_env */
-		if ((tmp = getenvp(launch_msg_ptr->environment,
-				   "SLURM_GROUP_NUMBER"))) {
-		        env_array_overwrite_fmt(&member_env,
-						"SLURM_GROUP_NUMBER",
-						"%s", tmp);
-			group_number = atoi(tmp);
-		}
-
 		/* populate member_env with launch env list */
 		env_array_for_batch_job(&member_env,
 					launch_msg_ptr,
@@ -2568,9 +2669,9 @@ static char ** _check_for_jobpack_envs(struct job_record *job_ptr,
 		/* 1234567890123456789012345678 */
 		ntaskmember = xmalloc(29);
 		sprintf(ntaskmember, "SLURM_NTASKS_PACK_GROUP_%d",
-			group_number);
+			dep_job_ptr->group_number);
 		if ((tmp = getenvp(member_env, ntaskmember)))
-		        *ntasks += atoi(tmp);
+			*ntasks += atoi(tmp);
 		xfree(ntaskmember);
 		slurmctld_free_batch_job_launch_msg(launch_msg_ptr);
 	}
@@ -2591,11 +2692,10 @@ static char ** _check_jobpack_member_envs(struct job_record *job_ptr,
 	struct job_record *dep_job_ptr;
 	batch_job_launch_msg_t *launch_msg_ptr;
 	uint16_t protocol_version = (uint16_t) NO_VAL;
-	char **member_env = NULL;
+	char **member_env = env_array_create();
 	char *tmp = NULL;
 	char *ntaskmember = NULL;
 	int packcnt = 1;
-	uint32_t group_number = -1;
 	struct node_record *node_ptr;
 
 	if (job_ptr->details == NULL) {
@@ -2621,15 +2721,6 @@ static char ** _check_jobpack_member_envs(struct job_record *job_ptr,
 	if (launch_msg_ptr == NULL)
 			return NULL;
 
-	/* add SLURM_GROUP_NUMBER to member_env */
-	if ((tmp = getenvp(launch_msg_ptr->environment,
-			   "SLURM_GROUP_NUMBER"))) {
-		env_array_overwrite_fmt(&member_env,
-					"SLURM_GROUP_NUMBER",
-					"%s", tmp);
-		group_number = atoi(tmp);
-	}
-
 	/* populate member_env with launch env list */
 	env_array_for_batch_job(&member_env,
 				launch_msg_ptr,
@@ -2639,9 +2730,9 @@ static char ** _check_jobpack_member_envs(struct job_record *job_ptr,
 	/* 1234567890123456789012345678 */
 	ntaskmember = xmalloc(29);
 	sprintf(ntaskmember, "SLURM_NTASKS_PACK_GROUP_%d",
-		group_number);
+		job_ptr->group_number);
 	if ((tmp = getenvp(member_env, ntaskmember)))
-	        *ntasks += atoi(tmp);
+		*ntasks += atoi(tmp);
 	xfree(ntaskmember);
 	slurmctld_free_batch_job_launch_msg(launch_msg_ptr);
 
@@ -2671,15 +2762,6 @@ static char ** _check_jobpack_member_envs(struct job_record *job_ptr,
 		xstrfmtcat(*list_jobids, ",%d", dep_job_ptr->job_id);
 		packcnt++;
 
-		/* add SLURM_GROUP_NUMBER to member_env */
-		if ((tmp = getenvp(launch_msg_ptr->environment,
-				   "SLURM_GROUP_NUMBER"))) {
-		        env_array_overwrite_fmt(&member_env,
-						"SLURM_GROUP_NUMBER",
-						"%s", tmp);
-			group_number = atoi(tmp);
-		}
-
 		/* populate member_env with launch env list */
 		env_array_for_batch_job(&member_env,
 					launch_msg_ptr,
@@ -2689,7 +2771,7 @@ static char ** _check_jobpack_member_envs(struct job_record *job_ptr,
 		/* 1234567890123456789012345678 */
 		ntaskmember = xmalloc(29);
 		sprintf(ntaskmember, "SLURM_NTASKS_PACK_GROUP_%d",
-			group_number);
+			dep_job_ptr->group_number);
 		if ((tmp = getenvp(member_env, ntaskmember)))
 		        *ntasks += atoi(tmp);
 		xfree(ntaskmember);
@@ -2714,7 +2796,6 @@ static void _launch_jobpack(struct job_record *job_ptr, List rports)
 	batch_job_launch_msg_t *launch_msg_ptr;
 	uint16_t protocol_version = (uint16_t) NO_VAL;
 	agent_arg_t *agent_arg_ptr;
-	char ** member_env = NULL;
 	char *list_jobids = NULL;
 	int numpack = 0;
 	uint32_t ntasks = 0;
@@ -2735,9 +2816,11 @@ static void _launch_jobpack(struct job_record *job_ptr, List rports)
 		xstrfmtcat(list_jobids, "%d", job_ptr->job_id);
 		xstrfmtcat(list_jobids, ",%d", dep_job_ptr->job_id);
 
-		member_env = _check_jobpack_member_envs(job_ptr, dep_job_ptr,
+		char **member_env = _check_jobpack_member_envs(job_ptr,
+							dep_job_ptr,
 							&numpack,
-							&list_jobids, &ntasks,
+							&list_jobids,
+							&ntasks,
 							rports);
 
 #ifdef HAVE_FRONT_END
@@ -2757,7 +2840,7 @@ static void _launch_jobpack(struct job_record *job_ptr, List rports)
 		if (launch_msg_ptr == NULL)
 			return;
 
-		if (member_env)
+		if (dep_job_ptr->pack_leader)
 		        _add_jobpack_envs (member_env, numpack, ntasks,
 					   list_jobids, dep_job_ptr,
 					   launch_msg_ptr, job_ptr, rports);
@@ -2777,7 +2860,6 @@ static void _launch_jobpack(struct job_record *job_ptr, List rports)
 
 		xfree(list_jobids);
 		list_jobids = NULL;
-		member_env = NULL;
 		numpack = 0;
 		ntasks = 0;
 	}
@@ -2792,11 +2874,10 @@ extern void launch_job(struct job_record *job_ptr)
 	batch_job_launch_msg_t *launch_msg_ptr;
 	uint16_t protocol_version = (uint16_t) NO_VAL;
 	agent_arg_t *agent_arg_ptr;
-	char ** member_env = NULL;
 	char *list_jobids = NULL;
 	int numpack = 0;
 	uint32_t ntasks = 0;
-	List rports = list_create(NULL);
+	List rports = list_create(_rports_del);
 
 	if (job_ptr->pack_leader == job_ptr->job_id) {
 	        _list_resv_ports_jobpack(job_ptr, rports);
@@ -2805,9 +2886,9 @@ extern void launch_job(struct job_record *job_ptr)
 
 	xstrfmtcat(list_jobids, "%d", job_ptr->job_id);
 
-	member_env = _check_for_jobpack_envs(job_ptr, &numpack,
-					     &list_jobids,
-					     &ntasks, rports);
+	char **member_env = _check_for_jobpack_envs(job_ptr, &numpack,
+						    &list_jobids,
+						    &ntasks, rports);
 
 #ifdef HAVE_FRONT_END
 	front_end_record_t *front_end_ptr;
@@ -2825,9 +2906,10 @@ extern void launch_job(struct job_record *job_ptr)
 	if (launch_msg_ptr == NULL)
 		return;
 
-	if (member_env)
-	        _add_jobpack_envs (member_env, numpack, ntasks, list_jobids,
+	if (job_ptr->pack_leader)
+		_add_jobpack_envs (member_env, numpack, ntasks, list_jobids,
 				   job_ptr, launch_msg_ptr, job_ptr, rports);
+
 	xfree(list_jobids);
 	FREE_NULL_LIST(rports);
 
@@ -2972,6 +3054,8 @@ extern void print_job_dependency(struct job_record *job_ptr)
 			dep_str = "pack";
 		else if (dep_ptr->depend_type == SLURM_DEPEND_PACKLEADER)
 			dep_str = "packleader";
+		else if (dep_ptr->depend_type == SLURM_DEPEND_EXPAND)
+			dep_str = "expand";
 		else
 			dep_str = "unknown";
 
@@ -3028,20 +3112,40 @@ static void _depend_list2str(struct job_record *job_ptr, bool set_or_flag)
 			dep_str = "pack";
 		else if (dep_ptr->depend_type == SLURM_DEPEND_PACKLEADER)
 			dep_str = "packleader";
+		else if (dep_ptr->depend_type == SLURM_DEPEND_EXPAND)
+			dep_str = "expand";
 		else
 			dep_str = "unknown";
 
 		if (dep_ptr->array_task_id == INFINITE)
 			xstrfmtcat(job_ptr->details->dependency, "%s%s:%u_*",
-				   sep, dep_str, dep_ptr->job_id);
+					sep, dep_str, dep_ptr->job_id);
 		else if (dep_ptr->array_task_id == NO_VAL)
 			xstrfmtcat(job_ptr->details->dependency, "%s%s:%u",
-				   sep, dep_str, dep_ptr->job_id);
-		else
-			xstrfmtcat(job_ptr->details->dependency, "%s%s:%u_%u",
-				   sep, dep_str, dep_ptr->job_id,
-				   dep_ptr->array_task_id);
-
+					sep, dep_str, dep_ptr->job_id);
+		else {
+			if (strcmp(dep_str,"pack") == 0) {
+				xstrfmtcat(job_ptr->details->dependency,
+					   "%s%s ", sep, dep_str);
+			} else if (strcmp(dep_str,"packleader") == 0) {
+				if (!leader1) {
+					xstrfmtcat(job_ptr->details->dependency,
+						   "%s%s:%u",
+						   sep, dep_str,
+						   dep_ptr->job_id);
+				} else {
+					xstrfmtcat(job_ptr->details->dependency,
+						   "%s%u", sep,
+						   dep_ptr->job_id);
+				}
+				leader1 = true;
+			} else {
+				xstrfmtcat(job_ptr->details->dependency,
+					   "%s%s:%u_%u", sep, dep_str,
+					   dep_ptr->job_id,
+					   dep_ptr->array_task_id);
+			}
+		}
 		if (set_or_flag)
 			dep_ptr->depend_flags |= SLURM_FLAGS_OR;
 		if (dep_ptr->depend_flags & SLURM_FLAGS_OR)
@@ -3070,13 +3174,8 @@ extern int test_job_dependency(struct job_record *job_ptr)
 	struct job_record *qjob_ptr, *djob_ptr, *dcjob_ptr;
 	uint64_t debug_flags = slurm_get_debug_flags();
 	time_t now = time(NULL);
-	/* For performance reasons with job arrays, we cache dependency
-	 * results and re-use them whenever possible */
-	static uint32_t cache_job_id = 0;
-	static struct job_record *cache_job_ptr = NULL;
-	static int cache_results;
-	static time_t cache_time = 0;
 	time_t orphan_et;
+	struct job_record *leader_ptr = NULL;
 
 	if ((job_ptr->details == NULL) ||
 	    (job_ptr->details->depend_list == NULL) ||
@@ -3131,6 +3230,18 @@ extern int test_job_dependency(struct job_record *job_ptr)
 					failure = true;
 				}
 				break;
+			} else if (!(leader_ptr = find_job_record(
+				   job_ptr->pack_leader))) {
+				if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+					info("JPCK: Pack leader %d for pack "
+					     "member %d can't be found. "
+					     "Cancelling orphaned job.",
+					     job_ptr->pack_leader,
+					     job_ptr->job_id);
+					}
+				job_ptr->pack_leader = 0;
+				failure = true;
+				break;
 			} else if (job_ptr->job_id > lpackmbr) {
 				if (debug_flags & DEBUG_FLAG_JOB_PACK) {
 					info("JPCK: Jobid=%d (%s) is a pack "
@@ -3141,7 +3252,6 @@ extern int test_job_dependency(struct job_record *job_ptr)
 				lpackmbr = job_ptr->job_id;
 			}
 		} else if (dep_ptr->depend_type == SLURM_DEPEND_PACKLEADER) {
-			depends = false;
 			if ((debug_flags & DEBUG_FLAG_JOB_PACK)
 			     && ( job_ptr->job_id >= lpackldr)) {
 				info("JPCK: Jobid=%d (%s) is a pack leader "
@@ -3310,16 +3420,9 @@ extern int test_job_dependency(struct job_record *job_ptr)
 	else if (depends)
 		results = 1;
 
-	if ((job_ptr->array_task_id != NO_VAL) &&
-	    (job_ptr->array_recs == NULL)) {
-		cache_job_id  = job_ptr->job_id;
-		cache_job_ptr = job_ptr;
-		cache_results = results;
-		cache_time = now;
-	}
-
 	return results;
 }
+
 
 /* Given a new job dependency specification, expand job array specifications
  * into a collection of task IDs that update_job_dependency can parse.
@@ -3389,20 +3492,70 @@ static char *_xlate_array_dep(char *new_depend)
 
 	return new_array_dep;
 
-static void _xref_packleader(struct job_record *job_ptr, List depend_list)
+/*
+ * Add cross-reference to packleader to its pack jobs
+ * IN job_ptr - job record of pack leader.
+ * IN depend_list - List of dependency structures of jobs leader depends on
+ */
+static bool _xref_packleader(struct job_record *job_ptr, List depend_list)
 {
-	/* Add cross-reference to packleader to its pack jobs */
+	uint64_t debug_flags;
 	ListIterator depend_iter;
 	struct depend_spec *ldr_dep_ptr;
 	struct job_record *dep_job_ptr;
+	debug_flags = slurm_get_debug_flags();
 	job_ptr->pack_leader = job_ptr->job_id;
 	depend_iter = list_iterator_create(depend_list);
 	while ((ldr_dep_ptr = (struct depend_spec *) list_next(depend_iter))) {
 		if (ldr_dep_ptr->depend_type == SLURM_DEPEND_PACKLEADER) {
-			dep_job_ptr = ldr_dep_ptr->job_ptr;
-			if (dep_job_ptr == NULL)
-				continue;
+			dep_job_ptr = find_job_record(ldr_dep_ptr->job_id);
+			if (dep_job_ptr == NULL) {
+				if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+					info("JPCK: No job record for member=%d"
+					     " for leader=%d",
+					     ldr_dep_ptr->job_id,
+					     job_ptr->job_id);
+				}
+				list_iterator_destroy(depend_iter);
+				return false;
+			}
+			if (dep_job_ptr != ldr_dep_ptr->job_ptr) {
+				if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+					info("JPCK: Bad dependency structure"
+					     "for leader=%d", job_ptr->job_id);
+				}
+				list_iterator_destroy(depend_iter);
+				return false;
+			}
+			if (dep_job_ptr->details == NULL
+			    || dep_job_ptr->details->dependency == NULL
+			    || (strcmp(dep_job_ptr->details->dependency,
+					    "pack ") !=0)) {
+				if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+					info("JPCK: %d is not -dpack"
+					     " for leader=%d",
+					     ldr_dep_ptr->job_id,
+					     job_ptr->job_id);
+				}
+				list_iterator_destroy(depend_iter);
+				return false;
+			}
+			if (strcmp(dep_job_ptr->account,job_ptr->account)
+									!= 0) {
+				if (debug_flags & DEBUG_FLAG_JOB_PACK) {
+					info("JPCK: member=%d is not same "
+					     "accountg as leader=%d",
+					     ldr_dep_ptr->job_id,
+					     job_ptr->job_id);
+				}
+				list_iterator_destroy(depend_iter);
+				return false;
+			}
+
+			/* This is a pack member, identify its leader */
 			dep_job_ptr->pack_leader = job_ptr->job_id;
+			/* Reformat dependency string so scontrol identifies
+			 * this our pack leadder */
 			xfree(dep_job_ptr->details->dependency);
 			dep_job_ptr->details->dependency = xstrdup("pack");
 			xstrfmtcat(dep_job_ptr->details->dependency,
@@ -3410,6 +3563,7 @@ static void _xref_packleader(struct job_record *job_ptr, List depend_list)
 		}
 	}
 	list_iterator_destroy(depend_iter);
+	return true;
 }
 
 /*
@@ -3675,8 +3829,11 @@ extern int update_job_dependency(struct job_record *job_ptr, char *new_depend)
 			break;
 		}
 	}
-	if (depend_type == SLURM_DEPEND_PACKLEADER)
-		_xref_packleader(job_ptr, new_depend_list);
+	if (depend_type == SLURM_DEPEND_PACKLEADER) {
+		if(!_xref_packleader(job_ptr, new_depend_list)) {
+			rc = ESLURM_JOB_PACK_BAD_DEPENDENCY;
+		}
+	}
 
 	if (rc == SLURM_SUCCESS) {
 		/* test for circular dependencies (e.g. A -> B -> A) */

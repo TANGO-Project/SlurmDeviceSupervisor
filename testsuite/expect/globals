@@ -129,7 +129,7 @@ cset partition ""
 #cset mpicc	"/home/jette/mpich2-install/bin/mpicc"
 #cset use_pmi	1
 # OR for other versions of MPICH, use this
-cset mpicc       "/opt/mpi/bullxmpi/1.2.8.1/bin/mpicc"
+cset mpicc       "/usr/local/bin/mpicc"
 cset use_pmi	0
 #cset upcc       "/usr/local/bin/upcc"
 cset upcc       "/usr/bin/xlupc"
@@ -191,7 +191,6 @@ cset bin_uname	"uname"
 cset bin_usleep "usleep"
 cset bin_wc	"wc"
 cset bin_printenv "printenv"
-cset bin_uniq   "uniq"
 
 #
 # Let the commands complete without expect timing out waiting for a
@@ -1947,6 +1946,37 @@ proc test_emulated { } {
 	log_user 1
 
 	return $emulated
+}
+
+################################################################
+#
+# Proc: test_killonbadexit
+#
+# Purpose: Determine if KillOnBadExit is configured to be 1.
+#
+#
+# Returns 1 if KillOnBadExit is 1.
+#
+################################################################
+
+proc test_killonbadexit { } {
+	global scontrol bin_bash bin_grep
+
+	log_user 0
+	set killonbadexit 0
+	spawn -noecho $bin_bash -c "exec $scontrol show config | $bin_grep KillOnBadExit"
+	expect {
+		-re "KillOnBadExit *= *1" {
+			set killonbadexit 1
+			exp_continue
+		}
+		eof {
+			wait
+		}
+	}
+	log_user 1
+
+	return $killonbadexit
 }
 
 ################################################################

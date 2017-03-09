@@ -2447,8 +2447,7 @@ waitpid_timeout(const char *, pid_t, int *, int);
  * Calcuate and populate the number of tres' for all partitions.
  */
 extern void set_partition_tres();
-/* Destroy tres_billing_weight_t */
-extern void destroy_tres_billing_weight(void *object);
+
 /*
  * Create a node list containing all the nodes allocated to all the members
  * of a job pack. (Also works for legacy jobs).

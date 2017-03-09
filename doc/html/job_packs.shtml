@@ -5,17 +5,20 @@
 <h2>Overview</h2>
 <p>The purpose of this guide is to assist Slurm users and administrators in
 Co-Scheduling Jobs. The document is divided into the following sections:</p>
+<!-- The section numbers do not have to be in this order. as we add new ones we need to
+reorganize based on what maked sense for the end user -->
 <ul>
 <li><a href="#Overview">Overview</a></li>
 <li><a href="#Section1">Definition of Terms</a></li>
 <li><a href="#Section2">Specification Language and Command Line Syntax</a></li>
 <li><a href="#Section3">Resource Allocation</a></li>
-<li><a href="#Section4">Limitations</a></li>
+<li><a href="#Section4">Command and Configuration Changes</a></li>
+<li><a href="#Section5">All things MPI</a></li>
+<li><a href="#Section6">Environment Variables</a></li>
+<li><a href="#Section7">Accounting</a></li>
+<li><a href="#Section8">Limitations</a></li>
+<li><a href="#Section9">Examples</a></li>
 </ul>
-
-
-<!-- The sections do not have to be in this order. as we add no ones we need to
-reorganize based on what maked sense for the end user -->
 
 
 <p>Co-Scheduling of jobs is also called job_packs and sometimes refered to as
@@ -57,10 +60,6 @@ normal srun
 
 
 
-
-
-<p>
-</p>
 
 <a name="Section1"></a>
 <h2>Definition of Terms</h2>
@@ -114,7 +113,16 @@ to support multiple jobs and steps.
 <h3>New salloc command syntax</h3>
 salloc [options 0] [command 0 [command args 0]] [...] : [options n]
 <h3>New sbatch command syntax</h3>
-sbatch [options 0] script 0 [script args 0] [...] : [options n]
+sbatch [options 0] script 0 [script args 0] [...] : [options n] [ script n [script args n]]
+<p>
+The pack leader <i>must</i> have a script. It executes on the first node of its allocation.
+Other job_descriptions <i>may</i> have a script. If present those scripts run on the first
+node of their respective allocation.
+</p>
+<p>
+Note the scripts are not synchronized. (.i.e. step(i) of job(n) will not necessarily
+run at the same time as step(i) of job(m).)
+</p>
 <h3>New srun command syntax</h3>
 srun [options 0] executable 0 [executable args 0] [...] : [options n] executable n [executable args n]
 <p>
@@ -124,28 +132,8 @@ is created from each job description. For standalone srun commands, a single
 step is created for each job. For step-launch-only srun commands, each set of
 colon-separated elements is referred to as a step description. One or more
 steps is created from each step description, depending on the value of the
---pack-group option.
+--pack-group option. <a href="#srun_options">See srun options</a>
 </p>
-<h4>New option for srun command</h4>
---pack-group=expr
-<p>
-Identify each job in a Job Pack for which a step is to be created. Applies only
-to srun commands issued inside a salloc allocation or sbatch script. expr is a
-set of integers corresponding to one or more options indexes on the salloc or
-sbatch command line.
-</p>
-Examples:
-<br />
---pack-group=2
-<br />
---pack-group=[0,4]
-<br />
---pack-group=[1,3-5]
-<br />
-The default value is --pack-group=0.
-
-
-
 
 
 <a name="Section3"></a>
@@ -177,19 +165,29 @@ are pending.
 
 
 <h3>Job State and Job Completion</h3>
-
 <p>
 Pack members will generally have the same state as the pack leader.
 </p>
 <p>
-Pack members will complete when the pack leader completes. If tasks are still
-running on the resources of the pack members when the pack leader completes
-they will be terminated.
+Pack members of sbatch and salloc submitted jobs will complete when the pack leader
+completes.
+The resources of a pack member can be released before the pack leader terminates
+by using scancel --pack-member.
+</p>
+<p>
+The pack members of a job submitgted with srun complete when the member completes,
+or when the leader completes.
+</p>
+<p>
+If tasks are still running on the resources of the pack members when
+the pack leader completes they will be terminated.
+</p>
+<p>
+Errors that cause one member to be killed typically kill the entire job pack.
 </p>
 
+
 <h3>Backfill Scheduler</h3>
-
-
 <p>
 The Backfill Scheduler still works, providing lower priority jobs meet the time
 limit constraints of the leader. A lower priority normal job will backfill and
@@ -198,24 +196,20 @@ priority normal job.
 </p>
 
 <h3>Job Preemption</h3>
-
 <p>
 Members of a job_pack cannot be preempted.
 </p>
-
 <p>
 The pack leader can preempt legacy jobs, but only the resource requirements of
 the leader will be used to find lower priority. (When the pack leader's request
 is evaluated, the members have already been allocated.)
 </p>
-
 <p>
 Pack members cannot preempt other jobs. This is because, when a job pack is to
 be allocated, each member is allocated. When any member (or the leader) can't
 be allocated, the previous members are deallocated. If such a deallocated job
 had preempt a normal job, that normal job should still be running.
 </p>
-
 <p>
 For example a job pack has three members with jobid=501,502,503. We evaluate
 the requirements of 501 and it can be satisfied by preempting job 255. When
@@ -226,8 +220,8 @@ or re-queued.
 
 
 <h3>Side Effects of Pack Members Being Separate Jobs</h3>
-<h4>Never Run Test</h4>
 
+<h4>Never Run Test</h4>
 <p>
 The fact that each resource requirement is specified as a separate job means
 that it is hard to determine if a job can ever run. Tests have been implemented
@@ -236,7 +230,6 @@ run on an idle cluster may be diagnosed as never being able to run.
 </p>
 
 <h5>Pack members require too many nodes</h5>
-
 <p>
 In a cluster of 6 nodes, <b>srun -N5 --exclusive : -N2 --exclusive : -N2 --exclusive</b> gets the following results.
 </p>
@@ -246,40 +239,33 @@ In a cluster of 6 nodes, <b>srun -N5 --exclusive : -N2 --exclusive : -N2 --exclu
          404    all     group.sh   slurm   PD   0:00    2   (Dependency)
          405    all     grpldr.sh  slurm   PD   0:00    5   (Resources)
 </pre>
-
 <p>
 When cons-res does the 'can 405 ever run test', it believes 403 and 404 will
 eventually terminate and let 405 run.
 </p>
 
 <h5>Pack Member Never Runs</h5>
-
 <p>
 On a system with 8 nodes, the following job pack will not run.
 </p>
-
 <p>
 <b>srun -N2 --exclusive : -N5 --exclusive : -N5 --exclusive</b>
 </p>
-
 <p>
 This condition is not detected by the will-never-run test for the pack leader
 as it is only executed when the pack leader is scheduled. And a pack leader will
 never be scheduled until all of its members have been allocated.
 </p>
-
 <p>
 In this case, the pack leader eventually becomes the highest priority job in
 the system, but it can't be scheduled because the members can't be allocated.
 The system is hung, with all nodes idle and the pack leader queued with a
 pending reason of none.
 </p>
-
 <p>
 The existing pack leader will-never-run test can't be used because is imbedded
 in pick_best_nodes with selects candidate nodes base on the allocation request.
 </p>
-
 <p>
 A new test for members has been constructed in which when a member can't be
 allocated the cluster is tested to see if all nodes are idle. If all nodes are
@@ -289,7 +275,6 @@ doesn't allow the cluster to hang.
 </p>
 
 <h5>Never run side effect</h5>
-
 <p>
 Both never run tests may not report anything to the sbatch client. This is
 because the sbatch program itself has terminated; and the script is never
@@ -300,12 +285,10 @@ but they won't be reported directly to the user.
 <h4>Failed Pack Leader Anomalies</h4>
 
 <h5>Members Remain in Pending State</h5>
-
 <p>
 When the pack leader can't be allocated (bad node name, too many nodes, ...)
 the members remain pending until the next time the scheduler runs.
 </p>
-
 <p>
 The members are submitted first. They get their allocations and go pending.
 When the leader arrives, if it can't be scheduled, the allocate functions
@@ -314,29 +297,186 @@ chance to intervene. This condition will exist until an internal timeout expires
 </p>
 
 <h5>Pack leader fails with Run Time Exhausted during step creation</h5>
-
 <p>
 When a member is exclusively allocated (either--exclusive or Shared=EXCLUSIVE) on a
 partition, and the member is in the pack-group of more than one step
 <br />(srun --pack-group=0 ... : --pack-group=0 ...) <br />
 then step creation fails.
 </p>
-
 <p>
 During task assignment for the first step, exclusive allocation means all cpus
 are marked assigned in cons-res internal tables. When a subsequent step on
 on that srun attempts task assignment it finds no cpus, so cons-res backs out
 and tries later. Eventually the pack_leader times out.
 </p>
-
 <p>
 When this condition occures, the job is terminated with the message
 <br />
 <b>JPCK: nodes  busy, assume job_pack with exclusive allocation</b>
 </p>
 
+<h4>Illegal Options</h4>
+Pack members are pending until the pack leader is scheduled. This means
+some scheduling options are illegal on pack members since the have
+no effect. (Priority, for example only affect the leader.)
+
+<hr>
+<hr>
+<hr>
+<b>TBD --- list of options or link to help page.</b>
+<hr>
+<hr>
+<hr>
 
 <a name="Section4"></a>
+<h2>Command and Configuration Changes</h2>
+
+<hr>
+<hr>
+<hr>
+<b>TBD --- list of options or link to help page.</b>
+<hr>
+<hr>
+<hr>
+
+<h4>Slurm.conf</h4>
+
+<h5>DebugFlags=JobPack</h5>
+When the <b>JobPack</b> debug flag is specified, detailed log entries are made about
+job_pack scheduling, allocation, and task management. The log entries are all prefaced
+with the string <b>JPCK</b>.
+
+<hr>
+<hr>
+<hr>
+<b>All TBD, I don't think we need to replicate the MAN page by listing each option or ENV.
+provide links where neccissary. I think what is needed is overview material and
+how everything interacts.</b>
+<hr>
+<hr>
+<hr>
+
+<h4>salloc, sbatch, srun</h4>
+<h5>----Dependency=&lt;pack|packleader:jobid&lt;...:jobid&gt;&gt;</h5>
+The --dependency option is extended with two more dependencies.
+<ul>
+<li><b>pack</b> declares the job as a pack member.</li>
+<li><b>packleader:jobid&lt;...:jobid&gt;&gt;</b> declares the job
+as a pack leader and identifies its members</li>
+</ul>
+The salloc, sbatch, srun parsers submit member jobs based on
+colen separated job descriptions on the command line. Members
+are submitted with the -dpack dependency. Their job_ids are
+saved, and then added to the -dpackleader job submission.
+<p>
+For example, the following srun
+</p>
+srun -N1 sleep 30 : -N2 sleep 20 : -N3 sleep 10
+<p>
+is treated internally as
+</p>
+srun -N3 -dpack sleep 10 (assigned job_id=101)
+<br />
+srun -N2 -dpack sleep 20 (assigned job_id=102)
+<br />
+srun -N1 -dpackleader:101:102 sleep 30 (assigned job_id=103)
+<p>
+Note these dependencies are legal on manually submitted commands,
+but since they are indended to be used by parsing job_pack
+submissions they are not documented on the man pages for
+salloc, sbatch, and srun. This use is for development
+and test.
+</p>
+
+<a name="srun_options"></a>
+<h4>New options for srun command</h4>
+<h5>--pack-group=expr</h5>
+Identify each job in a Job Pack for which a step is to be created. Applies only
+to srun commands issued inside a salloc allocation or sbatch script. expr is a
+set of integers corresponding to one or more options indexes on the salloc or
+sbatch command line.
+<p>
+Examples:
+</p>
+<ul>
+<li>
+srun <b>--pack-group=2</b> cmd
+<br />
+<i>cmd</i> will run on the resources of job_description 2.
+</li>
+<li>
+srun <b>--pack-group=[0,4]</b> cmd
+<br />
+<i>cmd</i> will run on the resources of job_descriptions 2 and 4.
+</li>
+<li>
+srun <b>--pack-group=[1,3-5]</b> cmd
+<br />
+<i>cmd</i> will run on the resources of job_descriptions 1, 3, 4, and 5.
+</li>
+</ul>
+The default value is --pack-group=0.
+
+
+<h5>--mpi=combine=&lt;yes|no&gt;</h5>
+Specifies whether to combine all steps into a common MPI_COMM_WORLD or launch each step
+as a separate MPI_COMM_WORLD. Applies only to multi-step srun commands used to
+launch MPI applications. Valid only in the first step description.
+If the option is specified in any other step description it is ignored.
+Default value is yes.
+
+<h4>New options for salloc, sbatch, srun commands</h4>
+
+
+<h4>sbatch</h4>
+Scripts allowed on more than one member, but no synchronization.
+
+<h4>scancel</h4>
+
+<h4>scontrol</h4>
+
+<h4>squeue</h4>
+
+<h4>sacct</h4>
+
+<h4>stat</h4>
+
+
+<a name="Section5"></a>
+<h2>All Things MPI</h2>
+
+<hr>
+<hr>
+<hr>
+<b>TBD --- Martin Perry Imprisonment.</b>
+<hr>
+<hr>
+<hr>
+
+<a name="Section6"></a>
+<h2>Environment Variables</h2>
+
+<hr>
+<hr>
+<hr>
+<b>TBD --- brief desciption of SLURM_XXX_PACK_GPOUP#, how set for steps, use in prolog/epilog scripts.</b>
+<hr>
+<hr>
+<hr>
+
+<a name="Section7"></a>
+<h2>Accounting</h2>
+
+<hr>
+<hr>
+<hr>
+<b>TBD --- fields added to which records and how to display them.</b>
+<hr>
+<hr>
+<hr>
+
+
+<a name="Section8"></a>
 <h2>Limitations</h2>
 
 <h4>PrologFlags=Alloc</h4>
@@ -359,6 +499,22 @@ srun on the entire allocation.
 </p>
 
 
+<a name="Section9"></a>
+<h2>Examples</h2>
+
+<hr>
+<hr>
+<hr>
+<b>TBD --- several real world like examples.</b>
+<p>
+Rod believes we should include an example of --resv-ports.
+We probably can't directly descript CEA IO Proxy, but since --resv-ports
+is part of slurm, we should describe how it might be used to allow
+processes on one node communicate with processes in another allocation on other nodes.
+</p>
+<hr>
+<hr>
+<hr>
 
 
 

@@ -3518,9 +3518,8 @@ extern void make_node_comp(struct node_record *node_ptr,
 			if (node_ptr->no_share_job_cnt)
 				(node_ptr->no_share_job_cnt)--;
 			else
-				error("Node %s no_share_job_cnt "
-				      "underflow in make_node_comp",
-				      node_ptr->name);
+				error("Node %s no_share_job_cnt underflow in "
+					"make_node_comp", node_ptr->name);
 			if (node_ptr->no_share_job_cnt == 0)
 				bit_set(share_node_bitmap, inx);
 		}

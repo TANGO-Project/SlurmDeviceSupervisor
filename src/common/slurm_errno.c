@@ -459,7 +459,10 @@ static slurm_errtab_t slurm_errtab[] = {
 	{ ESLURM_JOB_PACK_BAD_MEMBER,
 	  "Pointer to pack member is NULL" },
 	{ ESLURM_JOB_PACK_CANCEL_MEMBER,
-	  "Use scancel --pack-member=job_id to cancel a pack_member" }
+	  "Use scancel --pack-member=job_id to cancel a pack_member" },
+	{ ESLURM_JOB_PACK_BAD_DEPENDENCY,
+	  "Bad dependency list for job_pack" }
+
 };
 
 /*

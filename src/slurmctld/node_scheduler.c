@@ -574,7 +574,7 @@ extern void deallocate_nodes(struct job_record *job_ptr, bool timeout,
 			     i < node_record_count; i++, node_ptr++) {
 				if (!bit_test(job_ptr->node_bitmap, i))
 					continue;
-				make_node_comp(node_ptr, job_ptr, suspended);
+				make_node_comp(node_ptr, job_ptr, suspended, false);
 				set_fe_comp = true;
 			}
 			if (set_fe_comp) {
@@ -1301,9 +1301,8 @@ _get_req_features(struct node_set *node_set_ptr, int node_set_size,
 		min_nodes = MAX(saved_min_nodes, node_cnt);
 		job_ptr->details->min_nodes = min_nodes;
 		req_nodes = MAX(min_nodes, req_nodes);
-		if (req_nodes > max_nodes) {
+		if (req_nodes > max_nodes)
 			error_code = ESLURM_REQUESTED_NODE_CONFIG_UNAVAILABLE;
-		}
 	} else {
 		min_nodes = saved_min_nodes;
 		req_nodes = saved_req_nodes;
@@ -2736,38 +2735,45 @@ extern int select_nodes(struct job_record *job_ptr, bool test_only,
 	char* jpck_nodes;
 	uint64_t debug_flags;
 
-
-	if (job_ptr->details == NULL
-	    || job_ptr->details->depend_list == NULL) {
+	if (job_ptr->pack_leader == 0) {
+		/* Definitely legacy  */
 		return select_nodes_pack(job_ptr, test_only, select_node_bitmap,
 				unavail_node_str, err_msg);
 	}
+	/* Job Pack */
+	if (job_ptr->details == NULL
+	    || job_ptr->details->depend_list == NULL) {
+		/* job_pack members must still have a dependency list */
+		error("JPCK: job=%d has no dependency list", job_ptr->job_id);
+		return ESLURM_JOB_PACK_BAD_DEPENDENCY;
+	}
 
 	debug_flags = slurm_get_debug_flags();
-	/* This is an Job-Pack job */
 	depend_iter = list_iterator_create(job_ptr->details->depend_list);
 	dep_ptr = (struct depend_spec *) list_next(depend_iter);
 	if (dep_ptr == NULL) {
-		rc = select_nodes_pack(job_ptr, test_only, select_node_bitmap,
-				unavail_node_str, err_msg);
+		/* Sanity check */
+		error("JPCK: job=%d has empty dependency list",
+				job_ptr->job_id);
 		list_iterator_destroy(depend_iter);
-		return rc;
+		return ESLURM_JOB_PACK_BAD_DEPENDENCY;
 	}
 	if (dep_ptr->depend_type == SLURM_DEPEND_PACK) {
+		/* Pack member (should be only dependency in list) */
 		rc = select_nodes_pack(job_ptr, test_only, select_node_bitmap,
 				unavail_node_str, err_msg);
 		list_iterator_destroy(depend_iter);
 		return rc;
 	}
 	else if (dep_ptr->depend_type != SLURM_DEPEND_PACKLEADER) {
-		rc = select_nodes_pack(job_ptr, test_only, select_node_bitmap,
-				unavail_node_str, err_msg);
+		error("JPCK: leader=%d has bad dependency type=%d",
+				job_ptr->job_id, dep_ptr->depend_type);
 		list_iterator_destroy(depend_iter);
-		return rc;
+		return ESLURM_JOB_PACK_BAD_DEPENDENCY;
 	}
 	list_iterator_destroy(depend_iter);
 
-	/* Try and allocate resources for all the packjobs with test=false,
+	/* Try and allocate resources for all the members with test=false,
 	 * so the allocation tables will be set. On any error with pack jobs,
 	 * deallocate previous packs, and return failure. */
 	rc = _allocate_packmbrs(job_ptr, select_node_bitmap, unavail_node_str);
@@ -2778,9 +2784,11 @@ extern int select_nodes(struct job_record *job_ptr, bool test_only,
 	if (select_node_bitmap != NULL) {
 		alloc_node_bitmap = *select_node_bitmap;
 	}
+	/* try and allocate leader, with input test arg */
 	rc = select_nodes_pack(job_ptr, test_only, select_node_bitmap,
 			       unavail_node_str, err_msg);
 	if (rc == ESLURM_JOB_PACK_NEVER_RUN) {
+		/* members were deallocated when rc was set */
 		if (debug_flags & DEBUG_FLAG_JOB_PACK) {
 			info("JPCK: leader %d never runs. delete member "
 			     "dependencies", job_ptr->job_id);
@@ -4066,12 +4074,14 @@ static int _will_jpck_ldr_run(struct job_record *job_ptr, bool orphan,
 	int rc;
 	bitstr_t *mbr_bitmap = NULL;
 	if (job_ptr->details == NULL) {
+		/* Definitely a legacy job */
 		return select_g_job_test(job_ptr, bitmap, min_nodes, max_nodes,
 				req_nodes, SELECT_MODE_TEST_ONLY,
 				preemptee_candidates, NULL, exc_core_bitmap);
 	}
 	pack_depend = job_ptr->details->depend_list;
 	if (pack_depend == NULL) {
+		/* Definitely a legacy job */
 		return select_g_job_test(job_ptr, bitmap, min_nodes, max_nodes,
 				req_nodes, SELECT_MODE_TEST_ONLY,
 				preemptee_candidates, NULL, exc_core_bitmap);
@@ -4083,13 +4093,11 @@ static int _will_jpck_ldr_run(struct job_record *job_ptr, bool orphan,
 			return SLURM_SUCCESS;
 		}
 		if (ldr_dep_ptr->depend_type != SLURM_DEPEND_PACKLEADER) {
-			/* This is a legacy job */
+			/* This shouldn't happen */
 			list_iterator_destroy(depend_iter);
-			return select_g_job_test(job_ptr, bitmap, min_nodes,
-					max_nodes, req_nodes,
-					SELECT_MODE_TEST_ONLY,
-					preemptee_candidates, NULL,
-					exc_core_bitmap);
+			error("JPCK: leader=%d has bad dependency type=%d",
+					job_ptr->job_id, ldr_dep_ptr->depend_type);
+			return ESLURM_JOB_PACK_BAD_DEPENDENCY;
 		}
 		if (slurm_get_debug_flags() & DEBUG_FLAG_JOB_PACK) {
 			info("JPCK: _will_jpck_ldr_run for pack leader %d",
@@ -4099,6 +4107,7 @@ static int _will_jpck_ldr_run(struct job_record *job_ptr, bool orphan,
 		 * the members have already been allocated.
 		 */
 		if (ldr_dep_ptr->job_ptr->node_bitmap) {
+			/* Remove this members allocation from available */
 			FREE_NULL_BITMAP(mbr_bitmap);
 			mbr_bitmap =
 				    bit_copy(ldr_dep_ptr->job_ptr->node_bitmap);
@@ -4119,7 +4128,7 @@ static int _will_jpck_ldr_run(struct job_record *job_ptr, bool orphan,
 
 	if (rc == SLURM_SUCCESS)
 		return rc;
-
+	/* Didn't allocate leader, deallocate members */
 	_deallocate_packmbrs(job_ptr);
 	if (orphan) {
 		_orphan_members(job_ptr);
