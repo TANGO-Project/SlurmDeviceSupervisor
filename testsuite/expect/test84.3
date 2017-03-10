@@ -22,7 +22,7 @@ print_header $test_id
 # Created partitions. 
 #
 exec $scontrol create PartitionName=t81big Nodes=trek\[7\] Shared=yes 
-exec $scontrol create PartitionName=t81gpu Nodes=trek\[3-6\] Shared=yes
+exec $scontrol create PartitionName=t81gpu Nodes=trek\[4-6\] Shared=yes
 
 exec $bin_sleep 2
 #

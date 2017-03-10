@@ -23,7 +23,7 @@ print_header $test_id
 # Try to allocate resources for -JLDR and -JMBR1
 #
 set timeout $max_job_delay
-set srun_pid [spawn $srun -JLDR -N1 -ptrek3-only --exclusive sleep 10 : -JMBR1 -wtrek3 --exclusive sleep 5]
+set srun_pid [spawn $srun -JLDR -N1 -ptrek4-only --exclusive sleep 10 : -JMBR1 -wtrek4 --exclusive sleep 5]
 expect {
 	-re "Unable to allocate resources" {
 		incr error_alloc 
