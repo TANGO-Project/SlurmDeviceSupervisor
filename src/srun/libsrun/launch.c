@@ -202,15 +202,13 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 
 	if (!opt.ntasks_set && (opt.ntasks_per_node != NO_VAL))
 		job->ntasks = opt.ntasks = job->nhosts * opt.ntasks_per_node;
-	opt.mpi_stepftaskid = mpi_curtaskid;
+	job->mpi_stepftaskid = mpi_curtaskid;
+	job->mpi_stepfnodeid = mpi_curnodecnt;
 	if (!opt.mpi_combine) {
-		opt.mpi_stepftaskid = 0;
+		job->mpi_stepftaskid = 0;
+		job->mpi_stepfnodeid = 0;
 	}
 	mpi_curtaskid += opt.ntasks;
-	opt.mpi_stepfnodeid = mpi_curnodecnt;
-	if (!opt.mpi_combine) {
-		opt.mpi_stepfnodeid = 0;
-	}
 	mpi_curnodecnt += job->nhosts;
 	job->ctx_params.task_count = opt.ntasks;
 

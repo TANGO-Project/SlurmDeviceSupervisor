@@ -251,12 +251,6 @@ typedef struct srun_options {
 	uint32_t *groupidx;	/* Indexes of task groups running these tasks */
 	int group_number;       /* pack group number */  //dhp
 	int shepherd_fd;
-	uint32_t mpi_jobid;	/* MPI jobid (same for all steps) */
-	uint32_t mpi_stepid;	/* MPI stepid (same for all steps) */
-	int mpi_ntasks;		/* number of MPI tasks for all steps combined */
-	int mpi_nnodes;		/* number of MPI nodes for all steps combined */
-	int mpi_stepfnodeid;	/* first MPI nodeid for this step */
-	int mpi_stepftaskid;	/* first MPI taskid for this step */
 } opt_t;
 
 extern opt_t opt;

@@ -648,8 +648,8 @@ int srun(int ac, char **av)
 		env->ws_col   = job->ws_col;
 		env->ws_row   = job->ws_row;
 	}
-	opt.mpi_ntasks = opt.ntasks;
-	opt.mpi_stepftaskid = 0;
+	job->mpi_ntasks = opt.ntasks;
+	job->mpi_stepftaskid = 0;
 	setup_env(env, opt.preserve_env);
 	xfree(env->task_count);
 	xfree(env);
@@ -963,13 +963,10 @@ static void _create_srun_steps_jobpack(bool got_alloc)
 			opt_ptr = _get_opt(i, j);
 			srun_job_ptr = _get_srun_job(i, j);
 			opt_ptr->jobid = srun_job_ptr->jobid;
-			opt_ptr->mpi_jobid = mpi_jobid;
 			srun_job_ptr->mpi_jobid = mpi_jobid;
 			opt_ptr->mpi_combine = mpi_combine;
-			if (!mpi_combine) {
-				opt_ptr->mpi_jobid = srun_job_ptr->jobid;
+			if (!mpi_combine)
 				srun_job_ptr->mpi_jobid = srun_job_ptr->jobid;
-			}
 		}
 	}
 
@@ -998,6 +995,7 @@ static void _create_srun_steps_jobpack(bool got_alloc)
 		job_index = desc[i].pack_group_count;
 		if (job_index == 0) job_index++;
 		for (j = 0; j <job_index; j++) {
+			job = _get_srun_job(i, j);
 			if (step_failed) {
 				opt_ptr = _get_opt(i, j);
 				memcpy(&opt, opt_ptr, sizeof(opt_t));
@@ -1006,14 +1004,13 @@ static void _create_srun_steps_jobpack(bool got_alloc)
 				continue;
 			}
 			opt_ptr = _get_opt(i, j);
-			opt_ptr->mpi_stepid = packstepid;
-			opt_ptr->mpi_ntasks = mpi_curtaskid;
+			job->mpi_stepid = packstepid;
+			job->mpi_ntasks = mpi_curtaskid;
+			job->mpi_nnodes = mpi_curnodecnt;
 			if (!opt_ptr->mpi_combine) {
-				opt_ptr->mpi_ntasks = opt_ptr->ntasks;
+				job->mpi_ntasks = opt_ptr->ntasks;
+				job->mpi_nnodes = 0;
 			}
-			opt_ptr->mpi_nnodes = mpi_curnodecnt;
-			if (!opt_ptr->mpi_combine)
-				opt_ptr->mpi_nnodes = 0;
 		}
 	}
 }

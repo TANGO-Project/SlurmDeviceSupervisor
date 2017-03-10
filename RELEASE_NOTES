@@ -208,6 +208,8 @@ In slurmdb_cluster_cond_t: Added List federation_list
 In slurmdb_cluster_rec_t: Added fed, lock, sockfd
 In will_run_response_msg_t: Added double sys_usage_per to report back how busy a
 	cluster is.
+In srun_job_t: Added mpi_stepid, mpi_ntasks, int mpi_nnodes, mpi_stepfnodeid,
+	and mpi_stepftaskid.
 
 Added the following struct definitions
 ======================================

@@ -588,8 +588,8 @@ extern void create_srun_job(srun_job_t **p_job, bool *got_alloc,
 			error("Job creation failure.");
 			exit(error_exit);
 		}
-		opt.mpi_jobid = opt.jobid;
-		opt.mpi_stepid = 0;
+		job->mpi_jobid = opt.jobid;
+		job->mpi_stepid = 0;
 		if (create_job_step(job, false) < 0) {
 			exit(error_exit);
 		}
@@ -647,8 +647,8 @@ extern void create_srun_job(srun_job_t **p_job, bool *got_alloc,
 			error("--begin is ignored because nodes"
 			      " are already allocated.");
 		}
-		opt.mpi_jobid = opt.jobid;
-		opt.mpi_stepid = 0;
+		job->mpi_jobid = opt.jobid;
+		job->mpi_stepid = 0;
 		if (!job || create_job_step(job, false) < 0)
 			exit(error_exit);
 	} else {
@@ -703,9 +703,10 @@ extern void create_srun_job(srun_job_t **p_job, bool *got_alloc,
 		 */
 		if (_become_user () < 0)
 			info("Warning: Unable to assume uid=%u", opt.uid);
-
-		opt.mpi_jobid = opt.jobid;
-		opt.mpi_stepid = 0;
+		if (job) {
+			job->mpi_jobid = opt.jobid;
+			job->mpi_stepid = 0;
+		}
 		if (!job || create_job_step(job, true) < 0) {
 			slurm_complete_job(resp->job_id, 1);
 			exit(error_exit);
@@ -761,13 +762,12 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 			error("Job creation failure.");
 			exit(error_exit);
 		}
-		opt.mpi_jobid = opt.jobid;
-		opt.mpi_stepid = 0;
+		job->mpi_jobid = opt.jobid;
+		job->mpi_stepid = 0;
 		if (create_job_step(job, false) < 0) {
 			exit(error_exit);
 		}
 	} else if ((resp = existing_allocation())) {
-		opt.mpi_jobid = opt.jobid;
 		select_g_alter_node_cnt(SELECT_APPLY_NODE_MAX_OFFSET,
 					&resp->node_cnt);
 		if (opt.nodes_set_env && !opt.nodes_set_opt &&
@@ -817,6 +817,7 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 		job = job_step_create_allocation(resp);
 		if (!job)
 			exit(error_exit);
+		job->mpi_jobid = opt.jobid;
 		job->pack_member = true;
 		copy_srun_job_struct(desc[group_index].pack_job_env[
 				     job_index].job, job);
@@ -839,7 +840,6 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 		}
 	} else {
 		/* Combined job allocation and job step launch */
-		opt.mpi_jobid = opt.jobid;
 		if (desc[group_index].groupjob == true)
 			fatal("pack-group option used for a job that is not a "
 			      "job_pack");
@@ -891,6 +891,7 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 			if (!job)
 				exit(error_exit);
 			job->pack_member = true;
+			job->mpi_jobid = opt.jobid;
 			copy_srun_job_struct(desc[desc_index].pack_job_env[
 					     0].job, job);
 

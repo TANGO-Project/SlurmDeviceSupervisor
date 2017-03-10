@@ -80,7 +80,12 @@ typedef struct fname {
 typedef struct srun_job {
 	int fir_nodeid;
 	uint32_t jobid;		/* assigned job id 	                  */
-	uint32_t mpi_jobid;	/* assigned MPI job id 	                  */
+	uint32_t mpi_jobid;	/* MPI jobid (same for all steps) */
+	uint32_t mpi_stepid;	/* MPI stepid (same for all steps) */
+	int mpi_ntasks;		/* number of MPI tasks for all steps combined */
+	int mpi_nnodes;		/* number of MPI nodes for all steps combined */
+	int mpi_stepfnodeid;	/* first MPI nodeid for this step */
+	int mpi_stepftaskid;	/* first MPI taskid for this step */
 	uint32_t stepid;	/* assigned step id 	                  */
 	bool pack_member;	/* is a member of a job pack */
 
