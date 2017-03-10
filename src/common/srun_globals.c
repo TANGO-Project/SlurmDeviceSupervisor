@@ -66,6 +66,7 @@ int *pmi1port_pipe;
 /* srun globals */
 int srun_num_steps;	/* number of steps in this srun command */
 int srun_step_idx;	/* step index of this step */
+int srun_parentpid;	/* parent srun PID */
 uint32_t packjobid;	/* jobid of srun first step */
 uint32_t packstepid;	/* stepid of srun first step */
 bool srun_mpi_combine = true;	/* --mpi-combine option */

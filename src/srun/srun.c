@@ -1216,6 +1216,7 @@ static int _launch_srun_steps_jobpack(bool got_alloc)
 	/* For each step to be launched, set stdio fds and fork child srun
 	   to handle I/O redirection and step launch */
 	srun_step_idx = 0;
+	srun_parentpid = getpid();
 	for (i = 0; i < pack_desc_count; i++) {
 		job_index = desc[i].pack_group_count;
 		if (job_index == 0) job_index++;
@@ -1239,6 +1240,7 @@ static int _launch_srun_steps_jobpack(bool got_alloc)
 				exit(0);
 			} else if (pid == 0) {
 				/* Child srun */
+				pre_launch_srun_child(job, 0, 1);
 				if (!launch_g_step_launch(job, &cio_fds,
 						&global_rc, &step_callbacks)) {
 					if (launch_g_step_wait(job, got_alloc)

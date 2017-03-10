@@ -5460,17 +5460,20 @@ extern int job_complete(uint32_t job_id, uid_t uid, bool requeue,
 				     "jobid=%d", job_id, ldr_dep_ptr->job_id);
 
 			/* only kill the packmember jobs if this is not
-			   a stand-alone srun, otherwise let them
+			   a stand-alone srun, or if the pack leader has a
+			   non-zero return code. Otherwise, let them
 			   complete in their own time (instead of killing
-			   them now) This is done to prevent timing issues
+			   them now). This is done to prevent timing issues
 			   when the packleader completes before the packmembers
 			   for stand-alone sruns. There may be a better way to
 			   handle this situation. */
-			if (job_ptr->batch_flag > 0)
+			if ((job_ptr->batch_flag > 0) || (job_return_code != 0)) {
 				rc = _job_complete(ldr_dep_ptr->job_id, uid,
 					   false, false, job_return_code);
+			}
 			else
 				rc = SLURM_SUCCESS;
+
 
 			if ((debug_flags & DEBUG_FLAG_JOB_PACK)
 			    && (rc != SLURM_SUCCESS)) {

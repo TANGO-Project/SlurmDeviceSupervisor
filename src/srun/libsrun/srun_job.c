@@ -65,6 +65,7 @@
 #include "src/common/read_config.h"
 #include "src/common/slurm_protocol_api.h"
 #include "src/common/slurm_rlimits_info.h"
+#include "src/common/srun_globals.h"
 #include "src/common/uid.h"
 #include "src/common/xmalloc.h"
 #include "src/common/xsignal.h"
@@ -108,6 +109,7 @@ extern bool packjob;
 extern bool packleader;
 
 static pthread_t signal_thread = (pthread_t) 0;
+static pthread_t *signal_thread_child;
 static int pty_sigarray[] = { SIGWINCH, 0 };
 
 /*
@@ -943,7 +945,11 @@ extern void pre_launch_srun_job(srun_job_t *job, bool slurm_started,
 				bool handle_signals)
 {
 	pthread_attr_t thread_attr;
+	int i;
 
+	signal_thread_child = xmalloc(srun_num_steps * sizeof(pthread_t));
+	for(i=0; i < srun_num_steps; i++)
+		signal_thread_child[i] = (pthread_t) 0;
 	if (handle_signals && !signal_thread) {
 		slurm_attr_init(&thread_attr);
 		while (pthread_create(&signal_thread, &thread_attr,
@@ -966,6 +972,22 @@ extern void pre_launch_srun_job(srun_job_t *job, bool slurm_started,
 		error("Failure in local plugin stack");
 		slurm_step_launch_abort(job->step_ctx);
 		exit(error_exit);
+	}
+}
+
+extern void pre_launch_srun_child(srun_job_t *job, bool slurm_started,
+				bool handle_signals)
+{
+	pthread_attr_t thread_attr;
+
+	if (handle_signals && !signal_thread_child[srun_step_idx]) {
+		slurm_attr_init(&thread_attr);
+		while (pthread_create(&signal_thread_child[srun_step_idx], &thread_attr,
+				      _srun_signal_mgr, job)) {
+			error("pthread_create error %m");
+			sleep(1);
+		}
+		slurm_attr_destroy(&thread_attr);
 	}
 }
 
@@ -1724,6 +1746,8 @@ static void *_srun_signal_mgr(void *job_ptr)
 		xsignal_sigset_create(sig_array, &set);
 		rc = sigwait(&set, &sig);
 		if (rc == EINTR)
+			continue;
+		if (srun_parentpid == getpid())
 			continue;
 		switch (sig) {
 		case SIGINT:

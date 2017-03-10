@@ -537,7 +537,7 @@ allocate_nodes(bool handle_signals)
 
 	if (pack_desc_count) {
 		if (!resp) {
-			fatal("JPCK: failed to allocate packleader");
+			info("JPCK: failed to allocate packleader");
 			return NULL; /* Fix Clang false positive */
 		}
 		desc[0].pack_job_env[0].job_id = resp->job_id;
