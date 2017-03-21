@@ -261,6 +261,7 @@ static char *_read_file(char *fname);
 static bool  _under_parallel_debugger(void);
 static void  _usage(void);
 static bool  _valid_node_list(char **node_list_pptr);
+static bool packleader_mpi_combine = true;
 
 /*---[ end forward declarations of static functions ]---------------------*/
 
@@ -1651,11 +1652,18 @@ static void _set_options(const int argc, char **argv)
 			}
 			break;
 		case LONG_OPT_MPI_COMBINE:
-			if (!xstrcmp(optarg, "yes"))
+			if (packjob == true) {
+				info("WARNING - option --mpi-combine is "
+				"ignored for pack members");
+				break;
+			}
+			if (!xstrcmp(optarg, "yes")) {
 				opt.mpi_combine = true;
-			else if (!xstrcmp(optarg, "no"))
+				packleader_mpi_combine = true;
+			}else if (!xstrcmp(optarg, "no")) {
 				opt.mpi_combine = false;
-			else {
+				packleader_mpi_combine = false;
+			}else {
 				error("\"--mpi-combine=%s\" -- invalid MPI_COMBINE, "
 				      " must be yes or no.", optarg);
 				exit(error_exit);
@@ -1663,7 +1671,8 @@ static void _set_options(const int argc, char **argv)
 			break;
 		case LONG_OPT_MPI:
 			xfree(mpi_type);
-			if ((packjob == true) && (opt.mpi_combine == true)) {
+			if ((packjob == true) && (packleader_mpi_combine == 
+			    true)) {
 				info ("WARNING - option --mpi ignored for "
 				      "pack member with --mpi-combine=yes");
 				break;
