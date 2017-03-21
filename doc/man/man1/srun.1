@@ -1336,13 +1336,16 @@ used if MPI was configured with PMI2/PMI1 support pointing to the PMIx library
 If MPI supports PMI1/PMI2 but doesn't provide the way to point to a specific 
 implementation, a hack'ish solution leveraging LD_PRELOAD can be used to 
 force "libpmix" usage.
-
 .TP
 .B none
 No special MPI processing. This is the default and works with
 many other versions of MPI.
 .TP
+.RE
 This option applies to step allocations.
+NOTE: For multi-step srun commands with \fB--mpi-combine=yes\fR, \fB--mpi\fR is valid 
+only in the first step description. Designation of \fB--mpi\fR in any other step 
+description is ignored.
 .RE
 
 .TP
