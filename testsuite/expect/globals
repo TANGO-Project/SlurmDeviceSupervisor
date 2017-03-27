@@ -80,7 +80,7 @@ if [file exists $local_globals_file] {
 # Specify the slurm install directory.
 # Used to locate binaries, libraries, and header files.
 #
-cset slurm_dir   "/app/slurm/nlk/install/master/"
+cset slurm_dir   "/app/slurm/nlk/install/master"
 cset build_dir   "/app/slurm/nlk/build/master/"
 cset src_dir     "/app/slurm/nlk/git/master"
 cset sacctmgr    "${slurm_dir}/bin/sacctmgr"

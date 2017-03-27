@@ -649,8 +649,10 @@ extern void create_srun_job(srun_job_t **p_job, bool *got_alloc,
 			error("--begin is ignored because nodes"
 			      " are already allocated.");
 		}
-		job->mpi_jobid = opt.jobid;
-		job->mpi_stepid = 0;
+		if (job) {
+			job->mpi_jobid = opt.jobid;
+			job->mpi_stepid = 0;
+		}
 		if (!job || create_job_step(job, false) < 0)
 			exit(error_exit);
 	} else {
