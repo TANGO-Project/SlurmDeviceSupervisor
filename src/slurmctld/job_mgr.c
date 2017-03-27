@@ -1,5 +1,5 @@
 /*****************************************************************************\
- *  job_mgr.c - manage the job information of slurm
+ *  Job_mgr.c - manage the job information of slurm
  *	Note: there is a global job list (job_list), time stamp
  *	(last_job_update), and hash table (job_hash)
  *****************************************************************************
@@ -8170,18 +8170,17 @@ void job_time_limit(void)
 				_job_timed_out(job_ptr);
 				job_ptr->state_reason = FAIL_TIMEOUT;
 				xfree(job_ptr->state_desc);
-				goto time_check;
-			}	
-			if ((job_ptr->details != NULL) &&
-			    (job_ptr->details->depend_list != NULL)) {
+				if ((job_ptr->details == NULL) ||
+				    (job_ptr->details->depend_list == NULL))
+					continue;
 				dep_iter = list_iterator_create(
-					      job_ptr->details->depend_list);
+						job_ptr->details->depend_list);
 				while ((dep_ptr = list_next(dep_iter))) {
 					if (dep_ptr->depend_type
-					    != SLURM_DEPEND_PACKLEADER)
+						!= SLURM_DEPEND_PACKLEADER)
 						continue;
 					if (slurm_get_debug_flags() &
-					    DEBUG_FLAG_JOB_PACK) {
+							DEBUG_FLAG_JOB_PACK) {
 						info("JPCK: killing pack member"
 						     "=%d (leader time "
 						     "exhausted",
