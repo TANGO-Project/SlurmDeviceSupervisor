@@ -59,12 +59,12 @@
 #include "src/common/slurm_cred.h"
 #include "src/common/slurm_protocol_api.h"
 #include "src/common/slurm_protocol_defs.h"
-#include "src/common/timers.h"
-#include "src/common/switch.h"
 #include "src/common/srun_globals.h"
+#include "src/common/timers.h"
 #include "src/common/xmalloc.h"
 #include "src/common/xsignal.h"
 #include "src/common/xstring.h"
+#include "src/common/switch.h"
 #include "src/api/step_ctx.h"
 
 int step_signals[] = {
@@ -246,9 +246,6 @@ slurm_step_ctx_create_timeout (const slurm_step_ctx_params_t *step_params,
 	long elapsed_time;
 	DEF_TIMERS;
 
-	/* First copy the user's step_params into a step request struct */
-	step_req = _create_step_request(step_params);
-
 	/* We will handle the messages in the step_launch.c mesage handler,
 	 * but we need to open the socket right now so we can tell the
 	 * controller which port to use.
@@ -310,33 +307,21 @@ slurm_step_ctx_create_timeout (const slurm_step_ctx_params_t *step_params,
 		ctx->launch_state = NULL;
 		ctx->magic	= STEP_CTX_MAGIC;
 		ctx->job_id	= step_req->job_id;
+		ctx->mpi_jobid	= step_req->mpi_jobid;
 		ctx->user_id	= step_req->user_id;
 		ctx->step_req   = step_req;
 		ctx->step_resp	= step_resp;
 		ctx->verbose_level = step_params->verbose_level;
 		ctx->launch_state = step_launch_state_create(ctx);
 		ctx->launch_state->slurmctld_socket_fd = sock;
+		if (srun_step_idx==0) {
+			packjobid = step_req->job_id;
+			packstepid = step_resp->job_step_id;
+		}
+		ctx->mpi_stepid = packstepid;
 	}
 
-	ctx = xmalloc(sizeof(struct slurm_step_ctx_struct));
-	ctx->launch_state = NULL;
-	ctx->magic	= STEP_CTX_MAGIC;
-	ctx->job_id	= step_req->job_id;
-	ctx->mpi_jobid	= step_req->mpi_jobid;
-	ctx->user_id	= step_req->user_id;
-	ctx->step_req   = step_req;
-	ctx->step_resp	= step_resp;
-	ctx->verbose_level = step_params->verbose_level;
-
-	ctx->launch_state = step_launch_state_create(ctx);
-	ctx->launch_state->slurmctld_socket_fd = sock;
-
-	if (srun_step_idx==0) {
-		packjobid = step_req->job_id;
-		packstepid = step_resp->job_step_id;
-	}
-	ctx->mpi_stepid = packstepid;
-	return (slurm_step_ctx_t *)ctx;
+	return (slurm_step_ctx_t *) ctx;
 }
 
 /*

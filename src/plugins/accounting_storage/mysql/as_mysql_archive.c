@@ -162,6 +162,8 @@ typedef struct {
 	char *nodelist;
 	char *nodes;
 	char *node_inx;
+	char *packjobid;
+	char *packstepid;
 	char *period_end;
 	char *period_start;
 	char *period_suspended;
@@ -395,6 +397,8 @@ static char *step_req_inx[] = {
 	"max_disk_write_node",
 	"ave_disk_write",
 	"tres_alloc",
+	"packjobid",
+	"packstepid",
 };
 
 
@@ -447,6 +451,8 @@ enum {
 	STEP_REQ_MAX_DISK_WRITE_NODE,
 	STEP_REQ_AVE_DISK_WRITE,
 	STEP_REQ_TRES,
+	STEP_REQ_PACKJOBID,
+	STEP_REQ_PACKSTEPID,
 	STEP_REQ_COUNT,
 };
 
@@ -598,119 +604,43 @@ static int _unpack_local_event(local_event_t *object,
 static void _pack_local_job(local_job_t *object,
 			    uint16_t rpc_version, Buf buffer)
 {
-	if (rpc_version >= SLURM_17_02_PROTOCOL_VERSION) {
-		packstr(object->account, buffer);
-		packstr(object->admin_comment, buffer);
-		packstr(object->alloc_nodes, buffer);
-		packstr(object->associd, buffer);
-		packstr(object->array_jobid, buffer);
-		packstr(object->array_max_tasks, buffer);
-		packstr(object->array_taskid, buffer);
-		packstr(object->blockid, buffer);
-		packstr(object->derived_ec, buffer);
-		packstr(object->derived_es, buffer);
-		packstr(object->exit_code, buffer);
-		packstr(object->timelimit, buffer);
-		packstr(object->eligible, buffer);
-		packstr(object->end, buffer);
-		packstr(object->gid, buffer);
-		packstr(object->job_db_inx, buffer);
-		packstr(object->jobid, buffer);
-		packstr(object->kill_requid, buffer);
-		packstr(object->name, buffer);
-		packstr(object->nodelist, buffer);
-		packstr(object->node_inx, buffer);
-		packstr(object->partition, buffer);
-		packstr(object->priority, buffer);
-		packstr(object->qos, buffer);
-		packstr(object->req_cpus, buffer);
-		packstr(object->req_mem, buffer);
-		packstr(object->resvid, buffer);
-		packstr(object->start, buffer);
-		packstr(object->state, buffer);
-		packstr(object->submit, buffer);
-		packstr(object->suspended, buffer);
-		packstr(object->track_steps, buffer);
-		packstr(object->tres_alloc_str, buffer);
-		packstr(object->tres_req_str, buffer);
-		packstr(object->uid, buffer);
-		packstr(object->wckey, buffer);
-		packstr(object->wckey_id, buffer);
-	} else if (rpc_version >= SLURM_16_05_PROTOCOL_VERSION) {
-		packstr(object->account, buffer);
-		packstr(object->alloc_nodes, buffer);
-		packstr(object->associd, buffer);
-		packstr(object->array_jobid, buffer);
-		packstr(object->array_max_tasks, buffer);
-		packstr(object->array_taskid, buffer);
-		packstr(object->blockid, buffer);
-		packstr(object->derived_ec, buffer);
-		packstr(object->derived_es, buffer);
-		packstr(object->exit_code, buffer);
-		packstr(object->timelimit, buffer);
-		packstr(object->eligible, buffer);
-		packstr(object->end, buffer);
-		packstr(object->gid, buffer);
-		packstr(object->job_db_inx, buffer);
-		packstr(object->jobid, buffer);
-		packstr(object->kill_requid, buffer);
-		packstr(object->name, buffer);
-		packstr(object->nodelist, buffer);
-		packstr(object->node_inx, buffer);
-		packstr(object->partition, buffer);
-		packstr(object->priority, buffer);
-		packstr(object->qos, buffer);
-		packstr(object->req_cpus, buffer);
-		packstr(object->req_mem, buffer);
-		packstr(object->resvid, buffer);
-		packstr(object->start, buffer);
-		packstr(object->state, buffer);
-		packstr(object->submit, buffer);
-		packstr(object->suspended, buffer);
-		packstr(object->track_steps, buffer);
-		packstr(object->tres_alloc_str, buffer);
-		packstr(object->tres_req_str, buffer);
-		packstr(object->uid, buffer);
-		packstr(object->wckey, buffer);
-		packstr(object->wckey_id, buffer);
-	} else {
-		packstr(object->account, buffer);
-		packstr(object->alloc_nodes, buffer);
-		packstr(object->associd, buffer);
-		packstr(object->array_jobid, buffer);
-		packstr(object->array_max_tasks, buffer);
-		packstr(object->array_taskid, buffer);
-		packstr(object->blockid, buffer);
-		packstr(object->derived_ec, buffer);
-		packstr(object->derived_es, buffer);
-		packstr(object->exit_code, buffer);
-		packstr(object->timelimit, buffer);
-		packstr(object->eligible, buffer);
-		packstr(object->end, buffer);
-		packstr(object->gid, buffer);
-		packstr(object->job_db_inx, buffer);
-		packstr(object->jobid, buffer);
-		packstr(object->kill_requid, buffer);
-		packstr(object->name, buffer);
-		packstr(object->nodelist, buffer);
-		packstr(object->node_inx, buffer);
-		packstr(object->partition, buffer);
-		packstr(object->priority, buffer);
-		packstr(object->qos, buffer);
-		packstr(object->req_cpus, buffer);
-		packstr(object->req_mem, buffer);
-		packstr(object->resvid, buffer);
-		packstr(object->start, buffer);
-		packstr(object->state, buffer);
-		packstr(object->submit, buffer);
-		packstr(object->suspended, buffer);
-		packstr(object->track_steps, buffer);
-		packstr(object->tres_alloc_str, buffer);
-		packstr(object->tres_req_str, buffer);
-		packstr(object->uid, buffer);
-		packstr(object->wckey, buffer);
-		packstr(object->wckey_id, buffer);
-	}
+	packstr(object->account, buffer);
+	packstr(object->admin_comment, buffer);
+	packstr(object->alloc_nodes, buffer);
+	packstr(object->associd, buffer);
+	packstr(object->array_jobid, buffer);
+	packstr(object->array_max_tasks, buffer);
+	packstr(object->array_taskid, buffer);
+	packstr(object->blockid, buffer);
+	packstr(object->derived_ec, buffer);
+	packstr(object->derived_es, buffer);
+	packstr(object->exit_code, buffer);
+	packstr(object->timelimit, buffer);
+	packstr(object->eligible, buffer);
+	packstr(object->end, buffer);
+	packstr(object->gid, buffer);
+	packstr(object->job_db_inx, buffer);
+	packstr(object->jobid, buffer);
+	packstr(object->kill_requid, buffer);
+	packstr(object->name, buffer);
+	packstr(object->nodelist, buffer);
+	packstr(object->node_inx, buffer);
+	packstr(object->partition, buffer);
+	packstr(object->priority, buffer);
+	packstr(object->qos, buffer);
+	packstr(object->req_cpus, buffer);
+	packstr(object->req_mem, buffer);
+	packstr(object->resvid, buffer);
+	packstr(object->start, buffer);
+	packstr(object->state, buffer);
+	packstr(object->submit, buffer);
+	packstr(object->suspended, buffer);
+	packstr(object->track_steps, buffer);
+	packstr(object->tres_alloc_str, buffer);
+	packstr(object->tres_req_str, buffer);
+	packstr(object->uid, buffer);
+	packstr(object->wckey, buffer);
+	packstr(object->wckey_id, buffer);
 }
 
 /* this needs to be allocated before calling, and since we aren't
@@ -741,44 +671,6 @@ static int _unpack_local_job(local_job_t *object,
 	 */
 
 	if (rpc_version >= SLURM_17_02_PROTOCOL_VERSION) {
-		unpackstr_ptr(&object->account, &tmp32, buffer);
-		unpackstr_ptr(&object->admin_comment, &tmp32, buffer);
-		unpackstr_ptr(&object->alloc_nodes, &tmp32, buffer);
-		unpackstr_ptr(&object->associd, &tmp32, buffer);
-		unpackstr_ptr(&object->array_jobid, &tmp32, buffer);
-		unpackstr_ptr(&object->array_max_tasks, &tmp32, buffer);
-		unpackstr_ptr(&object->array_taskid, &tmp32, buffer);
-		unpackstr_ptr(&object->blockid, &tmp32, buffer);
-		unpackstr_ptr(&object->derived_ec, &tmp32, buffer);
-		unpackstr_ptr(&object->derived_es, &tmp32, buffer);
-		unpackstr_ptr(&object->exit_code, &tmp32, buffer);
-		unpackstr_ptr(&object->timelimit, &tmp32, buffer);
-		unpackstr_ptr(&object->eligible, &tmp32, buffer);
-		unpackstr_ptr(&object->end, &tmp32, buffer);
-		unpackstr_ptr(&object->gid, &tmp32, buffer);
-		unpackstr_ptr(&object->job_db_inx, &tmp32, buffer);
-		unpackstr_ptr(&object->jobid, &tmp32, buffer);
-		unpackstr_ptr(&object->kill_requid, &tmp32, buffer);
-		unpackstr_ptr(&object->name, &tmp32, buffer);
-		unpackstr_ptr(&object->nodelist, &tmp32, buffer);
-		unpackstr_ptr(&object->node_inx, &tmp32, buffer);
-		unpackstr_ptr(&object->partition, &tmp32, buffer);
-		unpackstr_ptr(&object->priority, &tmp32, buffer);
-		unpackstr_ptr(&object->qos, &tmp32, buffer);
-		unpackstr_ptr(&object->req_cpus, &tmp32, buffer);
-		unpackstr_ptr(&object->req_mem, &tmp32, buffer);
-		unpackstr_ptr(&object->resvid, &tmp32, buffer);
-		unpackstr_ptr(&object->start, &tmp32, buffer);
-		unpackstr_ptr(&object->state, &tmp32, buffer);
-		unpackstr_ptr(&object->submit, &tmp32, buffer);
-		unpackstr_ptr(&object->suspended, &tmp32, buffer);
-		unpackstr_ptr(&object->track_steps, &tmp32, buffer);
-		unpackstr_ptr(&object->tres_alloc_str, &tmp32, buffer);
-		unpackstr_ptr(&object->tres_req_str, &tmp32, buffer);
-		unpackstr_ptr(&object->uid, &tmp32, buffer);
-		unpackstr_ptr(&object->wckey, &tmp32, buffer);
-		unpackstr_ptr(&object->wckey_id, &tmp32, buffer);
-	} else if (rpc_version >= SLURM_16_05_PROTOCOL_VERSION) {
 		unpackstr_ptr(&object->account, &tmp32, buffer);
 		unpackstr_ptr(&object->admin_comment, &tmp32, buffer);
 		unpackstr_ptr(&object->alloc_nodes, &tmp32, buffer);
@@ -1074,57 +966,6 @@ static int _unpack_local_step(local_step_t *object,
 	char *tmp_char;
 
 	if (rpc_version >= SLURM_15_08_PROTOCOL_VERSION) {
-		unpackstr_ptr(&object->act_cpufreq, &tmp32, buffer);
-		unpackstr_ptr(&object->ave_cpu, &tmp32, buffer);
-		unpackstr_ptr(&object->ave_disk_read, &tmp32, buffer);
-		unpackstr_ptr(&object->ave_disk_write, &tmp32, buffer);
-		unpackstr_ptr(&object->ave_pages, &tmp32, buffer);
-		unpackstr_ptr(&object->ave_rss, &tmp32, buffer);
-		unpackstr_ptr(&object->ave_vsize, &tmp32, buffer);
-		unpackstr_ptr(&object->exit_code, &tmp32, buffer);
-		unpackstr_ptr(&object->consumed_energy, &tmp32, buffer);
-		unpackstr_ptr(&object->job_db_inx, &tmp32, buffer);
-		unpackstr_ptr(&object->kill_requid, &tmp32, buffer);
-		unpackstr_ptr(&object->max_disk_read, &tmp32, buffer);
-		unpackstr_ptr(&object->max_disk_read_node, &tmp32, buffer);
-		unpackstr_ptr(&object->max_disk_read_task, &tmp32, buffer);
-		unpackstr_ptr(&object->max_disk_write, &tmp32, buffer);
-		unpackstr_ptr(&object->max_disk_write_node, &tmp32, buffer);
-		unpackstr_ptr(&object->max_disk_write_task, &tmp32, buffer);
-		unpackstr_ptr(&object->max_pages, &tmp32, buffer);
-		unpackstr_ptr(&object->max_pages_node, &tmp32, buffer);
-		unpackstr_ptr(&object->max_pages_task, &tmp32, buffer);
-		unpackstr_ptr(&object->max_rss, &tmp32, buffer);
-		unpackstr_ptr(&object->max_rss_node, &tmp32, buffer);
-		unpackstr_ptr(&object->max_rss_task, &tmp32, buffer);
-		unpackstr_ptr(&object->max_vsize, &tmp32, buffer);
-		unpackstr_ptr(&object->max_vsize_node, &tmp32, buffer);
-		unpackstr_ptr(&object->max_vsize_task, &tmp32, buffer);
-		unpackstr_ptr(&object->min_cpu, &tmp32, buffer);
-		unpackstr_ptr(&object->min_cpu_node, &tmp32, buffer);
-		unpackstr_ptr(&object->min_cpu_task, &tmp32, buffer);
-		unpackstr_ptr(&object->name, &tmp32, buffer);
-		unpackstr_ptr(&object->nodelist, &tmp32, buffer);
-		unpackstr_ptr(&object->nodes, &tmp32, buffer);
-		unpackstr_ptr(&object->node_inx, &tmp32, buffer);
-		unpackstr_ptr(&object->packjobid, &tmp32, buffer);
-		unpackstr_ptr(&object->packstepid, &tmp32, buffer);
-		unpackstr_ptr(&object->period_end, &tmp32, buffer);
-		unpackstr_ptr(&object->period_start, &tmp32, buffer);
-		unpackstr_ptr(&object->period_suspended, &tmp32, buffer);
-		unpackstr_ptr(&object->req_cpufreq_min, &tmp32, buffer);
-		unpackstr_ptr(&object->req_cpufreq_max, &tmp32, buffer);
-		unpackstr_ptr(&object->req_cpufreq_gov, &tmp32, buffer);
-		unpackstr_ptr(&object->state, &tmp32, buffer);
-		unpackstr_ptr(&object->stepid, &tmp32, buffer);
-		unpackstr_ptr(&object->sys_sec, &tmp32, buffer);
-		unpackstr_ptr(&object->sys_usec, &tmp32, buffer);
-		unpackstr_ptr(&object->tasks, &tmp32, buffer);
-		unpackstr_ptr(&object->task_dist, &tmp32, buffer);
-		unpackstr_ptr(&object->tres_alloc_str, &tmp32, buffer);
-		unpackstr_ptr(&object->user_sec, &tmp32, buffer);
-		unpackstr_ptr(&object->user_usec, &tmp32, buffer);
-	} else if (rpc_version >= SLURM_15_08_PROTOCOL_VERSION) {
 		unpackstr_ptr(&object->act_cpufreq, &tmp32, buffer);
 		unpackstr_ptr(&object->ave_cpu, &tmp32, buffer);
 		unpackstr_ptr(&object->ave_disk_read, &tmp32, buffer);

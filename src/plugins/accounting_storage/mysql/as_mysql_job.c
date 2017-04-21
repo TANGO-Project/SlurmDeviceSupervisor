@@ -250,6 +250,7 @@ extern int as_mysql_job_start(mysql_conn_t *mysql_conn,
 	int reinit = 0;
 	time_t begin_time, check_time, start_time, submit_time;
 	uint32_t wckeyid = 0;
+	uint32_t packid = 0;
 	uint32_t job_state;
 	int node_cnt = 0;
 	uint32_t array_task_id =
@@ -456,6 +457,9 @@ no_rollup_change:
 	if (job_ptr->gres_alloc)
 		gres_alloc = slurm_add_slash_to_quotes(job_ptr->gres_alloc);
 
+	if (job_ptr->pack_leader)
+		packid = job_ptr->pack_leader;
+
 	if (!job_ptr->db_index) {
 		query = xstrdup_printf(
 			"insert into \"%s_%s\" "
@@ -471,6 +475,8 @@ no_rollup_change:
 			xstrcat(query, ", id_wckey");
 		if (job_ptr->account)
 			xstrcat(query, ", account");
+		if (packid)
+			xstrcat(query, ", packid");
 		if (partition)
 			xstrcat(query, ", `partition`");
 		if (block_id)
@@ -514,6 +520,8 @@ no_rollup_change:
 			xstrfmtcat(query, ", %u", wckeyid);
 		if (job_ptr->account)
 			xstrfmtcat(query, ", '%s'", job_ptr->account);
+		if (packid)
+			xstrfmtcat(query, ", %u", packid);
 		if (partition)
 			xstrfmtcat(query, ", '%s'", partition);
 		if (block_id)
@@ -564,6 +572,8 @@ no_rollup_change:
 			xstrfmtcat(query, ", id_wckey=%u", wckeyid);
 		if (job_ptr->account)
 			xstrfmtcat(query, ", account='%s'", job_ptr->account);
+		if (packid)
+			xstrfmtcat(query, ", packid=%u", packid);
 		if (partition)
 			xstrfmtcat(query, ", `partition`='%s'", partition);
 		if (block_id)
@@ -617,6 +627,8 @@ no_rollup_change:
 			xstrfmtcat(query, "id_wckey=%u, ", wckeyid);
 		if (job_ptr->account)
 			xstrfmtcat(query, "account='%s', ", job_ptr->account);
+		if (packid)
+			xstrfmtcat(query, "packid=%u, ", packid);
 		if (partition)
 			xstrfmtcat(query, "`partition`='%s', ", partition);
 		if (block_id)

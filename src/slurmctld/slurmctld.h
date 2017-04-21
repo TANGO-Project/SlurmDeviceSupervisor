@@ -736,9 +736,6 @@ struct job_record {
 					 * and epilog scripts as set by SPANK
 					 * plugins */
 	uint32_t spank_job_env_size;	/* element count in spank_env */
-	char **pelog_env;		/* other environment variables for job
-					   prolog and epilog scripts */
-	uint32_t pelog_env_size;	/* element count in pelog_env */
 	uint16_t start_protocol_ver;	/* Slurm version job was
 					 * started with either the
 					 * creating message or the
