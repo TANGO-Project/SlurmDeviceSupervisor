@@ -236,7 +236,7 @@ static int _verify_job_ids(void)
 					dpnd_opt = xstrtolower(dpnd_opt);
 					if (strstr(dpnd_opt, "pack ")
 						             && !opt.pack_mbr) {
-						error("Can't cancel pack_member"
+						error("Can't cancel pack member"
 					              "=%d without "
 						      "--pack-member option",
 						      job_ptr->job_id);

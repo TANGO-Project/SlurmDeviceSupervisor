@@ -108,17 +108,13 @@ int p_mpi_hook_slurmstepd_task (const mpi_plugin_task_info_t *job,
 				char ***env)
 {
 	int i;
-	debug("******** MNP pid=%d, entering pmi2 plugin slurmstepd_task", getpid());
 	env_array_overwrite_fmt(env, "PMI_FD", "%u",
 				TASK_PMI_SOCK(job->ltaskid));
 
 	env_array_overwrite_fmt(env, "PMI_JOBID", "%s",
 				job_info.pmi_jobid);
-	debug("******** MNP pid=%d, in pmi2 plugin slurmstepd_task, job_info.pmi_jobid=%s", getpid(), job_info.pmi_jobid);
-	debug("******** MNP pid=%d, in pmi2 plugin slurmstepd_task, job->gtaskid=%d", getpid(), job->gtaskid);
 	env_array_overwrite_fmt(env, "PMI_RANK", "%u", job->gtaskid);
 	env_array_overwrite_fmt(env, "PMI_SIZE", "%u", job->ntasks);
-	debug("******** MNP pid=%d, in pmi2 plugin slurmstepd_task, job->ntasks=%d", getpid(), job->ntasks);
 	if (job_info.spawn_seq) { /* PMI1.1 needs this env-var */
 		env_array_overwrite_fmt(env, "PMI_SPAWNED", "%u", 1);
 	}
@@ -133,7 +129,6 @@ int p_mpi_hook_slurmstepd_task (const mpi_plugin_task_info_t *job,
 			TASK_PMI_SOCK(i) = 0;
 		}
 	}
-	debug("******** MNP pid=%d, exiting pmi2 plugin slurmstepd_task", getpid());
 	return SLURM_SUCCESS;
 }
 
@@ -147,7 +142,6 @@ p_mpi_hook_client_prelaunch(mpi_plugin_client_info_t *job, char ***env)
 {
 	int rc;
 
-	debug("******** MNP pid=%d tid=%d entering pmi2 hook_client_prelaunch", getpid(), (int)pthread_self());
 	debug("mpi/pmi2: client_prelaunch");
 
 	rc = pmi2_setup_srun(job, env);
@@ -160,7 +154,6 @@ p_mpi_hook_client_prelaunch(mpi_plugin_client_info_t *job, char ***env)
 		return NULL;
 	}
 
-	debug("******** MNP pid=%d tid=%d exiting pmi2 hook_client_prelaunch", getpid(), (int)pthread_self());
 	return (void *)0x12345678;
 }
 
@@ -172,7 +165,6 @@ int p_mpi_hook_client_single_task_per_node(void)
 int p_mpi_hook_client_fini(mpi_plugin_client_state_t *state)
 {
 
-	debug("******** MNP pid=%d tid=%d entering pmi2 plugin hook_client_fini", getpid(), (int)pthread_self());
 	pmi2_stop_agent();
 
 	/* the job may be allocated by this srun.
@@ -180,7 +172,6 @@ int p_mpi_hook_client_fini(mpi_plugin_client_state_t *state)
 	 * wait for the spawned steps. */
 	spawn_job_wait();
 
-	debug("******** MNP pid=%d tid=%d exiting pmi2 plugin hook_client_fini", getpid(), (int)pthread_self());
 	return SLURM_SUCCESS;
 }
 

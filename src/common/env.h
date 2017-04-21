@@ -100,7 +100,7 @@ uint32_t group_number;
 
 int	setup_env(env_t *env, bool preserve_env);
 
-char *  env_jobpack(const char *envname, uint32_t group_number);
+char *	env_jobpack(const char *envname, uint32_t group_number);
 
 /**********************************************************************
  * Newer environment variable handling scheme

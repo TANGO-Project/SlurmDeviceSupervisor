@@ -572,7 +572,7 @@ extern slurmdb_job_rec_t *slurmdb_create_job_rec()
 	job->steps = list_create(slurmdb_destroy_step_rec);
 	job->requid = -1;
 	job->lft = (uint32_t)NO_VAL;
-	job->packid = (uint32_t)NO_VAL;						/* wjb */
+	job->packid = (uint32_t)NO_VAL;
 	job->resvid = (uint32_t)NO_VAL;
 
       	return job;
@@ -586,8 +586,8 @@ extern slurmdb_step_rec_t *slurmdb_create_step_rec()
 	step->state = NO_VAL;
 	step->exitcode = NO_VAL;
 	step->elapsed = (uint32_t)NO_VAL;
-	step->packstepid[0] = (uint32_t)NO_VAL;					/* wjb */
-	step->packstepid[1] = (uint32_t)NO_VAL;					/* wjb */
+	step->packstepid[0] = (uint32_t)NO_VAL;
+	step->packstepid[1] = (uint32_t)NO_VAL;
 	step->tot_cpu_sec = (uint32_t)NO_VAL;
 	step->tot_cpu_usec = (uint32_t)NO_VAL;
 	step->requid = -1;

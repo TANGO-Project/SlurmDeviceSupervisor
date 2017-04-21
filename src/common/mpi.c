@@ -79,15 +79,16 @@ static const char *syms[] = {
 	"p_mpi_hook_client_fini"
 };
 
-/* Pipes used to pass MPI-related data between forked
- * sruns for aggregation
- */
-int *vector_pipe;	// MNP PMI
-int *nnodes_pipe;	// MNP PMI
-int *pmiport_pipe;	// MNP PMI
+int *vector_pipe_out;
+int *vector_pipe_in;
+int *nnodes_pipe;
+int *pmi2port_pipe;
+int *pmi1port_pipe;
 
 int srun_num_steps;	// MNP PMI
 int srun_step_idx;	// MNP PMI
+uint32_t packstepid[2];
+bool srun_mpi_combine;
 
 static slurm_mpi_ops_t ops;
 static plugin_context_t *g_context = NULL;
@@ -175,7 +176,7 @@ int mpi_hook_slurmstepd_prefork (const stepd_step_rec_t *job, char ***env)
 {
 	if (mpi_hook_slurmstepd_init(env) == SLURM_ERROR)
 		return SLURM_ERROR;
-
+	
 	return (*(ops.slurmstepd_prefork))(job, env);
 }
 
@@ -183,7 +184,7 @@ int mpi_hook_slurmstepd_task (const mpi_plugin_task_info_t *job, char ***env)
 {
 	if (mpi_hook_slurmstepd_init(env) == SLURM_ERROR)
 		return SLURM_ERROR;
-
+	
 	return (*(ops.slurmstepd_init))(job, env);
 }
 

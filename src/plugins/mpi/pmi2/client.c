@@ -58,7 +58,6 @@ static int pmi_subversion = 0;
 extern int
 is_pmi11(void)
 {
-	debug("******** MNP, pid=%d, in _is_pmi11, pmi_version=%d, pmi_subversion=%d", getpid(), pmi_version, pmi_subversion);
 	return (pmi_version == PMI11_VERSION &&
 		pmi_subversion == PMI11_SUBVERSION);
 }
@@ -66,7 +65,6 @@ is_pmi11(void)
 extern int
 is_pmi20(void)
 {
-	debug("******** MNP, pid=%d, in _is_pmi20, pmi_version=%d, pmi_subversion=%d", getpid(), pmi_version, pmi_subversion);
 	return (pmi_version == PMI20_VERSION &&
 		pmi_subversion == PMI20_SUBVERSION);
 }
@@ -587,7 +585,6 @@ send_kvs_fence_resp_to_clients(int rc, char *errmsg)
 	client_resp_t *resp;
 	char *msg;
 
-	debug("******** MNP, pid=%d, entering pmi2/client.c:send_kvs_fence_resp_to_clients", getpid());
 
 	resp = client_resp_new();
 	if ( is_pmi11() ) {

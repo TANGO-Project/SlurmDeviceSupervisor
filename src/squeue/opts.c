@@ -108,7 +108,7 @@ parse_command_line( int argc, char* *argv )
 		{"clusters",   required_argument, 0, 'M'},
 		{"dependency", no_argument,       0, 'd'},
 		{"name",       required_argument, 0, 'n'},
-                {"noconvert",  no_argument,       0, OPT_LONG_NOCONVERT},
+		{"noconvert",  no_argument,       0, OPT_LONG_NOCONVERT},
 		{"node",       required_argument, 0, 'w'},
 		{"nodes",      required_argument, 0, 'w'},
 		{"nodelist",   required_argument, 0, 'w'},

@@ -3974,6 +3974,95 @@ extern int slurmdb_unpack_job_modify_cond(void **object,
 
 	*object = object_ptr;
 
+	if (rpc_version >= SLURM_MIN_PROTOCOL_VERSION) {
+		safe_unpackstr_xmalloc(&object_ptr->cluster, &uint32_tmp,
+				       buffer);
+		safe_unpack32(&object_ptr->job_id, buffer);
+	}
+	return SLURM_SUCCESS;
+
+unpack_error:
+	slurmdb_destroy_job_modify_cond(object_ptr);
+	*object = NULL;
+	return SLURM_ERROR;
+}
+
+extern void slurmdb_pack_job_rec(void *object, uint16_t rpc_version, Buf buffer)
+{
+	slurmdb_job_rec_t *job = (slurmdb_job_rec_t *)object;
+	ListIterator itr = NULL;
+	slurmdb_step_rec_t *step = NULL;
+	uint32_t count = 0;
+
+	if (rpc_version >= SLURM_15_08_PROTOCOL_VERSION) {
+		packstr(job->account, buffer);
+		packstr(job->alloc_gres, buffer);
+		pack32(job->alloc_nodes, buffer);
+		pack32(job->array_job_id, buffer);
+		pack32(job->array_max_tasks, buffer);
+		pack32(job->array_task_id, buffer);
+		packstr(job->array_task_str, buffer);
+
+		pack32(job->associd, buffer);
+		packstr(job->blockid, buffer);
+		packstr(job->cluster, buffer);
+		pack32((uint32_t)job->derived_ec, buffer);
+		packstr(job->derived_es, buffer);
+		pack32(job->elapsed, buffer);
+		pack_time(job->eligible, buffer);
+		pack_time(job->end, buffer);
+		pack32((uint32_t)job->exitcode, buffer);
+		/* the first_step_ptr
+		   is set up on the client side so does
+		   not need to be packed */
+		pack32(job->gid, buffer);
+		pack32(job->jobid, buffer);
+		packstr(job->jobname, buffer);
+		pack32(job->lft, buffer);
+		packstr(job->nodes, buffer);
+		pack32(job->packid, buffer);
+		packstr(job->partition, buffer);
+		pack32(job->priority, buffer);
+		pack32(job->qosid, buffer);
+		pack32(job->req_cpus, buffer);
+		packstr(job->req_gres, buffer);
+		pack32(job->req_mem, buffer);
+		pack32(job->requid, buffer);
+		packstr(job->resv_name, buffer);
+		pack32(job->resvid, buffer);
+		pack32(job->show_full, buffer);
+		pack_time(job->start, buffer);
+		pack32(job->state, buffer);
+		_pack_slurmdb_stats(&job->stats, rpc_version, buffer);
+
+		if (job->steps)
+			count = list_count(job->steps);
+		else
+			count = 0;
+
+		pack32(count, buffer);
+		if (count) {
+			itr = list_iterator_create(job->steps);
+			while ((step = list_next(itr))) {
+				slurmdb_pack_step_rec(step, rpc_version,
+						      buffer);
+			}
+			list_iterator_destroy(itr);
+		}
+		pack_time(job->submit, buffer);
+		pack32(job->suspended, buffer);
+		pack32(job->sys_cpu_sec, buffer);
+		pack32(job->sys_cpu_usec, buffer);
+		pack32(job->timelimit, buffer);
+		pack32(job->tot_cpu_sec, buffer);
+		pack32(job->tot_cpu_usec, buffer);
+		pack16(job->track_steps, buffer);
+
+		packstr(job->tres_alloc_str, buffer);
+		packstr(job->tres_req_str, buffer);
+
+	*object = object_ptr;
+
 	if (protocol_version >= SLURM_MIN_PROTOCOL_VERSION) {
 		safe_unpackstr_xmalloc(&object_ptr->cluster, &uint32_tmp,
 				       buffer);
@@ -4266,8 +4355,7 @@ extern int slurmdb_unpack_job_rec(void **job, uint16_t protocol_version,
 		safe_unpackstr_xmalloc(&job_ptr->jobname, &uint32_tmp, buffer);
 		safe_unpack32(&job_ptr->lft, buffer);
 		safe_unpackstr_xmalloc(&job_ptr->nodes, &uint32_tmp, buffer);
-		safe_unpack32(&job_ptr->packid, buffer);			/* wjb */
-//info("UNpacking job_ptr->packid as %u", job_ptr->packid);			/* wjb */
+		safe_unpack32(&job_ptr->packid, buffer);
 		safe_unpackstr_xmalloc(&job_ptr->partition, &uint32_tmp,
 				       buffer);
 		safe_unpack32(&job_ptr->priority, buffer);
@@ -4643,9 +4731,8 @@ extern void slurmdb_pack_step_rec(slurmdb_step_rec_t *step,
 		pack32(step->nnodes, buffer);
 		packstr(step->nodes, buffer);
 		pack32(step->ntasks, buffer);
-		pack32(step->packstepid[0], buffer);				/* wjb */
-		pack32(step->packstepid[1], buffer);				/* wjb */
-//info("packing step->packstepid[2] as %u, %u", step->packstepid[0], step->packstepid[1]);	/* wjb */
+		pack32(step->packstepid[0], buffer);
+		pack32(step->packstepid[1], buffer);
 		pack32(step->req_cpufreq_min, buffer);
 		pack32(step->req_cpufreq_max, buffer);
 		pack32(step->req_cpufreq_gov, buffer);
@@ -4721,9 +4808,8 @@ extern int slurmdb_unpack_step_rec(slurmdb_step_rec_t **step,
 		safe_unpack32(&step_ptr->nnodes, buffer);
 		safe_unpackstr_xmalloc(&step_ptr->nodes, &uint32_tmp, buffer);
 		safe_unpack32(&step_ptr->ntasks, buffer);
-		safe_unpack32(&step_ptr->packstepid[0], buffer);			/* wjb */
-		safe_unpack32(&step_ptr->packstepid[1], buffer);			/* wjb */
-//info("UNpacking step->packstepid[2] as %u, %u", step_ptr->packstepid[0], step_ptr->packstepid[1]);					/* wjb */
+		safe_unpack32(&step_ptr->packstepid[0], buffer);
+		safe_unpack32(&step_ptr->packstepid[1], buffer);
 		safe_unpack32(&step_ptr->req_cpufreq_min, buffer);
 		safe_unpack32(&step_ptr->req_cpufreq_max, buffer);
 		safe_unpack32(&step_ptr->req_cpufreq_gov, buffer);

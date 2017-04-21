@@ -317,40 +317,26 @@ static int
 _setup_mpi(stepd_step_rec_t *job, int ltaskid)
 {
 	mpi_plugin_task_info_t minfo[1];
-	char addrbuf[1024]; // MNP PMI
+	char addrbuf[1024];
 
-//	minfo->jobid = job->jobid; // MNP PMI old code
-	minfo->jobid = job->mpi_jobid; // MNP PMI new code
-	debug("******** MNP pid=%d, in _setup_mpi, minfo->jobid=%d", getpid(), minfo->jobid);
+	minfo->jobid = job->mpi_jobid;
 	minfo->stepid = job->stepid;
-//	minfo->nnodes = job->nnodes;
 	minfo->nodeid = job->nodeid;
-//	minfo->ntasks = job->ntasks; // MNP PMI old code
-	minfo->ntasks = job->mpi_ntasks; // MNP PMI new code
-	debug("******** MNP pid=%d, in _setup_mpi, minfo->ntasks=%d", getpid(), minfo->ntasks);
-	minfo->nnodes = job->mpi_nnodes; // MNP PMI new code
-	debug("******** MNP pid=%d, in _setup_mpi, minfo->nnodes=%d", getpid(), minfo->nnodes);
+	minfo->ntasks = job->mpi_ntasks;
+	minfo->nnodes = job->mpi_nnodes;
 	minfo->ltasks = job->node_tasks;
-//	minfo->gtaskid = job->task[ltaskid]->gtid; // MNP PMI old code
-	minfo->gtaskid = job->task[ltaskid]->utaskid; // MNP PMI new code
-	debug("******** MNP pid=%d, in _setup_mpi, minfo->gtaskid=%d", getpid(), minfo->gtaskid);
-	minfo->ltaskid = job->task[ltaskid]->id; // MNP PMI old code
-//	minfo->ltaskid = minfo->gtaskid; // MNP PMI new code
+	minfo->gtaskid = job->task[ltaskid]->utaskid;
+	minfo->ltaskid = job->task[ltaskid]->id;
 	minfo->self = job->envtp->self;
 	minfo->client = job->envtp->cli;
-	debug("******** MNP pid=%d, in _setup_mpi, minfo->jobid=%d", getpid(), minfo->jobid);
-	debug("******** MNP pid=%d, in _setup_mpi, minfo->stepid=%d", getpid(), minfo->stepid);
-	debug("******** MNP pid=%d, in _setup_mpi, minfo->nnodes=%d", getpid(), minfo->nnodes);
-	debug("******** MNP pid=%d, in _setup_mpi, minfo->nodeid=%d", getpid(), minfo->nodeid);
-	debug("******** MNP pid=%d, in _setup_mpi, minfo->ntasks=%d", getpid(), minfo->ntasks);
-	debug("******** MNP pid=%d, in _setup_mpi, minfo->ltasks=%d", getpid(), minfo->ltasks);
-	debug("******** MNP pid=%d, in _setup_mpi, minfo->gtaskid=%d", getpid(), minfo->gtaskid);
-	debug("******** MNP pid=%d, in _setup_mpi, minfo->ltaskid=%d", getpid(), minfo->ltaskid);
 	slurm_print_slurm_addr (minfo->self, addrbuf, sizeof(addrbuf));
-	debug("******** MNP pid=%d, in _setup_mpi, minfo->self=%s", getpid(), addrbuf);
 	slurm_print_slurm_addr (minfo->self, addrbuf, sizeof(addrbuf));
-	debug("******** MNP pid=%d, in _setup_mpi, minfo->client=%s", getpid(), addrbuf);
-	debug("******** MNP pid=%d, in _setup_mpi, calling mpi_hook_slurmstepd_task", getpid());
+
+	/* set environment variables for PMI client */
+	env_array_overwrite_fmt(&job->env, "PMI_JOBID", "%u",minfo->jobid);
+	env_array_overwrite_fmt(&job->env, "PMI_RANK", "%u", minfo->gtaskid);
+	env_array_overwrite_fmt(&job->env, "PMI_SIZE", "%u", minfo->ntasks);
+
 	return mpi_hook_slurmstepd_task(minfo, &job->env);
 }
 
@@ -370,8 +356,9 @@ exec_task(stepd_step_rec_t *job, int i)
 		_make_tmpdir(job);
 
 	gtids = xmalloc(job->node_tasks * sizeof(uint32_t));
-	for (j = 0; j < job->node_tasks; j++)
+	for (j = 0; j < job->node_tasks; j++) {
 		gtids[j] = job->task[j]->gtid;
+	}
 	job->envtp->sgtids = _uint32_array_to_str(job->node_tasks, gtids);
 	xfree(gtids);
 

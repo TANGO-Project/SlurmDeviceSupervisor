@@ -253,6 +253,29 @@ int PMI_Init( int *spawned )
 
 	pmi_init = 1;
 
+	env = getenv("PMI_JOBID");
+	if (env) {
+		const char s[2] = ".";
+		pmi_jobid = atoi(strtok(env, s));
+	}
+
+	env = getenv("PMI_RANK");
+	if (env) {
+		pmi_rank = atoi(env);
+	}
+
+	env = getenv("PMI_SIZE");
+	if (env) {
+		pmi_size = atoi(env);
+	}
+
+	if (pmi_debug) {
+		fprintf(stderr, "pmi_jobid=%ld\n", pmi_jobid);
+		fprintf(stderr, "pmi_stepid=%ld\n", pmi_stepid);
+		fprintf(stderr, "pmi_rank=%d\n", pmi_rank);
+		fprintf(stderr, "pmi_size=%d\n", pmi_size);
+	}
+
 replay:	if (pmi_spawned)
 		*spawned = PMI_TRUE;
 	else
@@ -660,10 +683,8 @@ int PMI_Barrier( void )
 
 	if (pmi_debug)
 		fprintf(stderr, "In: PMI_Barrier\n");
-
 	if (pmi_init == 0)
 		return PMI_FAIL;
-
 	/* Simple operation without srun (no-op) */
 	if ((pmi_jobid == 0) && (pmi_stepid == 0))
 		return rc;
@@ -1353,17 +1374,14 @@ This function gets the value of the specified key in the keyval space.
 int PMI_KVS_Get( const char kvsname[], const char key[], char value[], int length)
 {
 	int i, j, rc;
-	debug("******** MNP pid=%d, entering PMI_KVS_Get, kvsname=%s, key=%s, value=%s, length=%d", getpid(), kvsname, key, value, length);
 
 	if (pmi_debug)
 		fprintf(stderr, "In: PMI_KVS_Get(%s)\n", key);
 
 	if ((kvsname == NULL) || (strlen(kvsname) > PMI_MAX_KVSNAME_LEN)) {
-		debug("******** MNP pid=%d, in PMI_KVS_Get, returning error PMI_ERR_INVALID_KVS", getpid());
 		return PMI_ERR_INVALID_KVS;
 	}
 	if ((key == NULL) || (strlen(key) >PMI_MAX_KEY_LEN)) {
-		debug("******** MNP pid=%d, in PMI_KVS_Get, returning error PMI_ERR_INVALID_KEY", getpid());
 		return PMI_ERR_INVALID_KEY;
 	}
 	if (value == NULL)
@@ -1389,7 +1407,6 @@ int PMI_KVS_Get( const char kvsname[], const char key[], char value[], int lengt
 			}
 			goto fini;
 		}
-		debug("******** MNP pid=%d, in PMI_KVS_Get, returning error PMI_ERR_INVALID_KVS 1", getpid());
 
 		rc = PMI_ERR_INVALID_KEY;
 		goto fini;

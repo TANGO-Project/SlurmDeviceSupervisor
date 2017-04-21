@@ -197,8 +197,7 @@ static int _setup_job_start_msg(dbd_job_start_msg_t *req,
 	req->job_state     = job_ptr->job_state;
 	req->name          = xstrdup(job_ptr->name);
 	req->nodes         = xstrdup(job_ptr->nodes);
-	req->pack_leader   = job_ptr->pack_leader;				/* wjb */
-//info("in _setup_job_start_msg set req->pack_leader to %u", req->pack_leader);	/* wjb */
+	req->pack_leader   = job_ptr->pack_leader;
 
 	if (job_ptr->node_bitmap) {
 		char temp_bit[BUF_SIZE];
@@ -2718,9 +2717,8 @@ extern int jobacct_storage_p_step_start(void *db_conn,
 	req.job_id      = step_ptr->job_ptr->job_id;
 	req.name        = step_ptr->name;
 	req.nodes       = node_list;
-	req.packstepid[0] = step_ptr->packstepid[0];				/* wjb */
-	req.packstepid[1] = step_ptr->packstepid[1];				/* wjb */
-//info("in accounting_storage_slurmdbd.c function jobacct_storage_p_step_start()  packstepid is %u.%u", step_ptr->packstepid[0], step_ptr->packstepid[1]);	/* wjb */
+	req.packstepid[0] = step_ptr->packstepid[0];
+	req.packstepid[1] = step_ptr->packstepid[1];
 	if (step_ptr->step_node_bitmap) {
 		req.node_inx = bit_fmt(temp_bit, sizeof(temp_bit),
 				       step_ptr->step_node_bitmap);
@@ -2802,6 +2800,8 @@ extern int jobacct_storage_p_step_complete(void *db_conn,
 #endif
 
 	req.job_id      = step_ptr->job_ptr->job_id;
+	req.packstepid[0] = step_ptr->packstepid[0];
+	req.packstepid[1] = step_ptr->packstepid[1];
 	req.req_uid     = step_ptr->requid;
 	if (step_ptr->start_time > step_ptr->job_ptr->resize_time)
 		req.start_time = step_ptr->start_time;

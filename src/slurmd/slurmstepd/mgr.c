@@ -2042,9 +2042,7 @@ _wait_for_any_task(stepd_step_rec_t *job, bool waitflag)
 			 * place or concurrent searches of the environment can
 			 * generate invalid memory references. */
 			job->envtp->env = env_array_copy((const char **) job->env);
-			env_t *env = job->envtp; // MNP debug
-			debug("******** MNP pid=%d, pack desc#=0, env->jobid=%d, env->stepid=%d, env->nodelist=%s", getpid(), env->jobid, env->stepid, env->nodelist);
-			debug("******** MNP pid=%d, env->ntasks=%d, env->procid=%d, env->localid=%d", getpid(), env->ntasks, env->procid, env->localid);
+	//nlk		env_t *env = job->envtp;
 			setup_env(job->envtp, false);
 			tmp_env = job->env;
 			job->env = job->envtp->env;
@@ -2351,8 +2349,6 @@ _send_launch_resp(stepd_step_rec_t *job, int rc)
 	resp.local_pids = xmalloc(job->node_tasks * sizeof(*resp.local_pids));
 	resp.task_ids = xmalloc(job->node_tasks * sizeof(*resp.task_ids));
 	for (i = 0; i < job->node_tasks; i++) {
-		debug("******** MNP pid=%d in _send_launch_resp, i=%d, job->task[i]->gtid=%d", getpid(), i, job->task[i]->gtid);
-		debug("******** MNP pid=%d in _send_launch_resp, i=%d, job->task[i]->utaskid=%d", getpid(), i, job->task[i]->utaskid);
 		resp.local_pids[i] = job->task[i]->pid;
 		resp.task_ids[i] = job->task[i]->gtid;
 	}

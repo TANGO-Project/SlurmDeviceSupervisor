@@ -124,6 +124,7 @@
 #define OPT_DELAY_BOOT  0x24
 #define OPT_INT64	0x25
 #define OPT_USE_MIN_NODES 0x26
+#define OPT_MPI_COMBINE 0x27
 
 /* generic getopt_long flags, integers and *not* valid characters */
 #define LONG_OPT_HELP        0x100
@@ -204,12 +205,12 @@
 #define LONG_OPT_PRIORITY        0x160
 #define LONG_OPT_ACCEL_BIND      0x161
 #define LONG_OPT_USE_MIN_NODES   0x162
+#define LONG_OPT_MPI_COMBINE     0x163
 #define LONG_OPT_MCS_LABEL       0x165
 #define LONG_OPT_DEADLINE        0x166
 #define LONG_OPT_DELAY_BOOT      0x167
 #define LONG_OPT_TASK_GROUP      0x168
 #define LONG_OPT_PACK_GROUP      0x169
-
 
 extern char **environ;
 extern bool packjob;
@@ -218,8 +219,8 @@ extern bool packleader;
 /*---- global variables, defined in opt.h ----*/
 int _verbose;
 opt_t opt;
-int mpi_curtaskid; // MNP PMI
-int mpi_curnodecnt; // MNP PMI
+int mpi_curtaskid;
+int mpi_curnodecnt;
 int error_exit = 1;
 int immediate_exit = 1;
 char *mpi_type = NULL;
@@ -252,7 +253,7 @@ static void _opt_args(int argc, char **argv);
 static void  _opt_list(void);
 
 /* verify options sanity  */
-static bool _opt_verify(void);
+static bool _opt_verify(int group_number);
 
 static void _process_env_var(env_vars_t *e, const char *val);
 static char *_read_file(char *fname);
@@ -305,7 +306,7 @@ int initialize_and_process_args(int argc, char *argv[])
 	/* initialize options with argv */
 	_opt_args(argc, argv);
 
-	if (!_opt_verify())
+	if (!_opt_verify(-1))
 		exit(error_exit);
 
 	if (_verbose)
@@ -344,7 +345,7 @@ int initialize_and_process_args_jobpack(int argc, char *argv[],
 	/* initialize options with argv */
 	_opt_args(argc, argv);
 
-	if (!_opt_verify())
+	if (!_opt_verify(group_number))
 		exit(error_exit);
 
 	if (_verbose > 3)
@@ -710,6 +711,7 @@ env_vars_t env_vars[] = {
 {"SLURM_MEM_PER_NODE",	OPT_INT64,	&opt.pn_min_memory, NULL             },
 {"SLURM_MLOADER_IMAGE", OPT_STRING,     &opt.mloaderimage,  NULL             },
 {"SLURM_MPI_TYPE",      OPT_MPI,        NULL,               NULL             },
+{"SLURM_MPI_COMBINE",   OPT_MPI_COMBINE, NULL,             NULL             },
 {"SLURM_NCORES_PER_SOCKET",OPT_NCORES,  NULL,               NULL             },
 {"SLURM_NETWORK",       OPT_STRING,     &opt.network,    &opt.network_set_env},
 {"SLURM_NNODES",        OPT_NODES,      NULL,               NULL             },
@@ -789,13 +791,13 @@ static void _opt_env_pack(uint32_t group_number)
 	debug("_opt_env_pack: group_number = %d", group_number);
 
 	while (e->var) {
-	        name = xmalloc(strlen(e->var) + 16);
-	        sprintf(name, "%s_PACK_GROUP_%d", e->var, group_number);
+		name = xmalloc(strlen(e->var) + 16);
+		sprintf(name, "%s_PACK_GROUP_%d", e->var, group_number);
 		if ((val = getenv(name)) != NULL &&
 		    strstr(name, "SLURM_RESV_PORTS_PACK_GROUP_") == NULL) {
-		        debug("_opt_env_pack: name = %s, value = %s", name,
+			debug("_opt_env_pack: name = %s, value = %s", name,
 			      val);
-		        _process_env_var(e, val);
+			_process_env_var(e, val);
 		}
 		xfree(name);
 		e++;
@@ -977,6 +979,19 @@ _process_env_var(env_vars_t *e, const char *val)
 		mpi_initialized = true;
 		break;
 
+	case OPT_MPI_COMBINE:
+		if (strcmp(val, "yes") == 0)
+			opt.mpi_combine = true;
+		else if (strcmp(val, "no") == 0)
+			opt.mpi_combine = false;
+		else {
+			error("\"%s=%s\" -- invalid MPI_COMBINE, "
+			      " must be yes or no.",
+			      e->var, val);
+			exit(error_exit);
+		}
+		break;
+
 	case OPT_SIGNAL:
 		if (get_signal_opts((char *)val, &opt.warn_signal,
 				    &opt.warn_time, &opt.warn_flags)) {
@@ -1051,7 +1066,8 @@ _parse_pack_group(const char *pack_group)
 		grp = (uint32_t) strtol(pack_group, &end, 10);
 		opt.ngrpidx = 1;
 		xfree(opt.groupidx);
-		opt.groupidx = (uint32_t *) xmalloc(opt.ngrpidx * sizeof(uint32_t));
+		opt.groupidx = (uint32_t *) xmalloc(opt.ngrpidx *
+						    sizeof(uint32_t));
 		opt.groupidx[0] = grp;
 		debug("JPCK: groupidx[0]=%d", 0);
 		return;
@@ -1069,7 +1085,9 @@ _parse_pack_group(const char *pack_group)
 			if (nr < 0)
 				goto error;
 			for (i=0; i<nr; i++) {
-				debug("JPCK: nr=%d range[%d] lo=%ld,hi=%ld,width=%d",nr,i,ranges[i].lo,ranges[i].hi,ranges[i].width);
+				debug("JPCK: nr=%d range[%d] lo=%ld,hi=%ld,"
+				      "width=%d",nr,i,ranges[i].lo,ranges[i].hi,
+				      ranges[i].width);
 			}
 		}
 	}
@@ -1203,6 +1221,7 @@ static void _set_options(const int argc, char **argv)
 		{"minthreads",       required_argument, 0, LONG_OPT_MINTHREADS},
 		{"mloader-image",    required_argument, 0, LONG_OPT_MLOADER_IMAGE},
 		{"mpi",              required_argument, 0, LONG_OPT_MPI},
+		{"mpi-combine",      required_argument, 0, LONG_OPT_MPI_COMBINE},
 		{"msg-timeout",      required_argument, 0, LONG_OPT_TIMEO},
 		{"multi-prog",       no_argument,       0, LONG_OPT_MULTI},
 		{"network",          required_argument, 0, LONG_OPT_NETWORK},
@@ -1637,11 +1656,22 @@ static void _set_options(const int argc, char **argv)
 				exit(error_exit);
 			}
 			break;
+		case LONG_OPT_MPI_COMBINE:
+			if (strcmp(optarg, "yes") == 0)
+				opt.mpi_combine = true;
+			else if (strcmp(optarg, "no") == 0)
+				opt.mpi_combine = false;
+			else {
+				error("\"--mpi-combine=%s\" -- invalid MPI_COMBINE, "
+				      " must be yes or no.", optarg);
+				exit(error_exit);
+			}
+			break;
 		case LONG_OPT_MPI:
 			xfree(mpi_type);
 			if ((packjob == true) && (opt.mpi_combine == true)) {
 				info ("WARNING - option --mpi ignored for "
-				      "packjob with --mpi-combine=yes");
+				      "pack member with --mpi-combine=yes");
 				break;
 			}
 			mpi_type = xstrdup(optarg);
@@ -2251,7 +2281,7 @@ static void _opt_args(int argc, char **argv)
  * _opt_verify : perform some post option processing verification
  *
  */
-static bool _opt_verify(void)
+static bool _opt_verify(int group_number)
 {
 	bool verified = true;
 	hostlist_t hl = NULL;
@@ -2532,7 +2562,15 @@ static bool _opt_verify(void)
 		/*
 		 *  make sure # of procs >= min_nodes
 		 */
-		if ((opt.ntasks < opt.min_nodes) && (opt.ntasks > 0)) {
+		int i;
+		bool check = true;
+		if (opt.ngrpidx > 0 && group_number == -1)
+			check = false;
+		for (i=0; i<opt.ngrpidx; i++) {
+			if (opt.groupidx[i] == group_number)
+				break;
+		}
+		if (check && (opt.ntasks < opt.min_nodes) && (opt.ntasks > 0)) {
 			info ("Warning: can't run %d processes on %d "
 			      "nodes, setting nnodes to %d",
 			      opt.ntasks, opt.min_nodes, opt.ntasks);
@@ -2788,13 +2826,13 @@ extern int pelog_set_env(int overwrite)
 		xstrcat(tmp_str, value);
 
 		for (i = 0; i < opt.pelog_env_size; i++) {
-		        if (strncmp(opt.pelog_env[i], tmp_str, len))
-			        continue;
+			if (strncmp(opt.pelog_env[i], tmp_str, len))
+				continue;
 			if (overwrite) {
-			        xfree(opt.pelog_env[i]);
+				xfree(opt.pelog_env[i]);
 				opt.pelog_env[i] = tmp_str;
 			} else
-			        xfree(tmp_str);
+				xfree(tmp_str);
 			xfree(name);
 			return 0;
 		}
@@ -3051,7 +3089,7 @@ static bool _under_parallel_debugger (void)
 
 static void _usage(void)
 {
- 	printf(
+	printf(
 "Usage: srun job_description(0) [ : job_description(1)] [...] [ : job_description(n)] \n"
 "            Where job_descriptions is \n"
 "            [-N nnodes] [-n ntasks] [-i in] [-o out] [-e err]\n"
@@ -3063,8 +3101,8 @@ static void _usage(void)
 "            [--checkpoint-dir=dir] [--licenses=names] [--clusters=cluster_names]\n"
 "            [--restart-dir=dir] [--qos=qos] [--time-min=minutes]\n"
 "            [--contiguous] [--mincpus=n] [--mem=MB] [--tmp=MB] [-C list]\n"
-"            [--mpi=type] [--account=name] [--dependency=type:jobid]\n"
-"            [--launch-cmd] [--launcher-opts=options]\n"
+"            [--mpi=type] [mpi-combine=yes|no] [--account=name]\n"
+"            [--dependency=type:jobid] [--launch-cmd] [--launcher-opts=options]\n"
 "            [--kill-on-bad-exit] [--propagate[=rlimits] [--comment=name]\n"
 "            [--cpu_bind=...] [--mem_bind=...] [--network=type]\n"
 "            [--ntasks-per-node=n] [--ntasks-per-socket=n] [reservation=name]\n"
@@ -3154,6 +3192,7 @@ static void _help(void)
 "                              changes\n"
 "      --mcs-label=mcs         mcs label if mcs plugin mcs/group is used\n"
 "      --mpi=type              type of MPI being used\n"
+"      --mpi-combine=yes|no    combine members of job_pack in one MPI_COMM_WORLD\n"
 "      --multi-prog            if set the program name specified is the\n"
 "                              configuration specification for multiple programs\n"
 "  -n, --ntasks=ntasks         number of tasks to run\n"

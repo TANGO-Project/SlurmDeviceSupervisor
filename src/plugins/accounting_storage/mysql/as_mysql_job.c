@@ -342,7 +342,7 @@ extern int as_mysql_job_start(mysql_conn_t *mysql_conn,
 				       mysql_conn->cluster_name,
 				       job_table, job_ptr->job_id,
 				       submit_time, begin_time, start_time);
-//		if (debug_flags & DEBUG_FLAG_DB_JOB)				/* wjb */
+		if (debug_flags & DEBUG_FLAG_DB_JOB)
 			DB_DEBUG(mysql_conn->conn, "query\n%s", query);
 		if (!(result =
 		      mysql_db_query_ret(mysql_conn, query, 0))) {
@@ -394,7 +394,7 @@ extern int as_mysql_job_start(mysql_conn_t *mysql_conn,
 				       mysql_conn->cluster_name,
 				       last_ran_table, check_time,
 				       check_time, check_time);
-//		if (debug_flags & DEBUG_FLAG_DB_JOB)				/* wjb */
+		if (debug_flags & DEBUG_FLAG_DB_JOB)
 			DB_DEBUG(mysql_conn->conn, "query\n%s", query);
 		rc = mysql_db_query(mysql_conn, query);
 		xfree(query);
@@ -457,9 +457,8 @@ no_rollup_change:
 	if (job_ptr->gres_alloc)
 		gres_alloc = slurm_add_slash_to_quotes(job_ptr->gres_alloc);
 
-	if (job_ptr->pack_leader)						/* wjb */
-		packid = job_ptr->pack_leader;					/* wjb */
-//info("in as_mysql_job.c packid is %u", packid);				/* wjb */
+	if (job_ptr->pack_leader)
+		packid = job_ptr->pack_leader;
 
 	if (!job_ptr->db_index) {
 		query = xstrdup_printf(
@@ -476,8 +475,8 @@ no_rollup_change:
 			xstrcat(query, ", id_wckey");
 		if (job_ptr->account)
 			xstrcat(query, ", account");
-		if (packid)							/* wjb */
-			xstrcat(query, ", packid");				/* wjb */
+		if (packid)
+			xstrcat(query, ", packid");
 		if (partition)
 			xstrcat(query, ", `partition`");
 		if (block_id)
@@ -521,8 +520,8 @@ no_rollup_change:
 			xstrfmtcat(query, ", %u", wckeyid);
 		if (job_ptr->account)
 			xstrfmtcat(query, ", '%s'", job_ptr->account);
-		if (packid)							/* wjb */
-			xstrfmtcat(query, ", %u", packid);			/* wjb */
+		if (packid)
+			xstrfmtcat(query, ", %u", packid);
 		if (partition)
 			xstrfmtcat(query, ", '%s'", partition);
 		if (block_id)
@@ -573,8 +572,8 @@ no_rollup_change:
 			xstrfmtcat(query, ", id_wckey=%u", wckeyid);
 		if (job_ptr->account)
 			xstrfmtcat(query, ", account='%s'", job_ptr->account);
-		if (packid)							/* wjb */
-			xstrfmtcat(query, ", packid=%u", packid);		/* wjb */
+		if (packid)
+			xstrfmtcat(query, ", packid=%u", packid);
 		if (partition)
 			xstrfmtcat(query, ", `partition`='%s'", partition);
 		if (block_id)
@@ -604,7 +603,7 @@ no_rollup_change:
 			xstrfmtcat(query, ", tres_req='%s'",
 				   job_ptr->tres_req_str);
 
-//		if (debug_flags & DEBUG_FLAG_DB_JOB)				/* wjb */
+		if (debug_flags & DEBUG_FLAG_DB_JOB)
 			DB_DEBUG(mysql_conn->conn, "query\n%s", query);
 	try_again:
 		if (!(job_ptr->db_index = mysql_db_insert_ret_id(
@@ -628,8 +627,8 @@ no_rollup_change:
 			xstrfmtcat(query, "id_wckey=%u, ", wckeyid);
 		if (job_ptr->account)
 			xstrfmtcat(query, "account='%s', ", job_ptr->account);
-		if (packid)							/* wjb */
-			xstrfmtcat(query, "packid=%u, ", packid);		/* wjb */
+		if (packid)
+			xstrfmtcat(query, "packid=%u, ", packid);
 		if (partition)
 			xstrfmtcat(query, "`partition`='%s', ", partition);
 		if (block_id)
@@ -676,7 +675,7 @@ no_rollup_change:
 			   array_task_id,
 			   begin_time, job_ptr->db_index);
 
-//		if (debug_flags & DEBUG_FLAG_DB_JOB)				/* wjb */
+		if (debug_flags & DEBUG_FLAG_DB_JOB)
 			DB_DEBUG(mysql_conn->conn, "query\n%s", query);
 		rc = mysql_db_query(mysql_conn, query);
 	}
@@ -962,8 +961,8 @@ extern int as_mysql_step_start(mysql_conn_t *mysql_conn,
 	char *node_inx = NULL, *step_name = NULL;
 	time_t start_time, submit_time;
 	char *query = NULL;
-	uint32_t packjobid = 0;							/* wjb */
-	uint32_t packstepid = 0;						/* wjb */
+	uint32_t packjobid = 0;
+	uint32_t packstepid = 0;
 
 	if (!step_ptr->job_ptr->db_index
 	    && ((!step_ptr->job_ptr->details
@@ -1083,9 +1082,8 @@ extern int as_mysql_step_start(mysql_conn_t *mysql_conn,
 
 	step_name = slurm_add_slash_to_quotes(step_ptr->name);
 
-		packjobid = step_ptr->packstepid[0];				/* wjb */
-		packstepid = step_ptr->packstepid[1];				/* wjb */
-//info("as_mysql_job.c packstepid = %u.%u", packjobid, packstepid);		/* wjb */
+		packjobid = step_ptr->packstepid[0];
+		packstepid = step_ptr->packstepid[1];
 
 	/* we want to print a -1 for the requid so leave it a
 	   %d */
@@ -1114,8 +1112,8 @@ extern int as_mysql_step_start(mysql_conn_t *mysql_conn,
 		step_ptr->cpu_freq_min, step_ptr->cpu_freq_gov,
 		step_ptr->tres_alloc_str);
 
-	if (packjobid)								/* wjb */
-		xstrcat(query, ", packjobid, packstepid");			/* wjb */
+	if (packjobid)
+		xstrcat(query, ", packjobid, packstepid");
 	xstrfmtcat(query,
 		   ") values (%d, %d, %d, '%s', %d, '%s', %d, %d, "
 		   "'%s', '%s', %d, %u, %u, %u",
@@ -1126,8 +1124,8 @@ extern int as_mysql_step_start(mysql_conn_t *mysql_conn,
 		   nodes, tasks, node_list, node_inx, task_dist,
 		   step_ptr->cpu_freq_max, step_ptr->cpu_freq_min,
 		   step_ptr->cpu_freq_gov);
-	if (packjobid)								/* wjb */
-		xstrfmtcat(query, ", %u, %u", packjobid, packstepid);		/* wjb */
+	if (packjobid)
+		xstrfmtcat(query, ", %u, %u", packjobid, packstepid);
 	xstrfmtcat(query,
 		   ") on duplicate key update "
 		   "nodes_alloc=%d, task_cnt=%d, time_end=0, state=%d, "
@@ -1138,10 +1136,11 @@ extern int as_mysql_step_start(mysql_conn_t *mysql_conn,
 		   node_list, node_inx, task_dist, step_ptr->cpu_freq_max,
 		   step_ptr->cpu_freq_min, step_ptr->cpu_freq_gov,
 		   step_ptr->tres_alloc_str);
-	if (packjobid)								/* wjb */
-		xstrfmtcat(query, ", packjobid=%u, packstepid=%u", packjobid,	/* wjb */
-			   packstepid);						/* wjb */
-	if (debug_flags & DEBUG_FLAG_DB_STEP)					/* wjb */
+	if (packjobid)
+		xstrfmtcat(query, ", packjobid=%u, packstepid=%u", packjobid,
+			   packstepid);
+	if (debug_flags & DEBUG_FLAG_DB_STEP)
+
 		DB_DEBUG(mysql_conn->conn, "query\n%s", query);
 	rc = mysql_db_query(mysql_conn, query);
 	xfree(query);
@@ -1289,7 +1288,8 @@ extern int as_mysql_step_complete(mysql_conn_t *mysql_conn,
 			   "max_pages_node=%u, ave_pages=%f, "
 			   "min_cpu=%u, min_cpu_task=%u, "
 			   "min_cpu_node=%u, ave_cpu=%f, "
-			   "act_cpufreq=%u, consumed_energy=%"PRIu64"",
+			   "act_cpufreq=%u, consumed_energy=%"PRIu64", "
+			   "packjobid=%u, packstepid=%u",
 			   /* user seconds */
 			   jobacct->user_cpu_sec,
 			   /* user microseconds */
@@ -1331,7 +1331,9 @@ extern int as_mysql_step_complete(mysql_conn_t *mysql_conn,
 			   jobacct->min_cpu_id.nodeid,	/* min cpu node */
 			   ave_cpu,	/* ave cpu */
 			   jobacct->act_cpufreq,
-			   jobacct->energy.consumed_energy);
+			   jobacct->energy.consumed_energy,
+			   step_ptr->packstepid[0],
+			   step_ptr->packstepid[1]);
 	}
 
 	/* id_step has to be %d here to handle the -2 -1 for the batch and

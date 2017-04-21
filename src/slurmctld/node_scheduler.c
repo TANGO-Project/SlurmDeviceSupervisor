@@ -86,6 +86,7 @@
 #include "src/slurmctld/sched_plugin.h"
 #include "src/slurmctld/slurmctld.h"
 #include "src/slurmctld/slurmctld_plugstack.h"
+#include "src/slurmctld/port_mgr.h"
 
 #define MAX_FEATURES  32	/* max exclusive features "[fs1|fs2]"=2 */
 
@@ -155,6 +156,8 @@ static int _will_jpck_ldr_run(struct job_record *job_ptr, bool orphan,
 				List preemptee_candidates,
 				bitstr_t *exc_core_bitmap);
 static void _addto_jobpack_pelog_env(struct job_record **job_pptr);
+static void _addto_jobpack_pelog_env_prolog (struct job_record **job_pptr);
+static void _set_resv_ports_jobpack(struct job_record *job_ptr);
 
 /*
  * _get_ntasks_per_core - Retrieve the value of ntasks_per_core from
@@ -2691,8 +2694,20 @@ extern int select_nodes_pack(struct job_record *job_ptr, bool test_only,
 	/* Request asynchronous launch of a prolog for a
 	 * non-batch job. */
 	if ((slurmctld_conf.prolog_flags & PROLOG_FLAG_ALLOC) ||
-	    (slurmctld_conf.prolog_flags & PROLOG_FLAG_CONTAIN))
-		_launch_prolog(job_ptr);
+	    (slurmctld_conf.prolog_flags & PROLOG_FLAG_CONTAIN)) {
+		/* Add certain vars to prolog env for jobpack */
+		if (job_ptr->pack_leader) { /* jobpack, only call for leader */
+			if (job_ptr->resv_port_flag &&
+			    job_ptr->resv_ports == NULL)
+				_set_resv_ports_jobpack(job_ptr);
+			if (job_ptr->job_id == job_ptr->pack_leader) {
+				_addto_jobpack_pelog_env_prolog(&job_ptr);
+				_launch_prolog(job_ptr);
+			}
+		}
+		else
+			_launch_prolog(job_ptr);
+	}
 
       cleanup:
 	if (job_ptr->array_recs && job_ptr->array_recs->task_id_bitmap &&
@@ -4428,5 +4443,102 @@ static void _addto_jobpack_pelog_env(struct job_record **job_pptr)
 
 	*job_pptr = job_ptr;
 
+	return;
+}
+
+/*
+  Build list of certain jobpack related env vars for the pack job
+  prolog environment. This procedure will only be called once - by
+  the packleader job being allocated. All pelog_env vars will be
+  saved for the entire jobpack during this one time call.
+ */
+static void _addto_jobpack_pelog_env_prolog (struct job_record **job_pptr)
+{
+	ListIterator depend_iter;
+	struct depend_spec *dep_ptr;
+	struct job_record *dep_job_ptr;
+	struct job_record *job_ptr;
+	char **env = NULL;
+	int numpack;
+	char *tmp;
+
+	job_ptr = *job_pptr;
+
+	if (job_ptr->pack_leader == 0) return;
+
+	if (job_ptr->pack_leader != job_ptr->job_id) return;
+
+	if (job_ptr && job_ptr->details == NULL)
+		return;
+
+	if (job_ptr && job_ptr->details->depend_list == NULL)
+	        return;
+
+	numpack = job_ptr->numpack;
+	env_array_append_fmt(&env, "SLURM_NUMPACK", "%d", numpack);
+
+	env_array_append_fmt(&env, "SLURM_NODELIST_PACK_GROUP_0",
+			     "%s", job_ptr->nodes);
+
+	if (job_ptr->resv_ports)
+	        env_array_append_fmt(&env, "SLURM_RESV_PORTS_PACK_GROUP_0",
+			     "%s", job_ptr->resv_ports);
+
+	tmp = xmalloc(40);
+	depend_iter =
+	        list_iterator_create(job_ptr->details->depend_list);
+	while ((dep_ptr = (struct depend_spec *)
+		list_next(depend_iter))) {
+	        if (dep_ptr->depend_type != SLURM_DEPEND_PACKLEADER)
+		        continue;
+		dep_job_ptr = dep_ptr->job_ptr;
+		sprintf(tmp, "SLURM_NODELIST_PACK_GROUP_%d",
+			dep_job_ptr->group_number);
+		env_array_append_fmt(&env, tmp, "%s", dep_job_ptr->nodes);
+		if (dep_job_ptr->resv_ports) {
+			sprintf(tmp, "SLURM_RESV_PORTS_PACK_GROUP_%d",
+				dep_job_ptr->group_number);
+			env_array_append_fmt(&env, tmp, "%s",
+					     dep_job_ptr->resv_ports);
+		}
+	}
+
+	/* add to pelog_env list for each pack job */
+	int envcnt = envcount(env);
+	if (envcnt) {
+		env_array_merge(&job_ptr->pelog_env,
+				(const char **) env);
+		job_ptr->pelog_env_size = envcnt;
+	}
+	list_iterator_reset(depend_iter);
+	while ((dep_ptr = (struct depend_spec *)
+		list_next(depend_iter))) {
+	        if (dep_ptr->depend_type != SLURM_DEPEND_PACKLEADER)
+		        continue;
+		dep_job_ptr = dep_ptr->job_ptr;
+		if (envcnt) {
+			env_array_merge(&dep_job_ptr->pelog_env,
+					(const char **) env);
+			dep_job_ptr->pelog_env_size = envcnt;
+			_launch_prolog (dep_job_ptr);
+		}
+	}
+
+	list_iterator_destroy(depend_iter);
+	xfree(tmp);
+
+	*job_pptr = job_ptr;
+
+	return;
+}
+
+static void _set_resv_ports_jobpack(struct job_record *job_ptr)
+{
+	job_ptr->resv_port_cnt = job_ptr->node_cnt;
+	int i = resv_port_alloc_jobpack(job_ptr);
+	if (i != SLURM_SUCCESS) {
+	        error("failed to reserve node ports assigned to job %u",
+		      job_ptr->job_id);
+	}
 	return;
 }

@@ -46,7 +46,7 @@
 #include "src/common/plugin.h"
 #include "src/common/plugrack.h"
 #include "src/common/xsignal.h"
-#include "src/api/step_ctx.h" // MNP PMI
+#include "src/api/step_ctx.h"
 
 
 typedef struct {
@@ -168,7 +168,6 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 	unsigned long step_wait = 0;
 	uint16_t base_dist, slurmctld_timeout;
 
-	debug("******** MNP entering launch_common_create_job_step"); // MNP debug
 	if (!job) {
 		error("launch_common_create_job_step: no job given");
 		return SLURM_ERROR;
@@ -202,13 +201,18 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 
 	if (!opt.ntasks_set && (opt.ntasks_per_node != NO_VAL))
 		job->ntasks = opt.ntasks = job->nhosts * opt.ntasks_per_node;
-	opt.mpi_stepftaskid = mpi_curtaskid; // MNP PMI
+	opt.mpi_stepftaskid = mpi_curtaskid;
 	if (!opt.mpi_combine) {
-		debug("******** MNP pid=%d, in launch_common_create_job_step, setting opt.stepftaskid=0", getpid());
-		opt.mpi_stepftaskid = 0; // MNP --mpi-combine
+		opt.mpi_stepftaskid = 0;
 	}
-	mpi_curtaskid += opt.ntasks; // MNP PMI
-	mpi_curnodecnt += job->nhosts; // MNP PMI
+	mpi_curtaskid += opt.ntasks;
+	opt.mpi_stepfnodeid = mpi_curnodecnt;
+	if (!opt.mpi_combine) {
+		opt.mpi_stepfnodeid = 0;
+	}
+	mpi_curnodecnt += job->nhosts;
+	opt.packstepid[0] = packstepid[0];
+	opt.packstepid[1] = packstepid[1];
 	job->ctx_params.task_count = opt.ntasks;
 
 	if (opt.mem_per_cpu != NO_VAL64)
@@ -307,7 +311,7 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 	else
 		job->ctx_params.name = opt.cmd_name;
 	job->ctx_params.features = opt.constraints;
-	job->ctx_params.mpi_jobid = opt.mpi_jobid; // MNP PMI
+	job->ctx_params.mpi_jobid = opt.mpi_jobid;
 
 	debug("requesting job %u, user %u, nodes %u including (%s)",
 	      job->ctx_params.job_id, job->ctx_params.uid,
@@ -339,20 +343,18 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 			if (i > 0)
 				info("Job step created");
 
-			// MNP PMI start
-			job->step_ctx->mpi_jobid = opt.mpi_jobid; // MNP PMI
-			debug("******** MNP, in launch_common_create_job_step, job->step_ctx->mpi_jobid = opt.mpi_jobid=%d", opt.mpi_jobid);
+			job->step_ctx->mpi_jobid = opt.mpi_jobid;
 			slurm_step_ctx_t *step_ctx = job->step_ctx;
-			job_step_create_response_msg_t *step_resp = step_ctx->step_resp;
+			job_step_create_response_msg_t *step_resp =
+					step_ctx->step_resp;
 			slurm_step_layout_t *layout = step_resp->step_layout;
-//			layout->mpi_tids = xmalloc(layout->task_cnt * sizeof(uint32_t));
-			debug("******** MNP pid=%d, in launch_common_create_job_step", getpid());
 			for (j=0; j<layout->node_cnt; j++) {
 				for(k=0; k<layout->tasks[j]; k++) {
-					layout->mpi_tids[j][k] = layout->tids[j][k] + opt.mpi_stepftaskid;
-					debug("******** MNP pid=%d, tids[%d][%d]=%d, mpi_tids[%d][%d]=%d", getpid(),j,k,layout->tids[j][k],j,k,layout->mpi_tids[j][k]);
+					layout->mpi_tids[j][k] =
+						layout->tids[j][k] +
+						opt.mpi_stepftaskid;
 				}
-			} // MNP PMI end
+			}
 			break;
 		}
 		rc = slurm_get_errno();
@@ -367,7 +369,6 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 		     (rc != ESLURM_INTERCONNECT_BUSY) &&
 		     (rc != ESLURM_DISABLED))) {
 			error ("Unable to create job step: %m");
-			debug("******** MNP opt.immediate = %d, rc = %d", opt.immediate, rc); // MNP debug
 			return SLURM_ERROR;
 		}
 
@@ -417,7 +418,6 @@ extern int launch_common_create_job_step(srun_job_t *job, bool use_all_cpus,
 	 */
 	job_update_io_fnames(job);
 
-	debug("******** MNP exiting launch_common_create_job_step"); // MNP debug
 	return SLURM_SUCCESS;
 }
 
@@ -426,7 +426,6 @@ extern void launch_common_set_stdio_fds(srun_job_t *job,
 {
 	bool err_shares_out = false;
 	int file_flags;
-
 	if (opt.open_mode == OPEN_MODE_APPEND)
 		file_flags = O_CREAT|O_WRONLY|O_APPEND;
 	else if (opt.open_mode == OPEN_MODE_TRUNCATE)
@@ -462,6 +461,7 @@ extern void launch_common_set_stdio_fds(srun_job_t *job,
 				job->ifname->taskid);
 		}
 	}
+
 
 	/*
 	 * create stdout file descriptor

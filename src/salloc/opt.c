@@ -181,6 +181,7 @@ int immediate_exit = 1;
 
 extern bool packjob;
 extern bool packleader;
+extern uint32_t pack_desc_count;
 
 /*---- forward declarations of static functions  ----*/
 
@@ -1057,7 +1058,7 @@ void set_options(const int argc, char **argv)
 			}
 			opt.delay_boot = (uint32_t) i;
 			break;
-                case LONG_OPT_EXCLUSIVE:
+		case LONG_OPT_EXCLUSIVE:
 			if (optarg == NULL) {
 				opt.shared = JOB_SHARED_NONE;
 			} else if (!xstrcasecmp(optarg, "user")) {
@@ -1068,7 +1069,7 @@ void set_options(const int argc, char **argv)
 				error("invalid exclusive option %s", optarg);
 				exit(error_exit);
 			}
-                        break;
+			break;
 		case LONG_OPT_MINCPU:
 			opt.mincpus = parse_int("mincpus", optarg, true);
 			if (opt.mincpus < 0) {
@@ -1404,7 +1405,7 @@ void set_options(const int argc, char **argv)
 			opt.wait_all_nodes = strtol(optarg, NULL, 10);
 			break;
 		case LONG_OPT_CPU_FREQ:
-		        if (cpu_freq_verify_cmdline(optarg, &opt.cpu_freq_min,
+			if (cpu_freq_verify_cmdline(optarg, &opt.cpu_freq_min,
 					&opt.cpu_freq_max, &opt.cpu_freq_gov))
 				error("Invalid --cpu-freq argument: %s. "
 						"Ignored", optarg);
@@ -1436,7 +1437,11 @@ void set_options(const int argc, char **argv)
 			opt.job_flags |= SPREAD_JOB;
 
 		case LONG_OPT_RESV_PORT:
-			opt.resv_port_flag = true;
+			if (pack_desc_count < 2)
+				info("WARNING - option --resv-port ignored, "
+				     "allowed for Job-Packs only");
+			else
+				opt.resv_port_flag = true;
 			break;
 		case LONG_OPT_USE_MIN_NODES:
 			opt.job_flags |= USE_MIN_NODES;
@@ -2180,7 +2185,7 @@ static void _opt_list(void)
 
 static void _usage(void)
 {
- 	printf(
+	printf(
 "Usage: salloc job_description(0) [ : job_description(1)] [...] [ : job_description(n)] \n"
 "              Where job_descriptions is \n"
 "              [[-c cpus-per-node] [-r n] [-p partition] [--hold] [-t minutes]\n"
@@ -2212,7 +2217,7 @@ static void _help(void)
 {
 	slurm_ctl_conf_t *conf;
 
-        printf (
+	printf (
 "Usage: salloc job_description(0) [ : job_description(1)] [...] [ : job_description(n)] \n"
 "              Each job_descriptiong is [OPTIONS...] executable [args...]\n"
 "\n"

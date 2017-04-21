@@ -1881,6 +1881,7 @@ typedef struct {
 	uint32_t mpi_jobid;	/* MPI jobid (same for all steps) */
 	uint32_t mpi_ntasks;	/* number of MPI tasks for all steps */
 	uint32_t mpi_nnodes;	/* number of MPI nodes for all steps */
+	uint32_t mpi_stepfnodeid; /* first nodeid for this step */
 	uint32_t mpi_stepftaskid; /* first MPI taskid for this step */
 	uint32_t num_tasks;	/* number of tasks in this step */
 	uint32_t slurmd_debug;  /* remote slurmd debug level */
@@ -1917,6 +1918,8 @@ typedef struct {
 	char **pelog_env;	/* other environment variables for job
 				   prolog/epilog */
 	uint32_t pelog_env_size; /* element count in pelog_env */
+	uint32_t packstepid[2]; /* jobid of srun first step of the jobpack
+				 * & stepid of jobpack member */
 } slurm_step_launch_params_t;
 
 typedef struct {
@@ -1983,6 +1986,8 @@ typedef struct {
 	uint32_t time_limit;	/* step time limit */
 	char *tres_alloc_str;   /* tres used in the job */
 	uint32_t user_id;	/* user the job runs as */
+	uint32_t packstepid[2]; /* jobid of srun first step of the jobpack
+				 * & stepid of jobpack member */
 } job_step_info_t;
 
 typedef struct job_step_info_response_msg {

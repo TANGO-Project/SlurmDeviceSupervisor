@@ -1,19 +1,20 @@
 <!--#include virtual="header.txt"-->
 
-<h1> Co-Scheduled Jobs (Job Packs or Heterogeneous Resources)</h1>
+<h1> Co-Scheduled Jobs (Job Packs)</h1>
 <a name="Overview"></a>
 <h2>Overview</h2>
 <p>The purpose of this guide is to assist Slurm users and administrators in
-Co-Scheduling Jobs. The document is divided into the following sections:</p>
+using co-scheduled jobs (Job Packs). The document is divided into the
+following sections:</p>
 <!-- The section numbers do not have to be in this order. as we add new ones we need to
 reorganize based on what maked sense for the end user -->
 <ul>
 <li><a href="#Overview">Overview</a></li>
 <li><a href="#Section1">Definition of Terms</a></li>
-<li><a href="#Section2">Specification Language and Command Line Syntax</a></li>
-<li><a href="#Section3">Resource Allocation</a></li>
-<li><a href="#Section4">Command and Configuration Changes</a></li>
-<li><a href="#Section5">All things MPI</a></li>
+<li><a href="#Section2">Command Changes</a></li>
+<li><a href="#Section3">Configuration Changes</a></li>
+<li><a href="#Section4">Job Management</a></li>
+<li><a href="#Section5">MPI Support</a></li>
 <li><a href="#Section6">Environment Variables</a></li>
 <li><a href="#Section7">Accounting</a></li>
 <li><a href="#Section8">Limitations</a></li>
@@ -21,15 +22,19 @@ reorganize based on what maked sense for the end user -->
 </ul>
 
 
-<p>Co-Scheduling of jobs is also called job_packs and sometimes refered to as
-Heterogeneous Resources. It is scheduling of multiple job allocations such that
-they run in parallel to run a common application. The co-scheduled jobs can all
-participate in the same MPI-Comm-World.
+<p>Co-scheduling of jobs is also called Job Packs, Heterogeneous Resources or
+Asymmetric Resources. It is the scheduling of multiple jobs
+submitted by a single salloc, sbatch or srun command, and the
+launching of multiple job steps using a single srun command, such that the
+jobs and steps run concurrently to run a common application. Tasks belonging
+to the co-scheduled jobs and steps can all participate in the same
+MPI_COMM_WORLD communicator.
 </p>
 
 <p>
-It addresses the need to have nodes with different characteristics as part of
-the same step. For example
+This feature addresses the need for more efficient resource management by
+targeting specific components of an application to nodes with specific
+characteristics that match their requirements. For example
 <ul>
 <li>
 A node with lots of memory for the serial startup/wrapup phase.
@@ -42,7 +47,7 @@ Nodes with Fast I/O to store the results.
 </li>
 <li>
 And these nodes run different executables that are part of the same
-MPI_Comm_World
+MPI_COMM_WORLD.
 </li>
 </ul>
 </p>
@@ -53,7 +58,7 @@ This job could be defined as;
 srun -N 1 -Cbig ./controller : -N 1000 -gres=gpu ./worker : -N 10 -pIO ./saver
 </p>
 <p>
-Where the srun command accepts a colon separated list of Job Descriptions.
+Where the srun command accepts a colon-separated list of Job Descriptions.
 A Job Description is essentially the full set of options available for a
 normal srun
 </p>
@@ -65,84 +70,229 @@ normal srun
 <h2>Definition of Terms</h2>
 
 <p>
-<b>Job Pack</b> (long form: Heterogeneous Job Pack) - A collection of jobs that
+<b>Job Pack</b> - A collection of jobs that
 may have different resource specifications and other options, managed for
-certain purposes (e.g., resource allocation, step launch) as a single entity.
+certain purposes (e.g., scheduling, step launch) as a single entity.
 </p>
 <p>
-<b>Pack Member Job</b> (short form: Pack Member) Any individual job in a
-Job Pack.
+<b>Pack Leader</b> - The first job in a Job Pack, used to manage and
+reference the Job Pack as a single entity. Each Job Pack contains only one
+Pack Leader Job.
 </p>
 <p>
-<b>Pack Leader Job</b> (short form: Pack Leader) - A Pack Member Job used to
-manage and reference the Job Pack as a single entity. Each Job Pack contains
-only one Pack Leader Job.
+<b>Pack Member</b> - Any individual job in a Job Pack, except the
+Pack Leader Job.
 </p>
 <p>
 <b>Job Pack Description</b> - A complete set of salloc, sbatch or standalone
-srun command line elements that define all of the Pack Member Jobs in a Job Pack.
+srun command line elements that define all of the jobs in a Job Pack.
 </p>
 <p>
-<b>Job Description</b> (long form: Pack Member Job Description) - A set of
+<b>Job Description</b> - A set of
 salloc, sbatch or standalone srun command line elements that define an
-individual Pack Member Job in a Job Pack. Adjacent Job Descriptions within a
+individual job in a Job Pack. Adjacent Job Descriptions within a
 Job Pack Description are separated by a colon.
 </p>
 <p>
-<b>Pack Group</b> (long form: Job Pack Group) - An integer value used to
-identify an individual Pack Member Job in a Job Pack. Pack Groups are assigned
+<b>Pack Group</b> - An index used to
+identify an individual job in a Job Pack. Pack Groups are assigned
 based on the order of Job Descriptions in a Job Pack Description, starting at
 zero for the first Job Description. The job identified by Pack Group 0 is the
 Pack Leader Job.
 </p>
 <p>
-Step Description (long form: Job Pack Step Description) A set of
+<b>Step Description</b> - A set of
 step-launch-only srun command line elements that define a step and identify
-each Pack Member Job for which the step is to be launched, using the
+each job for which the step is to be launched, using the
 corresponding Pack Group. Adjacent Step Descriptions within a complete
 step-launch-only srun command are separated by a colon.
 </p>
 
 <a name="Section2"></a>
-<h2>Specification Language and Command Line Syntax</h2>
+<h2>Command Changes</h2>
 
 <p>
 For Job Packs, the syntax of the salloc, sbatch and srun commands is expanded
-to support multiple jobs and steps.
+to support co-scheduled jobs and multiple steps.
 </p>
-<h3>New salloc command syntax</h3>
-salloc [options 0] [command 0 [command args 0]] [...] : [options n]
-<h3>New sbatch command syntax</h3>
-sbatch [options 0] script 0 [script args 0] [...] : [options n] [ script n [script args n]]
+<h3>Expanded salloc Command Syntax</h3>
+<b>salloc [options 0] [command 0 [command args 0]] [...] : [options n]</b>
+<h3>Expanded sbatch Command Syntax</h3>
+<b>sbatch [options 0] script 0 [script args 0] [...] : [options n] [ script n
+[script args n]]</b>
 <p>
-The pack leader <i>must</i> have a script. It executes on the first node of its allocation.
-Other job_descriptions <i>may</i> have a script. If present those scripts run on the first
-node of their respective allocation.
+The pack leader <i>must</i> have a script. It executes on the first node of
+its allocation. Other job descriptions <i>may</i> have a script. If present
+those scripts run on the first node of their respective allocation.
 </p>
 <p>
-Note the scripts are not synchronized. (.i.e. step(i) of job(n) will not necessarily
-run at the same time as step(i) of job(m).)
+Note the scripts are not synchronized. (.i.e. step(i) of job(n) will not
+necessarily run at the same time as step(i) of job(m).)
 </p>
-<h3>New srun command syntax</h3>
-srun [options 0] executable 0 [executable args 0] [...] : [options n] executable n [executable args n]
+<h3>Expanded srun Command Syntax</h3>
+<b>srun [options 0] executable 0 [executable args 0] [...] : [options n]
+executable n [executable args n]</b>
 <p>
 Each set of colon-separated command line elements on a salloc, sbatch or
-standalone srun command line is referred to as a job description. A single job
-is created from each job description. For standalone srun commands, a single
-step is created for each job. For step-launch-only srun commands, each set of
-colon-separated elements is referred to as a step description. One or more
-steps is created from each step description, depending on the value of the
---pack-group option. <a href="#srun_options">See srun options</a>
+standalone srun command line is a Job Description. A single job
+is created from each Job Description. For standalone srun commands, a single
+step is launched for each job. For step-launch-only srun commands, each set of
+colon-separated elements is a Step Description. One or more
+steps is created from each Step Description, depending on the value of the
+<b>--pack-group</b> option. See the <a href="srun.html">srun man page</a> for
+more information.
 </p>
+<h3>Additional Command Changes</h3>
+<h4>sacct</h4>
+Three new job accounting fields were introduced in the sacct command  in
+support of Job Packs.  Designation of PackID will result in the display
+of the jobid of the pack leader for the Job Pack.   Designation  of
+PackJobID will result in the display of the jobid of the  srun first step
+of the jobpack.  Designating PackStepID will result in the display of the
+stepid of the Job Pack member.
+<br><br>
+See the <a href="sacct.html">sacct man page</a> for more information.
 
+<h4>salloc</h4>
+Changes to option <b>--resv-port</b><br>
+	Flag used to reserve one port for each node in the allocation.
+	Once this flag is set subsequent job steps will have access to
+	a Job Pack environment variable named SLURM_RESV_PORT_PACK_GROUP_N
+	(generated by srun) where N is the Job Pack group index number and
+	its value will be the port numbers reserved. This environment
+	variable may be useful in prolog and/or epilog scripts, for example
+	mounting/unmounting of file systems.<br><br>
+See the <a href="salloc.html">salloc man page</a> for more information.
 
+<h4>sbatch</h4>
+Changes to option <b>--resv-port</b><br>
+	Flag used to reserve one port for each node in the allocation.
+	Once this flag is set subsequent job steps will have access to
+	a Job Pack environment variable named SLURM_RESV_PORT_PACK_GROUP_N
+	(generated by srun) where N is the Job Pack group index number and
+	its value will be the port numbers reserved. This environment
+	variable may be useful in prolog and/or epilog scripts, for example
+	mounting/unmounting of file systems.<br><br>
+See the <a href="sbatch.html">sbatch man page</a> for more information.
+
+<h4>scancel</h4>
+New option <b>--pack-member</b> to allow pack member jobs to be
+cancelled.
+<br><br>
+See the <a href="scancel.html">scancel man page</a> for more information.
+
+<h4>scontrol</h4>
+scontrol show job has been enhanced to display dependencies between
+pack members and pack leaders.
+<br><br>
+See the <a href="scontrol.html">scontrol man page</a> for more information.
+
+<h4>squeue</h4>
+New option <b>--dependency, -d</b> to display dependencies between
+pack members and pack leaders. Example output:
+<br><br>
+<pre>
+JOBID DEPENDENCY PARTITION     NAME     USER ST       TIME  NODES NODELIST(REASON)
+11390 packleader      trek     bash    slurm  R       3:17      3 trek[3-5]
+      \__ 11388       trek     bash    slurm  R       3:17      1 trek3
+      \__ 11389       trek     bash    slurm  R       3:17      2 trek[3-4]
+</pre>
+
+See the <a href="squeue.html">squeue man page</a> for more information.
+
+<h4>srun</h4>
+New option <b>--pack-group</b> to specify the job(s) for which a step is
+to be launched from a Step Description.
+<br><br>
+New option <b>--mpi-combine</b> to specify whether to combine steps into
+a common MPI_COMM_WORLD or launch each step as a separate MPI_COMM_WORLD.
+<br><br>
+The option <b>-l, --label</b> has been changed as follows. By default,
+the option displays universal taskids (unique within the
+srun command). If used with --mpi-combine=no, the option displays global
+taskids (unique within an individual step). Note that for single-step sruns,
+universal taskid and global taskid are the same.
+<br><br>
+See the <a href="srun.html">srun man page</a> for more information.
+
+<h4>sstat</h4>
+Two new job status fields were introduced in the sstat command  in support of
+Job Packs. Designating  PackJobID will result in the display of jobid of srun
+first step of the Job Pack. Designating PackStepID will result in the display
+of the stepid of the Job Pack member.
+<br><br>
+See the <a href="sstat.html">sstat man page</a> for more information.
+<h4>Illegal Options</h4>
+Pack members are pending until the pack leader is scheduled. This means
+some scheduling options for srun, salloc and sbatch commands are supported
+only for the pack leader and are not supported for pack members since
+they have no effect.   Designating any of following options, if available
+for the specific command, for pack members results in the display of a
+warning message and  the option is ignored:
+<p>
+ <b>--begin=time<br>
+ -d, --dependency=<br>
+ -H, --hold<br>
+ -I, --immediate=<br>
+--jobid=</b> (not allowed  for pack leader &  pack members)<br>
+ <b>--mpi=type</b> (only allowed for a pack member if mpi-combine=no is also
+ specified)<br>
+ <b>--nice=<br>
+--priority=<br>
+ -q, --quit-on-interrupt<br>
+ --pack-group=</b> (invalid for sbatch & salloc and for srun not within
+ an allocation)<br>
+<b>-t, --time<br>
+-W, --wait=<br>
+-X, --disable-status<br>
+--ignore-pbs<br><br></b>
+<h3>Test and development options for salloc, sbatch, srun</h3>
+<h5>----Dependency=&lt;pack|packleader:jobid&lt;...:jobid&gt;&gt;</h5>
+The --dependency option is extended with two more dependencies.
+<ul>
+<li><b>pack</b> declares the job as a pack member.</li>
+<li><b>packleader:jobid&lt;...:jobid&gt;&gt;</b> declares the job
+as a pack leader and identifies its members</li>
+</ul>
+The salloc, sbatch, srun parsers submit member jobs based on
+colen separated job descriptions on the command line. Members
+are submitted with the -dpack dependency. Their job_ids are
+saved, and then added to the -dpackleader job submission.
+<p>
+For example, the following srun
+</p>
+srun -N1 sleep 30 : -N2 sleep 20 : -N3 sleep 10
+<p>
+is treated internally as
+</p>
+srun -N3 -dpack sleep 10 (assigned job_id=101)
+<br />
+srun -N2 -dpack sleep 20 (assigned job_id=102)
+<br />
+srun -N1 -dpackleader:101:102 sleep 30 (assigned job_id=103)
+<p>
+Note these dependencies are legal on manually submitted commands,
+but since they are indended to be used by parsing Job Pack
+submissions they are not documented on the man pages for
+salloc, sbatch, and srun. This use is for development
+and test.
+</p>
 <a name="Section3"></a>
-<h2>Resource Allocation</h2>
+<h2>Configuration Changes</h2>
+
+<h4>Slurm.conf</h4>
+
+<h5>DebugFlags=JobPack</h5>
+When the <b>JobPack</b> debug flag is specified, detailed log entries are
+made about Job Pack scheduling, allocation, and task management. The log
+entries are all prefaced with the string <b>JPCK</b>.
+<a name="Section4"></a>
+<h2>Job Management</h2>
 
 <h3>Job Submission</h3>
 <p>
 The salloc, sbatch, and srun clients effectively split the command line using
-free standing colons. The set of option between the colons representing job pack
+free standing colons. The set of option between the colons representing Job Pack
 members. The first member is the pack leader.
 </p>
 
@@ -159,7 +309,7 @@ The pack leader is scheduled in a normal fashion. When it becomes the highest
 priority job in the queue, the scheduler attempts to allocate resources for
 each member. This allocation attempt is not a test, but a run-now attempt.
 (This leads to subtle side effects explain later.) If a subsequent member of
-the job pack can't be allocated, all prior members are deallocated. All members
+the Job Pack can't be allocated, all prior members are deallocated. All members
 are pending.
 </p>
 
@@ -169,21 +319,20 @@ are pending.
 Pack members will generally have the same state as the pack leader.
 </p>
 <p>
-Pack members of sbatch and salloc submitted jobs will complete when the pack leader
-completes.
-The resources of a pack member can be released before the pack leader terminates
-by using scancel --pack-member.
+Pack members of sbatch and salloc submitted jobs will complete when the pack
+leader completes. The resources of a pack member can be released before the
+pack leader terminates by using scancel --pack-member.
 </p>
 <p>
-The pack members of a job submitgted with srun complete when the member completes,
-or when the leader completes.
+The pack members of a job submitgted with srun complete when the member
+completes, or when the leader completes.
 </p>
 <p>
 If tasks are still running on the resources of the pack members when
 the pack leader completes they will be terminated.
 </p>
 <p>
-Errors that cause one member to be killed typically kill the entire job pack.
+Errors that cause one member to be killed typically kill the entire Job Pack.
 </p>
 
 
@@ -191,13 +340,13 @@ Errors that cause one member to be killed typically kill the entire job pack.
 <p>
 The Backfill Scheduler still works, providing lower priority jobs meet the time
 limit constraints of the leader. A lower priority normal job will backfill and
-run before a higher priority job pack and a job pack will run before a higher
+run before a higher priority Job Pack and a Job Pack will run before a higher
 priority normal job.
 </p>
 
 <h3>Job Preemption</h3>
 <p>
-Members of a job_pack cannot be preempted.
+Members of a Job Pack cannot be preempted.
 </p>
 <p>
 The pack leader can preempt legacy jobs, but only the resource requirements of
@@ -205,13 +354,13 @@ the leader will be used to find lower priority. (When the pack leader's request
 is evaluated, the members have already been allocated.)
 </p>
 <p>
-Pack members cannot preempt other jobs. This is because, when a job pack is to
+Pack members cannot preempt other jobs. This is because, when a Job Pack is to
 be allocated, each member is allocated. When any member (or the leader) can't
 be allocated, the previous members are deallocated. If such a deallocated job
 had preempt a normal job, that normal job should still be running.
 </p>
 <p>
-For example a job pack has three members with jobid=501,502,503. We evaluate
+For example a Job Pack has three members with jobid=501,502,503. We evaluate
 the requirements of 501 and it can be satisfied by preempting job 255. When
 502 is evaluated, and its requirements can't be met, 501 is deallocated.
 However, 255 was preempted 501 was allocated, so it is either cancelled,
@@ -231,7 +380,8 @@ run on an idle cluster may be diagnosed as never being able to run.
 
 <h5>Pack members require too many nodes</h5>
 <p>
-In a cluster of 6 nodes, <b>srun -N5 --exclusive : -N2 --exclusive : -N2 --exclusive</b> gets the following results.
+In a cluster of 6 nodes, <b>srun -N5 --exclusive : -N2 --exclusive : -N2
+--exclusive</b> gets the following results.
 </p>
 <pre>
        JOBID PARTITION    NAME      USER   ST   TIME  NODES NODELIST(REASON)
@@ -246,7 +396,7 @@ eventually terminate and let 405 run.
 
 <h5>Pack Member Never Runs</h5>
 <p>
-On a system with 8 nodes, the following job pack will not run.
+On a system with 8 nodes, the following Job Pack will not run.
 </p>
 <p>
 <b>srun -N2 --exclusive : -N5 --exclusive : -N5 --exclusive</b>
@@ -270,7 +420,7 @@ in pick_best_nodes with selects candidate nodes base on the allocation request.
 A new test for members has been constructed in which when a member can't be
 allocated the cluster is tested to see if all nodes are idle. If all nodes are
 idle, then the leader and the pack jobs are killed. This too is a weak test
-that might kill some job packs that theoretically could run, but at least it
+that might kill some Job Packs that theoretically could run, but at least it
 doesn't allow the cluster to hang.
 </p>
 
@@ -298,8 +448,8 @@ chance to intervene. This condition will exist until an internal timeout expires
 
 <h5>Pack leader fails with Run Time Exhausted during step creation</h5>
 <p>
-When a member is exclusively allocated (either--exclusive or Shared=EXCLUSIVE) on a
-partition, and the member is in the pack-group of more than one step
+When a member is exclusively allocated (either--exclusive or Shared=EXCLUSIVE)
+on a partition, and the member is in the pack-group of more than one step
 <br />(srun --pack-group=0 ... : --pack-group=0 ...) <br />
 then step creation fails.
 </p>
@@ -312,169 +462,210 @@ and tries later. Eventually the pack_leader times out.
 <p>
 When this condition occures, the job is terminated with the message
 <br />
-<b>JPCK: nodes  busy, assume job_pack with exclusive allocation</b>
+<b>JPCK: nodes  busy, assume Job Pack with exclusive allocation</b>
 </p>
-
-<h4>Illegal Options</h4>
-Pack members are pending until the pack leader is scheduled. This means
-some scheduling options are illegal on pack members since the have
-no effect. (Priority, for example only affect the leader.)
-
-<hr>
-<hr>
-<hr>
-<b>TBD --- list of options or link to help page.</b>
-<hr>
-<hr>
-<hr>
-
-<a name="Section4"></a>
-<h2>Command and Configuration Changes</h2>
-
-<hr>
-<hr>
-<hr>
-<b>TBD --- list of options or link to help page.</b>
-<hr>
-<hr>
-<hr>
-
-<h4>Slurm.conf</h4>
-
-<h5>DebugFlags=JobPack</h5>
-When the <b>JobPack</b> debug flag is specified, detailed log entries are made about
-job_pack scheduling, allocation, and task management. The log entries are all prefaced
-with the string <b>JPCK</b>.
-
-<hr>
-<hr>
-<hr>
-<b>All TBD, I don't think we need to replicate the MAN page by listing each option or ENV.
-provide links where neccissary. I think what is needed is overview material and
-how everything interacts.</b>
-<hr>
-<hr>
-<hr>
-
-<h4>salloc, sbatch, srun</h4>
-<h5>----Dependency=&lt;pack|packleader:jobid&lt;...:jobid&gt;&gt;</h5>
-The --dependency option is extended with two more dependencies.
-<ul>
-<li><b>pack</b> declares the job as a pack member.</li>
-<li><b>packleader:jobid&lt;...:jobid&gt;&gt;</b> declares the job
-as a pack leader and identifies its members</li>
-</ul>
-The salloc, sbatch, srun parsers submit member jobs based on
-colen separated job descriptions on the command line. Members
-are submitted with the -dpack dependency. Their job_ids are
-saved, and then added to the -dpackleader job submission.
-<p>
-For example, the following srun
-</p>
-srun -N1 sleep 30 : -N2 sleep 20 : -N3 sleep 10
-<p>
-is treated internally as
-</p>
-srun -N3 -dpack sleep 10 (assigned job_id=101)
-<br />
-srun -N2 -dpack sleep 20 (assigned job_id=102)
-<br />
-srun -N1 -dpackleader:101:102 sleep 30 (assigned job_id=103)
-<p>
-Note these dependencies are legal on manually submitted commands,
-but since they are indended to be used by parsing job_pack
-submissions they are not documented on the man pages for
-salloc, sbatch, and srun. This use is for development
-and test.
-</p>
-
-<a name="srun_options"></a>
-<h4>New options for srun command</h4>
-<h5>--pack-group=expr</h5>
-Identify each job in a Job Pack for which a step is to be created. Applies only
-to srun commands issued inside a salloc allocation or sbatch script. expr is a
-set of integers corresponding to one or more options indexes on the salloc or
-sbatch command line.
-<p>
-Examples:
-</p>
-<ul>
-<li>
-srun <b>--pack-group=2</b> cmd
-<br />
-<i>cmd</i> will run on the resources of job_description 2.
-</li>
-<li>
-srun <b>--pack-group=[0,4]</b> cmd
-<br />
-<i>cmd</i> will run on the resources of job_descriptions 2 and 4.
-</li>
-<li>
-srun <b>--pack-group=[1,3-5]</b> cmd
-<br />
-<i>cmd</i> will run on the resources of job_descriptions 1, 3, 4, and 5.
-</li>
-</ul>
-The default value is --pack-group=0.
-
-
-<h5>--mpi=combine=&lt;yes|no&gt;</h5>
-Specifies whether to combine all steps into a common MPI_COMM_WORLD or launch each step
-as a separate MPI_COMM_WORLD. Applies only to multi-step srun commands used to
-launch MPI applications. Valid only in the first step description.
-If the option is specified in any other step description it is ignored.
-Default value is yes.
-
-<h4>New options for salloc, sbatch, srun commands</h4>
-
-
-<h4>sbatch</h4>
-Scripts allowed on more than one member, but no synchronization.
-
-<h4>scancel</h4>
-
-<h4>scontrol</h4>
-
-<h4>squeue</h4>
-
-<h4>sacct</h4>
-
-<h4>stat</h4>
-
-
 <a name="Section5"></a>
-<h2>All Things MPI</h2>
+<h2>MPI Support</h2>
+Job Packs allow a single MPI application with multiple executables to be
+distributed across multiple co-scheduled jobs and steps. Each executable
+within the application can be targeted to a particular resource allocation
+(job) that matches its requirements. By default, all the steps launched
+by a single multi-step srun command are combined into a single MPI_COMM_WORLD
+communicator. Each task launched by the srun command has a unique MPI rank.
+Example:
+<p><pre>
+[trek2] (slurm) mpihello> salloc -w trek7 --exclusive : -w trek8 --exclusive
+ : -w trek9 --exclusive
+salloc: Pending job allocation 10236
+salloc: Pending job allocation 10237
+salloc: Granted job allocation 10238
+salloc: Nodes trek7 are ready for job 10238
+salloc: Nodes trek8 are ready for job 10237
+salloc: Nodes trek9 are ready for job 10236
 
-<hr>
-<hr>
-<hr>
-<b>TBD --- Martin Perry Imprisonment.</b>
-<hr>
-<hr>
-<hr>
+[trek2] (slurm) mpihello> srun --pack-group=0 -n3 ./mpiexec1 : --pack-group=1
+ -n3 ./mpiexec2 : --pack-group=2 -n3 ./mpiexec3  | sort
+Hello world, I am mpiexec1, rank 0 of 9 - running on trek7
+Hello world, I am mpiexec1, rank 1 of 9 - running on trek7
+Hello world, I am mpiexec1, rank 2 of 9 - running on trek7
+Hello world, I am mpiexec2, rank 3 of 9 - running on trek8
+Hello world, I am mpiexec2, rank 4 of 9 - running on trek8
+Hello world, I am mpiexec2, rank 5 of 9 - running on trek8
+Hello world, I am mpiexec3, rank 6 of 9 - running on trek9
+Hello world, I am mpiexec3, rank 7 of 9 - running on trek9
+Hello world, I am mpiexec3, rank 8 of 9 - running on trek9
 
+
+</pre></p>
+Users may override this behavior with the srun option <b>--mpi-combine=no</b>.
+This option causes each step to be launched as a separate MPI_COMM_WORLD.
+<p>
+Job Packs support Intel MPI using PMI-1 and Open MPI using PMI-2. Other MPI
+implementations may also work with Job Packs but have not been validated.
+<p>
 <a name="Section6"></a>
 <h2>Environment Variables</h2>
+<pre>
+OUTPUT ENVIRONMENT VARIABLES for salloc and sbatch AND
+INPUT  ENVIRONMENT VARIABLES for srun
 
-<hr>
-<hr>
-<hr>
-<b>TBD --- brief desciption of SLURM_XXX_PACK_GPOUP#, how set for steps, use in prolog/epilog scripts.</b>
-<hr>
-<hr>
-<hr>
+	SLURM_LISTJOBIDS
+		Set to the comma separated aggregated list of job IDs for
+		all jobs in a Job Pack.
 
+	SLURM_NUMPACK
+		Set to the number of Job Pack job descriptions.
+
+	SLURM_PACK_GROUP
+		Set to the aggregated list of Job Pack group indexes. For
+		example, if three pack jobs are allocated then
+		"SLURM_PACK_GROUP=[0-2]" will be set.
+
+	SLURM_RESV_PORT_PACK_GROUP_[N]
+		Set to the list of ports reserved for each node in the
+		Job Pack allocation where [N] refers to the  group
+		index number. This environment variable is only set when
+		the "--resv-port" option is specified on the Job Pack salloc
+		or sbatch command line.
+
+
+INPUT  ENVIRONMENT VARIABLES for srun only
+
+	SLURM_[*]_PACK_GROUP_[N]
+		Environment variables used to support Job Packs where [*]
+		is substituted with any of the above output environment
+		variable names that would have been created by a legacy
+		(non Job Pack) salloc or sbatch (example:
+		SLURM_NNODES_PACK_GROUP_0). The trailing [N] refers to the
+		Job Pack group index number. For example, if salloc is invoked
+		as a Job Pack with a pack leader and one pack member job
+		(i.e., salloc -N3 : -N1) thus specifying two job descriptions,
+		the environment variables "SLURM_NODELIST_PACK_GROUP_0" and
+		"SLURM_NODELIST_PACK_GROUP_1" will be created for the pack
+		leader and pack member jobs respectively.  The command:
+		"salloc -w foo[1-3] :-w foo[4,5]" will yield
+			"SLURM_NODELIST_PACK_GROUP_0=foo[1-3]" and
+			"SLURM_NODELIST_PACK_GROUP_1=foo[4,5]".
+		When an srun job step is launched the legacy environment
+		variable "SLURM_NODELIST" will be created and set to the same
+		value as the Job Pack environment variable associated with the
+		pack job description designated by the srun "--pack-group=[N]"
+		option (see the "--pack-group" option). In the example above
+		an srun command of: "srun --pack-group=1 &lt;cmd&gt;" will set
+		"SLURM_NODELIST=foo[4,5]" for that job step which uses the
+		resources allocated in the pack member job description. Note
+		that if the "--pack-group" option is not specified on the srun
+		command line then it will default to the first (pack leader)
+		job description and "SLURM_NODELIST" will be set to
+		"SLURM_NODELIST=foo[1-3]".
+
+
+OUPUT ENVIRONMENT VARIABLES for srun only
+
+	SLURM_NODELIST_MPI
+		The aggregated list of all nodes in a Job Pack.
+
+	SLURM_NNODES_MPI
+		The aggregated number of nodes in a Job Pack.
+
+	SLURM_NTASKS_MPI
+		The aggregated list of all tasks in a Job Pack.
+
+OUTPUT ENVIRONMENT VARIABLES for salloc only
+
+	SLURM_[*]_PACK_GROUP_[N]
+		Environment variables used to support Job Packs where [*]
+		is substituted with any of the above output environment
+		variable names that would have been created by a legacy
+		(non Job Pack) salloc (example: SLURM_NNODES_PACK_GROUP_0).
+		The trailing [N] refers to the Job Pack group index number.
+		For example, if salloc is invoked as a Job Pack with a pack
+		leader and one pack member job (i.e., salloc -N3 : -N1) thus
+		specifying two job descriptions, the environment variables
+		"SLURM_NODELIST_PACK_GROUP_0" and
+		"SLURM_NODELIST_PACK_GROUP_1" will be created for the pack
+		leader and pack member jobs respectively.  The command:
+		"salloc -w foo[1-3] :-w foo[4,5]" will yield
+			"SLURM_NODELIST_PACK_GROUP_0=foo[1-3]" and
+			"SLURM_NODELIST_PACK_GROUP_1=foo[4,5]".
+		When an srun job step is launched the legacy environment
+		variable "SLURM_NODELIST" will be created and set to the same
+		value as the Job Pack environment variable associated with the
+		pack job description designated by the srun "--pack-group=[N]"
+		option (See the srun man page for information about the
+		"--pack-group" option). In the example above an srun command
+		of: "srun --pack-group=1 &lt;cmd&gt;" will set
+		"SLURM_NODELIST=foo[4,5]" for that job step which uses the
+		resources allocated in the pack member job description. Note
+		that if the "--pack-group" option is not specified on the srun
+		command line then it will default to the first (pack leader)
+		job description and "SLURM_NODELIST" will be set to
+		"SLURM_NODELIST=foo[1-3]".
+
+       SLURM_JOB_NODELIST (and SLURM_NODELIST for backwards compatibility)
+		List of nodes allocated to the job. SLURM_NODELIST will be
+		set to the aggregated list of all nodes in a Job Pack when
+		salloc is invoked for a Job Pack.
+
+       SLURM_JOB_NUM_NODES (and SLURM_NNODES for backwards compatibility)
+		Total number of nodes in the job allocation. SLURM_NNODES
+		will be set to the aggregated number of nodes in a Job Pack
+		when salloc is invoked for a Job Pack.
+
+       SLURM_NTASKS
+		Same as -n, --ntasks
+		SLURM_TASKS will set to the aggregated list of all tasks in
+		a Job Pack when salloc is invoked for a Job Pack.
+
+
+OUTPUT ENVIRONMENT VARIABLES for sbatch only
+
+	SLURM_[*]_PACK_GROUP_[N]
+		Environment variables used to support Job Packs where [*]
+		is substituted with any of the above output environment
+		variable names that would have been created by a legacy
+		(non Job Pack) sbatch (example: SLURM_NNODES_PACK_GROUP_0).
+		The trailing [N] refers to the Job Pack group index number.
+		For example, if sbatch is invoked as a Job Pack with a pack
+		leader and one pack member job
+		(i.e., sbatch -N3 &lt;script&gt; : -N1) thus specifying two job
+		descriptions, the environment variables
+		"SLURM_NODELIST_PACK_GROUP_0" and
+		"SLURM_NODELIST_PACK_GROUP_1" will be created for the pack
+		leader and pack member jobs respectively.  The command:
+		"sbatch -w foo[1-3] &lt;script&gt; :-w foo[4,5]" will yield
+			"SLURM_NODELIST_PACK_GROUP_0=foo[1-3]" and
+			"SLURM_NODELIST_PACK_GROUP_1=foo[4,5]". These
+		environment variables will be propagated to all the nodes
+		in the allocations. When an srun job step is launched from
+		the specified sbatch &lt;script&gt; the legacy environment variable
+		"SLURM_NODELIST" will be created and set to the same value
+		as the Job Pack environment variable associated with the pack
+		job description designated by the srun "--pack-group=[N]"
+		option (See the srun man page for information about the
+		"--pack-group" option). In the example above an srun command
+		of: "srun --pack-group=1 &lt;cmd&gt;" will set
+		"SLURM_NODELIST=foo[4,5]" for that job step which uses
+		the resources allocated in the pack member job description.
+		Note that if "--pack-group" option is not specified on the
+		srun command line then it will default to the first (pack
+		leader) job description and "SLURM_NODELIST" will be set to
+		"SLURM_NODELIST=foo[1-3]".
+</pre>
 <a name="Section7"></a>
 <h2>Accounting</h2>
-
-<hr>
-<hr>
-<hr>
-<b>TBD --- fields added to which records and how to display them.</b>
-<hr>
-<hr>
-<hr>
-
+New information related to Job Packs has been added to tables used in a
+mysql database by Slurm. Fields were added to both the job_table and
+the step_table.  The job_table was expanded to contain PackID, PackJobID
+and PackStepID  fields.  The step_table was expanded to contain
+PackJobID and PackStepID fields.  This new information can be displayed
+using sacct and sstat commands.
+ <p>
+Designating  job status field options PackJobID and PackStepID in an sstat
+command will display the new information.
+ <p>
+Using the sacct command,  designating  job accounting field options
+PackID, PackJobID, and PackStepid displays the new data.
 
 <a name="Section8"></a>
 <h2>Limitations</h2>
@@ -487,39 +678,66 @@ will be fixed in a future release.
 </p>
 
 <p>
-When test whether a job pack can run, the pack members are actually allocated
-so the prolog script is excuted. If any member cannot be allocated, the
+When test whether a Job Pack can run, the pack members are actually allocated
+so the prolog script is executed. If any member cannot be allocated, the
 resources are deallocated, but that script will have executed, possibly taking
 actions that can't be reversed.
 </p>
 
 <p>
-A work around is the execute tasks that usually would be put in a prolog as a
+A workaround is to execute tasks that usually would be put in a prolog as a
 srun on the entire allocation.
 </p>
 
 
 <a name="Section9"></a>
-<h2>Examples</h2>
+<h2>Example</h2>
+The following example illustrates the use of Job Packs with MPI and task
+affinity. The salloc command creates a Job Pack with three jobs. The
+pack leader jobid is 10715 and the pack member jobids are 10713 and
+10714. Each job is allocated one thread on each of the five nodes
+trek[2-6]. The srun command launches three steps; one for each job
+in the Job Pack (pack groups 0 thru 2). Each step launches one task on each
+node, for a total of fifteen tasks. The three steps are combined into
+a single MPI_COMM_WORLD with a MPI size of 15 and MPI ranks of 0-14.
+Each task is bound to a single unique thread on its node.
+<br><br>
+<pre>
+[trek2] (slurm) test> salloc -p trek2to6 -N5 :  -p trek2to6 -N5 :  -p trek2to6 -N5
+salloc: Pending job allocation 10713
+salloc: Pending job allocation 10714
+salloc: Granted job allocation 10715
+salloc: Nodes trek[2-6] are ready for job 10715
+salloc: Nodes trek[2-6] are ready for job 10714
+salloc: Nodes trek[2-6] are ready for job 10713
 
-<hr>
-<hr>
-<hr>
-<b>TBD --- several real world like examples.</b>
-<p>
-Rod believes we should include an example of --resv-ports.
-We probably can't directly descript CEA IO Proxy, but since --resv-ports
-is part of slurm, we should describe how it might be used to allow
-processes on one node communicate with processes in another allocation on other nodes.
-</p>
-<hr>
-<hr>
-<hr>
+[trek2] (slurm) test> squeue --dependency
+             JOBID DEPENDENCY PARTITION     NAME     USER ST       TIME  NODES NODELIST(REASON)
+             10715 packleader  trek2to6     bash    slurm  R       4:57      5 trek[2-6]
+                    \__ 10713  trek2to6     bash    slurm  R       4:57      5 trek[2-6]
+                    \__ 10714  trek2to6     bash    slurm  R       4:57      5 trek[2-6]
 
+[trek2] (slurm) test> srun --pack-group=[0-2] ./placement-intel
 
-
+                       rank   OMP_THREADS       host.bcs.socket.core.ht
+/app/slurm/mnp/test/ : 00/15  (1 threads) is on trek2.1.1.3.1
+/app/slurm/mnp/test/ : 01/15  (1 threads) is on trek3.1.1.3.1
+/app/slurm/mnp/test/ : 02/15  (1 threads) is on trek4.1.1.3.1
+/app/slurm/mnp/test/ : 03/15  (1 threads) is on trek5.1.1.3.1
+/app/slurm/mnp/test/ : 04/15  (1 threads) is on trek6.1.1.3.1
+/app/slurm/mnp/test/ : 05/15  (1 threads) is on trek2.1.1.2.1
+/app/slurm/mnp/test/ : 06/15  (1 threads) is on trek3.1.1.2.1
+/app/slurm/mnp/test/ : 07/15  (1 threads) is on trek4.1.1.2.1
+/app/slurm/mnp/test/ : 08/15  (1 threads) is on trek5.1.1.2.1
+/app/slurm/mnp/test/ : 09/15  (1 threads) is on trek6.1.1.2.1
+/app/slurm/mnp/test/ : 10/15  (1 threads) is on trek2.1.1.1.1
+/app/slurm/mnp/test/ : 11/15  (1 threads) is on trek3.1.1.1.1
+/app/slurm/mnp/test/ : 12/15  (1 threads) is on trek4.1.1.1.1
+/app/slurm/mnp/test/ : 13/15  (1 threads) is on trek5.1.1.1.1
+/app/slurm/mnp/test/ : 14/15  (1 threads) is on trek6.1.1.1.1
+</pre>
 <p class="footer"><a href="#top">top</a></p>
 
-<p style="text-align:center;">Last modified 19 October 2015</p>
+<p style="text-align:center;">Last modified 12 February 2016</p>
 
 <!--#include virtual="footer.txt"-->

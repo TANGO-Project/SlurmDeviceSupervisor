@@ -2546,8 +2546,7 @@ static void _process_job_start(slurmdbd_conn_t *slurmdbd_conn,
 	job.name = _replace_double_quotes(job_start_msg->name);
 	job.nodes = job_start_msg->nodes;
 	job.network = job_start_msg->node_inx;
-	job.pack_leader = job_start_msg->pack_leader;				/* wjb */
-//info("in slurmdbd proc_req.c _process_job_start() job.pack_leader = %u", job.pack_leader);	/* wjb */
+	job.pack_leader = job_start_msg->pack_leader;
 	job.partition = job_start_msg->partition;
 	details.min_cpus = job_start_msg->req_cpus;
 	details.pn_min_memory = job_start_msg->req_mem;
@@ -3366,6 +3365,8 @@ static int  _step_complete(slurmdbd_conn_t *slurmdbd_conn,
 	step.step_id = step_comp_msg->step_id;
 	details.submit_time = step_comp_msg->job_submit_time;
 	details.num_tasks = step_comp_msg->total_tasks;
+	step.packstepid[0] = step_comp_msg->packstepid[0];
+	step.packstepid[1] = step_comp_msg->packstepid[1];
 
 	job.details = &details;
 	step.job_ptr = &job;
@@ -3436,10 +3437,8 @@ static int  _step_start(slurmdbd_conn_t *slurmdbd_conn,
 	step.cpu_freq_max = step_start_msg->req_cpufreq_max;
 	step.cpu_freq_gov = step_start_msg->req_cpufreq_gov;
 	step.tres_alloc_str = step_start_msg->tres_alloc_str;
-	step.packstepid[0] = step_start_msg->packstepid[0];			/* wjb */
-	step.packstepid[1] = step_start_msg->packstepid[1];			/* wjb */
-//info("in slurmdbd proc_req.c _step_start() step.packstepid[2] = %u.%u", step.packstepid[0], step.packstepid[1]);	/* wjb */
-
+	step.packstepid[0] = step_start_msg->packstepid[0];
+	step.packstepid[1] = step_start_msg->packstepid[1];
 	layout.node_cnt = step_start_msg->node_cnt;
 	layout.task_dist = step_start_msg->task_dist;
 

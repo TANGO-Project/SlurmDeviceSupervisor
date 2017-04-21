@@ -167,6 +167,7 @@ OTHER CHANGES
  -- Increased maximum file size supported by sbcast from 2 GB (32-bit integer
     to 64-bits).
 
+
 API CHANGES
 ===========
 
@@ -217,6 +218,49 @@ Added slurmdb_federation_rec_t to represent federation objects.
 Added job_fed_details_t for storing federated job information.
 Added sib_msg_t for sending messages to siblings.
 Added slurm_step_layout_req_t to improve slurmctld control over task layout
+Added the following fields to struct slurm_step_launch_params_t:
+packstepid.
+Added the following fields to struct slurm_job_info_t:
+pack_leader.
+Added the following fields to struct kill_job_msg_t:
+pelog_env, pelog_env_size.
+Added the following fields to struct job_desc_msg_t:
+pelog_env, pelog_env_size, group_number, numpack, resv_port.
+Added the following fields to struct launch_tasks_request_msg_t:
+pelog_env, pelog_env_size.
+Added the following fields to struct prolog_launch_msg_t:
+pelog_env, pelog_env_size.
+Added the following fields to struct job_desc_msg_t:
+pack_leader.
+Added the following fields to struct slurmdb_job_rec_t:
+packid.
+Added the following fields to struct slurmdb_step_rec_t:
+packstepid.
+Added the following fields to struct dbd_job_start_msg_t:
+pack_leader.
+Added the following fields to struct dbd_step_comp_msg_t:
+packstepid.
+Added the following fields to struct dbd_step_start_msg_t:
+packstepid.
+Added the following fields to struct _job_table_fields:
+packid.
+Added the following fields to struct step_table_fields:
+packjobid, packstepid.
+Added the following fields to struct job_step_create_request_msg_t:
+packstepid.
+Added the following fields to struct launch_tasks_request_msg_t:
+packstepid.
+Added the following fields to struct srun_options:
+packstepid.
+Added the following fields to struct job_record:
+pack_leader.
+Added the following fields to struct stepd_step_rec_t:
+packstepid.
+
+Added the following struct definitions
+======================================
+Added pack_job_env_t: jobpack environment structure.
+Added pack_group_struct_t: jobpack group environment structure.
 
 Removed members from the following struct definitions
 =====================================================
@@ -227,6 +271,30 @@ Changed the following enums and #defines
 ========================================
 Added BB_STATE_PRE_RUN for burst buffer state information
 Added CR_NHC_ABSOLUTELY_NO to disable Cray Node Health Check
+Added SLURM_DEPEND_PACKLEADER: ARRM Packleader.
+Added SLURM_DEPEND_PACK:ARRM Pack.
+
+Added the following API's
+=========================
+
+Changed the following API's
+============================
+
+DBD API Changes
+===============
+
+Changed members of the following structs
+========================================
+
+Added the following struct definitions
+======================================
+
+Added members to the following struct definitions
+=================================================
+
+Changed the following enums and #defines
+========================================
+Added MAX_JOB_ID (0x03FFFFFF)
 Added DEBUG_FLAG_FEDR flag for federation debugging.
 Added cluster_fed_states enum and defines for federation states.
 Changed DEFAULT_MAX_JOB_ID from 0x7fff0000 to 0x03ff0000.

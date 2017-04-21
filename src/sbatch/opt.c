@@ -194,6 +194,7 @@ enum wrappers {
 extern bool packjob;
 extern bool packleader;
 extern uint32_t group_number;
+extern uint32_t pack_desc_count;
 extern char *pack_job_id;
 
 /*---- global variables, defined in opt.h ----*/
@@ -2024,7 +2025,11 @@ static void _set_options(int argc, char **argv)
 		case LONG_OPT_SPREAD_JOB:
 			opt.job_flags |= SPREAD_JOB;
 		case LONG_OPT_RESV_PORT:
-			opt.resv_port = 1;
+			if (pack_desc_count < 2)
+				info("WARNING - option --resv-port ignored, "
+				     "allowed for Job-Packs only");
+			else
+				opt.resv_port = 1;
 			break;
 		case LONG_OPT_USE_MIN_NODES:
 			opt.job_flags |= USE_MIN_NODES;

@@ -706,7 +706,7 @@ static void _help(void)
 	printf("                                  NOTE: SlurmDBD must be up.\n");
 	printf("  -n, --name=job_name             act only on jobs with this name\n");
 	printf("  -p, --partition=partition       act only on jobs in this partition\n");
-	printf("  -m  --pack_member               cancel a member of a job_pack\n");
+	printf("  -m  --pack-member               cancel a member of a job_pack\n");
 	printf("  -Q, --quiet                     disable warnings\n");
 	printf("  -q, --qos=qos                   act only on jobs with this quality of service\n");
 	printf("  -R, --reservation=reservation   act only on jobs with this reservation\n");

@@ -147,6 +147,12 @@ static job_step_create_request_msg_t *_create_step_request(
 	step_req->pn_min_memory = step_params->pn_min_memory;
 	step_req->srun_pid = (uint32_t) getpid();
 	step_req->time_limit = step_params->time_limit;
+	step_req->packstepid[0] = 0;
+	step_req->packstepid[1] = 0;
+	if (srun_step_idx != 0) {
+		step_req->packstepid[0] = packstepid[0];
+		step_req->packstepid[1] = packstepid[1];
+	}
 
 	return step_req;
 }
@@ -167,7 +173,6 @@ slurm_step_ctx_create (const slurm_step_ctx_params_t *step_params)
 	uint16_t port = 0;
 	int errnum = 0;
 
-	debug("******** MNP entering slurm_step_ctx_create"); // MNP debug
 	/* First copy the user's step_params into a step request struct */
 	step_req = _create_step_request(step_params);
 
@@ -200,13 +205,17 @@ slurm_step_ctx_create (const slurm_step_ctx_params_t *step_params)
 	ctx->step_req   = step_req;
 	ctx->step_resp	= step_resp;
 	ctx->verbose_level = step_params->verbose_level;
-	ctx->mpi_jobid = step_params->mpi_jobid; // MNP PMI
+	ctx->mpi_jobid = step_params->mpi_jobid;
 
 	ctx->launch_state = step_launch_state_create(ctx);
 	ctx->launch_state->slurmctld_socket_fd = sock;
+
+	if (srun_step_idx==0) {
+		packstepid[0] = step_req->job_id;
+		packstepid[1] = step_resp->job_step_id;
+	}
 fail:
 	errno = errnum;
-	debug("******** MNP exiting slurm_step_ctx_create"); // MNP debug
 	return (slurm_step_ctx_t *)ctx;
 }
 
@@ -234,7 +243,6 @@ slurm_step_ctx_create_timeout (const slurm_step_ctx_params_t *step_params,
 	long elapsed_time;
 	DEF_TIMERS;
 
-	debug("******** MNP entering slurm_step_ctx_create_timeout"); // MNP debug
 	/* First copy the user's step_params into a step request struct */
 	step_req = _create_step_request(step_params);
 
@@ -315,12 +323,16 @@ slurm_step_ctx_create_timeout (const slurm_step_ctx_params_t *step_params,
 	ctx->step_req   = step_req;
 	ctx->step_resp	= step_resp;
 	ctx->verbose_level = step_params->verbose_level;
-	ctx->mpi_jobid = step_params->mpi_jobid; // MNP PMI
+	ctx->mpi_jobid = step_params->mpi_jobid;
 
 	ctx->launch_state = step_launch_state_create(ctx);
 	ctx->launch_state->slurmctld_socket_fd = sock;
+
+	if (srun_step_idx==0) {
+		packstepid[0] = step_req->job_id;
+		packstepid[1] = step_resp->job_step_id;
+	}
 fail:
-	debug("******** MNP exiting slurm_step_ctx_create_timeout"); // MNP debug
 	errno = errnum;
 	return (slurm_step_ctx_t *)ctx;
 }
@@ -391,10 +403,15 @@ slurm_step_ctx_create_no_alloc (const slurm_step_ctx_params_t *step_params,
 	ctx->step_req   = step_req;
 	ctx->step_resp	= step_resp;
 	ctx->verbose_level = step_params->verbose_level;
-	ctx->mpi_jobid = step_params->mpi_jobid; // MNP PMI
+	ctx->mpi_jobid = step_params->mpi_jobid;
 
 	ctx->launch_state = step_launch_state_create(ctx);
 	ctx->launch_state->slurmctld_socket_fd = sock;
+
+	if (srun_step_idx==0) {
+		packstepid[0] = step_req->job_id;
+		packstepid[1] = step_resp->job_step_id;
+	}
 
 	_job_fake_cred(ctx);
 
@@ -585,12 +602,12 @@ slurm_step_ctx_daemon_per_node_hack(
 
 		layout->tasks = xmalloc(sizeof(uint16_t) * node_cnt);
 		layout->tids = xmalloc(sizeof(uint32_t *) * node_cnt);
-		layout->mpi_tids = xmalloc(sizeof(uint32_t *) * node_cnt); // MNP PMI
+		layout->mpi_tids = xmalloc(sizeof(uint32_t *) * node_cnt);
 	} else {
 		layout = ctx->step_resp->step_layout;
 		xrealloc(layout->tasks, sizeof(uint16_t) * node_cnt);
 		xrealloc(layout->tids, sizeof(uint32_t *) * node_cnt);
-		xrealloc(layout->mpi_tids, sizeof(uint32_t *) * node_cnt); // MNP PMI
+		xrealloc(layout->mpi_tids, sizeof(uint32_t *) * node_cnt);
 	}
 
 	ctx->step_req->num_tasks = layout->task_cnt = layout->node_cnt
@@ -601,9 +618,9 @@ slurm_step_ctx_daemon_per_node_hack(
 	for (i = orig_task_num; i < layout->node_cnt; i++) {
 		layout->tasks[i] = 1;
 		layout->tids[i] = (uint32_t *)xmalloc(sizeof(uint32_t));
-		layout->mpi_tids[i] = (uint32_t *)xmalloc(sizeof(uint32_t)); // MNP PMI
+		layout->mpi_tids[i] = (uint32_t *)xmalloc(sizeof(uint32_t));
 		layout->tids[i][0] = (*curr_task_num)++;
-		layout->mpi_tids[i][0] = layout->tids[i][0]; // MNP PMI
+		layout->mpi_tids[i][0] = layout->tids[i][0];
 	}
 
 	/* Alter the launch state structure now that the settings

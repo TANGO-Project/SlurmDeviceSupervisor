@@ -103,7 +103,7 @@ static void _kvs_xmit_tasks(void)
 	pthread_t agent_id;
 
 #if _DEBUG
-	info("All tasks at barrier, transmit KVS keypairs now");
+	fprintf(stderr, "All tasks at barrier, transmit KVS keypairs now\n");
 #endif
 
 	/* Target KVS_TIME should be about ave processing time */
@@ -398,10 +398,10 @@ static void _print_kvs(void)
 #if _DEBUG
 	int i, j;
 
-	info("KVS dump start");
+	printf("KVS dump start\n");
 	for (i=0; i<kvs_comm_cnt; i++) {
 		for (j=0; j<kvs_comm_ptr[i]->kvs_cnt; j++) {
-			info("KVS: %s:%s:%s", kvs_comm_ptr[i]->kvs_name,
+			printf("KVS: %s:%s:%s\n", kvs_comm_ptr[i]->kvs_name,
 				kvs_comm_ptr[i]->kvs_keys[j],
 				kvs_comm_ptr[i]->kvs_values[j]);
 		}
@@ -465,9 +465,8 @@ extern int pmi_kvs_get(kvs_get_msg_t *kvs_get_ptr)
 	int cur_time, i;
 	struct timeval tv;
 #endif
-
 #if _DEBUG
-	info("pmi_kvs_get: rank:%u size:%u port:%hu, host:%s",
+	debug("pmi_kvs_get: rank:%u size:%u port:%hu, host:%s",
 		kvs_get_ptr->task_id, kvs_get_ptr->size,
 		kvs_get_ptr->port, kvs_get_ptr->hostname);
 #endif

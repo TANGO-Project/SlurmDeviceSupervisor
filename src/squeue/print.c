@@ -1484,14 +1484,14 @@ int _print_job_dependency(job_info_t * job, int width, bool right_justify,
 	if (job == NULL)	/* Print the Header instead */
 		_print_str("DEPENDENCY", width, right_justify, true);
 	else if (job->dependency) {
-	        if (params.dependency) {
-		        char tmp[strlen(job->dependency)+1];
+		if (params.dependency) {
+			char tmp[strlen(job->dependency)+1];
 			strcpy (tmp, job->dependency);
 			if (!strncmp(job->dependency, "pack packleader=", 16)) {
-			        sprintf(tmp, "\\__ %u", job->job_id);
+				sprintf(tmp, "\\__ %u", job->job_id);
 			}
 			else if (!strncmp(job->dependency, "packleader", 10)) {
-			        strcpy(tmp, job->dependency);
+				strcpy(tmp, job->dependency);
 			}
 			_print_str(tmp, width, right_justify, true);
 		}
@@ -2543,7 +2543,7 @@ int _print_step_state(job_step_info_t * step, int width, bool right,
 int _print_step_dependency(job_step_info_t * step, int width, bool right,
 			char* suffix)
 {
-        job_info_msg_t * job_info_ptr;
+	job_info_msg_t * job_info_ptr;
 	job_info_t * job_ptr;
 	int error_code, i;
 
@@ -2551,29 +2551,29 @@ int _print_step_dependency(job_step_info_t * step, int width, bool right,
 		_print_str("DEPENDENCY", width, right, true);
 
 	else if (params.dependency) {
-	        error_code = slurm_load_job(&job_info_ptr, step->job_id, 0);
+		error_code = slurm_load_job(&job_info_ptr, step->job_id, 0);
 		if (error_code) {
-		        slurm_perror ("slurm_load_job error");
+			slurm_perror ("slurm_load_job error");
 			return SLURM_ERROR;
 		}
 		job_ptr = job_info_ptr->job_array;
 		for (i=0; i<job_info_ptr->record_count; i++)
-		        if (job_ptr[i].job_id == step->job_id) break;
+			if (job_ptr[i].job_id == step->job_id) break;
 		char tmp[strlen(job_ptr[i].dependency)+1];
 		strcpy (tmp, job_ptr[i].dependency);
 		if (!strncmp(job_ptr[i].dependency, "pack packleader=", 16)) {
-		        sprintf(tmp, "\\__ %u", job_ptr[i].job_id);
+			sprintf(tmp, "\\__ %u", job_ptr[i].job_id);
 		}
 		else if (!strncmp(job_ptr[i].dependency, "packleader", 10)) {
-		        strcpy(tmp, job_ptr[i].dependency);
+			strcpy(tmp, job_ptr[i].dependency);
 		}
 		_print_str(tmp, width, right, true);
 	}
 	else {
-	        _print_str("", width, right, true);
+		_print_str("", width, right, true);
 	}
 	if (suffix)
-	        printf("%s", suffix);
+		printf("%s", suffix);
 
 	return SLURM_SUCCESS;
 }

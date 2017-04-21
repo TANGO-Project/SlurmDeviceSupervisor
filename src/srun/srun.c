@@ -7,6 +7,10 @@
  *  Produced at Lawrence Livermore National Laboratory (cf, DISCLAIMER).
  *  Written by Mark Grondona <grondona@llnl.gov>, et. al.
  *  CODE-OCEC-09-009. All rights reserved.
+ *  Portions copyright (C) 2015 Atos Inc.
+ *  Written by Martin Perry <martin.perry@atos.net>.
+ *  Written by Bill Brophy <bill.brophy@atos.net>.
+ *  All rights reserved.
  *
  *  This file is part of SLURM, a resource management program.
  *  For details, see <https://slurm.schedmd.com/>.
@@ -88,10 +92,7 @@
 #include "src/api/pmi_server.h"
 #include "src/api/step_ctx.h"
 #include "src/api/step_launch.h"
-
-// MNP PMI
 #include "src/common/slurm_mpi.h"
-// MNP PMI
 
 /********************
  * Global Variables *
@@ -99,7 +100,7 @@
 
 #if defined (HAVE_DECL_STRSIGNAL) && !HAVE_DECL_STRSIGNAL
 #  ifndef strsignal
- extern char *strsignal(int);
+extern char *strsignal(int);
 #  endif
 #endif /* defined HAVE_DECL_STRSIGNAL && !HAVE_DECL_STRSIGNAL */
 
@@ -130,9 +131,8 @@ pack_job_env_t *pack_job_env = NULL;
 uint32_t group_number = -1;
 uint32_t group_index = 0;
 uint32_t job_index = 0;
-static uint32_t total_steps = 0;
 int *group_ids;
-
+bool step_failed = false;
 bool srun_max_timer = false;
 bool srun_shutdown  = false;
 int sig_array[] = {
@@ -156,7 +156,7 @@ static srun_job_t *_get_srun_job(int desc_idx, int job_idx);
 static env_t *_get_env(int desc_idx, int job_idx);
 
 static int _srun_jobpack(int ac, char **av);
-static void _create_srun_steps_jobpack(void);
+static void _create_srun_steps_jobpack(bool got_alloc);
 static void _enhance_env_jobpack(bool got_alloc);
 static void _pre_launch_srun_jobpack(void);
 static int _launch_srun_steps_jobpack(bool got_alloc);
@@ -182,6 +182,14 @@ void cfmakeraw(struct termios *attr)
 #endif
 
 
+void _free_srun_pipes(void)
+{
+	xfree(vector_pipe_out);
+	xfree(vector_pipe_in);
+	xfree(nnodes_pipe);
+	xfree(pmi2port_pipe);
+	xfree(pmi1port_pipe);
+}
 
 int _count_jobs(int ac, char **av)
 {
@@ -203,9 +211,11 @@ int _count_jobs(int ac, char **av)
 	if(pack_desc_count) pack_desc_count++;
 	if ((tmp = getenv ("SLURM_NUMPACK"))) {
 		pgj = atoi(tmp);
-                if (pgj > 1) {
+		if (pgj > 1) {
 			pack_group_job = true;
 		}
+	if ((pack_group_job == false) && (pack_desc_count != 0))
+		fatal("Pack jobs not allowed for a legacy allocation");
 	}
 	if ((pack_desc_count == 0) && (pack_group_job == true))
 		pack_desc_count ++;
@@ -234,7 +244,7 @@ static void _build_env_structs(int count, pack_job_env_t *pack_job_env)
 		pack_job_env[i].av = (char **) NULL;
 		pack_job_env[i].ac = 0;
 
-//		 initialize default values for env structure
+		/* initialize default values for env structure */
 
 		pack_job_env[i].env->stepid = -1;
 		pack_job_env[i].env->procid = -1;
@@ -272,18 +282,18 @@ static void _build_pack_group_struct(uint32_t index, pack_job_env_t *env_struct)
 			numpack=1;
 	}
 	desc = xmalloc(sizeof(pack_group_struct_t) * index);
-	total_steps = index;
+	srun_num_steps = index;
 	for (i = 0; i < index; i++) {
 		desc[i].groupjob = false;
 		initialize_and_process_args(env_struct[i].ac,
 					    env_struct[i].av);
 		desc[i].pack_group_count = opt.ngrpidx;
 
-		/*  there always needs to be a non-zero count so
+		/* there always needs to be a non-zero count so
 		 * at least 1 set of structures is built */
 		struct_index = opt.ngrpidx;
 		if (struct_index == 0) struct_index ++;
-		total_steps += (struct_index-1);
+		srun_num_steps += (struct_index-1);
 		desc[i].pack_job_env =
 			xmalloc(sizeof(pack_job_env_t) * struct_index);
 		_build_env_structs(struct_index, &desc[i].pack_job_env[0]);
@@ -316,13 +326,6 @@ static void _identify_job_descriptions(int ac, char **av)
 	bool _pack_l;
 	uint16_t dependency_position = 0;
 
-/*
-	int index3;
-	info("in _identify_job_descriptions ac contains %u\n", ac);
-	for (index3 = 0; index3 < ac; index3++) {
-		info("av[%u] is %s\n", index3, av[index3]);
-	}
-*/
 	newcmd = xmalloc(sizeof(char *) * (ac + 1));
 	while (current < ac){
 		newcmd[0] = xstrdup(av[0]);
@@ -392,13 +395,6 @@ static void _identify_job_descriptions(int ac, char **av)
 		}
 
 		pack_job_env[job_index].ac = j;
-
-/*
-	int index1;
-	for (index1=0; index1 < j; index1++)
-		info("pack_job_env[%u].av[%u] = %s\n", job_index, index1,
-		     pack_job_env[job_index].av[index1]);
-*/
 		job_index++;
 	}
 	for (i = 0; i < (ac + 1); i++) {
@@ -422,14 +418,6 @@ static void _identify_group_job_descriptions(int ac, char **av)
 	bool _pack_l;
 	uint16_t dependency_position = 0;
 
-/*
-	int index3;
-	info("in _identify_group_job_descriptions ac contains %u", ac);
-	for (index3 = 0; index3 < ac; index3++) {
-		info ("av[%u] is %s", index3, av[index3]);
-	}
-*/
-
 	newcmd = xmalloc(sizeof(char *) * (ac + 1));
 	while (current < ac){
 		newcmd[0] = xstrdup(av[0]);
@@ -452,7 +440,9 @@ static void _identify_group_job_descriptions(int ac, char **av)
 				j++;
 			} else {
 				if (job_index == 0) {
-					_pack_l = true;
+					char *val = getenv("SLURM_NUMPACK");
+					if (val == NULL)
+						_pack_l = true;
 				}
 				break;
 			}
@@ -714,8 +704,10 @@ int srun(int ac, char **av)
 		env->ws_col   = job->ws_col;
 		env->ws_row   = job->ws_row;
 	}
-	opt.mpi_ntasks = opt.ntasks; // MNP PMI
-	opt.mpi_stepftaskid = 0; // MNP PMI
+	opt.mpi_ntasks = opt.ntasks;
+	opt.mpi_stepftaskid = 0;
+	opt.packstepid[0] = 0;
+	opt.packstepid[1] = 0;
 	setup_env(env, opt.preserve_env);
 	xfree(env->task_count);
 	xfree(env);
@@ -786,15 +778,6 @@ int _srun_jobpack(int ac, char **av)
 	log_options_t logopt = LOG_OPTS_STDERR_ONLY;
 	bool got_alloc = false;
 	int desc_index, group_count;
-
-/*
-	info("in _srun_jobpack inputs were as follows:\n");
-	int index1;
-	info(" _srun_jobpack ac contains %u\n", ac);
-	for (index1 = 0; index1 < ac; index1++) {
-		info ("av[%u] is %s\n", index1, av[index1]);
-	}
-*/
 
 	slurm_conf_init(NULL);
 	debug_level = _slurm_debug_env_val();
@@ -874,22 +857,19 @@ int _srun_jobpack(int ac, char **av)
 						  group_index].pack_job_env[
 						  job_index].av, &logopt,
 						  debug_level, 1);
-//info("packleader depencency for desc[%u].pack_job_env[%u] is %s", group_index, job_index, desc[group_index].pack_job_env[job_index].av[packl_dependency_position]);	/* wjb */
 			}
 			create_srun_jobpack(&desc[group_index].pack_job_env[
 					    job_index].job, &got_alloc, 0, 1);
 		}
 	}
 
-	_create_srun_steps_jobpack();
-	debug("******** MNP all job steps now created");
+	_create_srun_steps_jobpack(got_alloc);
+	if (step_failed) {
+		return (int)global_rc;
+	}
 	_enhance_env_jobpack(got_alloc);
-	debug("******** MNP all jobs now environment enhanced");
 	_pre_launch_srun_jobpack();
-	debug("******** MNP pre_launch_srun_job finished");
-	debug("******** MNP parent srun pid = %d", getpid());
 	_launch_srun_steps_jobpack(got_alloc);
-	debug("******** MNP all job steps now launched");
 	return (int)global_rc;
  }
 
@@ -1066,86 +1046,77 @@ static env_t *_get_env(int desc_idx, int job_idx)
 	return desc[desc_idx].pack_job_env[job_idx].env;
 }
 
-static void _create_srun_steps_jobpack(void)
+static void _create_srun_steps_jobpack(bool got_alloc)
 {
 	int i, j, job_index;
-	uint32_t mpi_jobid; // MNP PMI
-	bool mpi_combine; // MNP --mpi-combine
+	uint32_t mpi_jobid;
+	bool mpi_combine;
 	opt_t *opt_ptr = NULL;
 	resource_allocation_response_msg_t *resp = NULL;
 
-	debug("******** MNP in _create_srun_steps_jobpack, pack_desc_count=%d", pack_desc_count);
-	/* For each step to be launched, propagate opt.mpi_combine from first step.
-	 * If opt.mpi_combine=true, set MPI jobid to jobid of first step.
-	 */ // MNP PMI
-	opt_ptr = _get_opt(0, 0);  // MNP PMI
-	mpi_jobid = opt_ptr->jobid; // MNP PMI
-	mpi_combine = opt_ptr->mpi_combine; // MNP --mpi-combine
-	for (i = 0; i < pack_desc_count; i++) { // MNP PMI
-		job_index = desc[i].pack_group_count; // MNP PMI
-		if (job_index == 0) job_index++; // MNP PMI
-		for (j = 0; j <job_index; j++) { // MNP PMI
-			opt_ptr = _get_opt(i, j); // MNP PMI
-			opt_ptr->mpi_jobid = mpi_jobid; // MNP PMI
-			opt_ptr->mpi_combine = mpi_combine; // MNP mpi-combine
-			if (!mpi_combine)
-				opt_ptr->mpi_jobid = opt.jobid; // MNP --mpi-combine
-			debug("******** MNP in _create_srun_steps_jobpack, i=%d, j=%d, opt_ptr->mpi_jobid=%d", i, j, opt_ptr->mpi_jobid);
-		} // MNP PMI
-	} // MNP PMI
-
+	/* For each step to be launched, propagate opt.mpi_combine from first
+	 * step. If opt.mpi_combine=true, set MPI jobid to jobid of step#0.
+	 */
+	opt_ptr = _get_opt(0, 0);
+	mpi_jobid = opt_ptr->jobid;
+	mpi_combine = opt_ptr->mpi_combine;
+	for (i = 0; i < pack_desc_count; i++) {
+		job_index = desc[i].pack_group_count;
+		if (job_index == 0) job_index++;
+		for (j = 0; j <job_index; j++) {
+			opt_ptr = _get_opt(i, j);
+			opt_ptr->mpi_jobid = mpi_jobid;
+			opt_ptr->mpi_combine = mpi_combine;
+			if (!mpi_combine) {
+				opt_ptr->mpi_jobid = opt_ptr->jobid;
+			}
+		}
+	}
 	/* For each step to be launched, create a job step */
+	srun_step_idx = 0;
 	for (i = 0; i < pack_desc_count; i++) {
 		job_index = desc[i].pack_group_count;
 		if (job_index == 0) job_index++;
 		for (j = 0; j <job_index; j++) {
 
-			debug("******** MNP creating step for pack desc[%u].pack_job_env[%u]", i, j);
 			opt_ptr = _get_opt(i, j);
 			memcpy(&opt, opt_ptr, sizeof(opt_t));
 			job = _get_srun_job(i, j);
 			resp = _get_resp(i, j);
-
-//			debug("******** MNP calling create_job_step for pack desc[%d.pack_job_env[%d]", i, j);
-			if (!job || create_job_step(job, true) < 0) {
-				debug("******** MNP error from create_job_step for pack desc# %d, %d", i, j);
-				slurm_complete_job(resp->job_id, 1);
-				exit(error_exit);
-			}
-//			debug("******** MNP returned from create_job_step for pack desc[%d].pack_job_env[%d]", i, j);
+			if (!job || create_job_step(job, true) < 0)
+				step_failed = true;
+			if (step_failed)
+				continue;
 //			slurm_free_resource_allocation_response_msg(resp);
 			/* What about code at lines 625-638 in srun_job.c? */
 			memcpy(opt_ptr, &opt, sizeof(opt_t));
+			srun_step_idx++;
 		}
 	}
-
-	/* For each step to be launched, set MPI task count and MPI node count */ // MNP PMI
-	debug("******** MNP in _create_srun_steps_jobpack, mpi_curtaskid=%d", mpi_curtaskid);
-	debug("******** MNP in _create_srun_steps_jobpack, mpi_curnodecnt=%d", mpi_curnodecnt);
-	for (i = 0; i < pack_desc_count; i++) { // MNP PMI
-		job_index = desc[i].pack_group_count; // MNP PMI
-		if (job_index == 0) job_index++; // MNP PMI
-		for (j = 0; j <job_index; j++) { // MNP PMI
-			opt_ptr = _get_opt(i, j); // MNP PMI
-			if (opt_ptr->mpi_combine)
-				debug("******** MNP in _create_srun_steps_jobpack, opt_ptr->mpi_combine=true");
-			else
-				debug("******** MNP in _create_srun_steps_jobpack, opt_ptr->mpi_combine=false");
-			if (srun_mpi_combine)
-				debug("******** MNP in _create_srun_steps_jobpack, srun_mpi_combine=true");
-			else
-				debug("******** MNP in _create_srun_steps_jobpack, srun_mpi_combine=false");
-			opt_ptr->mpi_jobid = mpi_jobid; // MNP PMI
-			opt_ptr->mpi_ntasks = mpi_curtaskid; // MNP PMI
+	/* For each step to be launched, set MPI task and node counts */
+	for (i = 0; i < pack_desc_count; i++) {
+		job_index = desc[i].pack_group_count;
+		if (job_index == 0) job_index++;
+		for (j = 0; j <job_index; j++) {
+			if (step_failed) {
+				opt_ptr = _get_opt(i, j);
+				memcpy(&opt, opt_ptr, sizeof(opt_t));
+				job = _get_srun_job(i, j);
+				fini_srun(job, got_alloc, &global_rc, 0);
+				continue;
+			}
+			opt_ptr = _get_opt(i, j);
+			opt_ptr->mpi_jobid = mpi_jobid;
+			opt_ptr->mpi_ntasks = mpi_curtaskid;
+			if (!opt_ptr->mpi_combine) {
+				opt_ptr->mpi_ntasks = opt_ptr->ntasks;
+				opt_ptr->mpi_jobid = opt_ptr->jobid;
+			}
+			opt_ptr->mpi_nnodes = mpi_curnodecnt;
 			if (!opt_ptr->mpi_combine)
-				opt_ptr->mpi_ntasks = opt_ptr->ntasks; // MNP --mpi-combine
-			debug("******** MNP in _create_srun_steps_jobpack, i=%d, j=%d, opt_ptr->mpi_ntasks=%d", i, j, opt_ptr->mpi_ntasks);
-			opt_ptr->mpi_nnodes = mpi_curnodecnt; // MNP PMI
-			if (!opt_ptr->mpi_combine)
-				opt_ptr->mpi_nnodes = 0; // MNP --mpi-combine
-			debug("******** MNP in _create_srun_steps_jobpack, i=%d, j=%d, opt_ptr->mpi_nnodes=%d", i, j, opt_ptr->mpi_nnodes);
-		} // MNP PMI
-	} // MNP PMI
+				opt_ptr->mpi_nnodes = 0;
+		}
+	}
 }
 
 static void _enhance_env_jobpack(bool got_alloc)
@@ -1160,14 +1131,13 @@ static void _enhance_env_jobpack(bool got_alloc)
 	int taskcnt_mpi = 0;
 	hostlist_t hl = NULL;
 	char *tmp, *val;
-	int jobpack_flag = 0;
+	int n;
 
-	/* For each job description, enhance environment for job */
+	/* For each step to be launched, enhance environment */
 	for (i = 0; i < pack_desc_count; i++) {
 		job_index = desc[i].pack_group_count;
 		if (job_index == 0) job_index++;
 		for (j = 0; j <job_index; j++) {
-			debug("******** MNP enhancing environment for pack desc[%d].pack_job_env[%d]", i, j);
 			opt_ptr = _get_opt(i, j);
 			memcpy(&opt, opt_ptr, sizeof(opt_t));
 			job = _get_srun_job(i, j);
@@ -1210,15 +1180,18 @@ static void _enhance_env_jobpack(bool got_alloc)
 						   &tasks);
 
 				env->select_jobinfo = job->select_jobinfo;
-				if ((tmp = getenv ("SLURM_NUMPACK"))) {
-				        if (atoi(tmp) > 1)
-					        jobpack_flag = 1;
-				}
-				if (jobpack_flag == 0)
-				        env->nodelist = job->nodelist;
+				/* In case SLURM_NODELIST, SLURM_NNODES,
+				   SLURM_NTASKS were set to aggregated
+				   values by salloc we need the non-aggregated
+				   values for a job step */
+				env->nodelist = job->nodelist;
+				env->nhosts = job->nhosts;
+				env->ntasks = job->ntasks;
 				slurm_step_ctx_t *step_ctx = job->step_ctx;
-				job_step_create_response_msg_t *step_resp = step_ctx->step_resp;
-				slurm_step_layout_t *layout = step_resp->step_layout;
+				job_step_create_response_msg_t *step_resp =
+						step_ctx->step_resp;
+				slurm_step_layout_t *layout =
+						step_resp->step_layout;
 				hl = hostlist_create(layout->node_list);
 				xstrcat(nodelist_mpi,
 					hostlist_deranged_string_xmalloc(hl));
@@ -1229,11 +1202,6 @@ static void _enhance_env_jobpack(bool got_alloc)
 				/* If we didn't get the allocation don't
 				* overwrite the previous info.
 				*/
-				if (jobpack_flag == 0) {
-				        if (got_alloc)
-					        env->nhosts = job->nhosts;
-					env->ntasks = job->ntasks;
-				}
 				env->task_count =
 					_uint16_array_to_str(job->nhosts,
 							     tasks);
@@ -1278,14 +1246,14 @@ static void _enhance_env_jobpack(bool got_alloc)
 		tmp = xmalloc(30);
 		sprintf(tmp, "SLURM_NODELIST_PACK_GROUP_%d", i);
 		if ((val = getenv (tmp)) == NULL)
-		        setenv(tmp, env->nodelist, 1);
+			setenv(tmp, env->nodelist, 1);
 		xfree(tmp);
 	}
 
 	/* Set SLURM_XXX_MPI envs */
-	int n = 0;
+	n = 0;
 	if (nodelist_mpi) {
-	        char *ch = strrchr(nodelist_mpi, ',');
+		char *ch = strrchr(nodelist_mpi, ',');
 		if (ch != NULL) *ch = '\0';
 		setenv("SLURM_NODELIST_MPI", nodelist_mpi, 1);
 
@@ -1296,7 +1264,7 @@ static void _enhance_env_jobpack(bool got_alloc)
 		xfree(tmp);
 	}
 	if (taskcnt_mpi) {
-	        n = snprintf(NULL, 0, "%d", taskcnt_mpi);
+		n = snprintf(NULL, 0, "%d", taskcnt_mpi);
 		tmp = xmalloc(n + 1);
 		sprintf(tmp, "%d", taskcnt_mpi);
 		setenv("SLURM_NTASKS_MPI", tmp, 1);
@@ -1304,10 +1272,10 @@ static void _enhance_env_jobpack(bool got_alloc)
 	}
 	/* Make sure SLURM_NUMPACK exists if not already set by salloc */
 	if ((val = getenv ("SLURM_NUMPACK")) == NULL) {
-	        n = snprintf(NULL, 0, "%d", pack_desc_count);
+		n = snprintf(NULL, 0, "%d", pack_desc_count);
 		tmp = xmalloc(n + 1);
 		sprintf(tmp, "%d", pack_desc_count);
-	        setenv("SLURM_NUMPACK", tmp, 1);
+		setenv("SLURM_NUMPACK", tmp, 1);
 		xfree(tmp);
 	}
 }
@@ -1316,7 +1284,6 @@ static void _pre_launch_srun_jobpack(void)
 {
 	srun_job_t *job;
 
-	/* For now, do pre_launch_srun_job for pack leader only */
 	job = _get_srun_job(0, 0);
 	pre_launch_srun_job_pack(job, 0, 1);
 }
@@ -1325,39 +1292,34 @@ static void _pre_launch_srun_jobpack(void)
 static int _launch_srun_steps_jobpack(bool got_alloc)
 {
 	int i, j, job_index, pid_idx, pid, *forkpids;
+	uint32_t pipesz;
 	env_t *env;
 	opt_t *opt_ptr;
 	slurm_step_io_fds_t cio_fds = SLURM_STEP_IO_FDS_INITIALIZER;
 	slurm_step_launch_callbacks_t step_callbacks;
 
-	/* MNP end experimental code to pipe stdin */
-
-	/* For each job description, set stdio fds and fork child srun
-	 * to handle I/O redirection and step launch
-	 */
 	memset(&step_callbacks, 0, sizeof(step_callbacks));
 	step_callbacks.step_signal   = launch_g_fwd_signal;
-	forkpids = xmalloc(total_steps * sizeof(int));
+	forkpids = xmalloc(srun_num_steps * sizeof(int));
 	pid_idx = 0;
-	// MNP PMI start
-	/* Allocate and create required pipes for each step to be launched */
-	vector_pipe = xmalloc(total_steps * 2 * sizeof(int));
-	nnodes_pipe = xmalloc(total_steps * 2 * sizeof(int));
-	pmiport_pipe = xmalloc(total_steps * 2 * sizeof(int));
-//	for (i = 0; i < pack_desc_count; i++) { // MNP PMI old code
-	for (i = 0; i < total_steps; i++) { // MNP PMI new code
-		debug("******** MNP in _launch_srun_steps_jobpack, initalizing pipes, i=%d", i);
-		pipe(&vector_pipe[i*2]);
+	/* For each step to be launched, create required srun pipes */
+	pipesz = srun_num_steps * 2 * sizeof(int);
+	vector_pipe_out = xmalloc(pipesz);
+	vector_pipe_in  = xmalloc(pipesz);
+	nnodes_pipe     = xmalloc(pipesz);
+	pmi2port_pipe   = xmalloc(pipesz);
+	pmi1port_pipe   = xmalloc(pipesz);
+	for (i = 0; i < srun_num_steps; i++) {
+		pipe(&vector_pipe_out[i*2]);
+		pipe(&vector_pipe_in[i*2]);
 		pipe(&nnodes_pipe[i*2]);
-		pipe(&pmiport_pipe[i*2]);
+		pipe(&pmi2port_pipe[i*2]);
+		pipe(&pmi1port_pipe[i*2]);
 	}
-	// MNP PMI end
-//	srun_num_steps = pack_desc_count; // MNP PMI old code
-	srun_num_steps = total_steps; // MNP PMI new code
-	srun_step_idx = 0; // MNP PMI new code
-	debug("******** MNP in _launch_srun_steps_jobpack, getting ready to fork sruns, srun_num_steps=total_steps=%d", srun_num_steps);
+	/* For each step to be launched, set stdio fds and fork child srun
+	   to handle I/O redirection and step launch */
+	srun_step_idx = 0;
 	for (i = 0; i < pack_desc_count; i++) {
-//		srun_step_idx = i; // MNP PMI old code
 		job_index = desc[i].pack_group_count;
 		if (job_index == 0) job_index++;
 		for (j = 0; j <job_index; j++) {
@@ -1374,55 +1336,40 @@ static int _launch_srun_steps_jobpack(bool got_alloc)
 			xfree(env->task_count);
 			xfree(env);
 			launch_common_set_stdio_fds(job, &cio_fds);
-			debug("******** MNP forking child srun for pack desc[%d].pack_job_env[%d]", i, j);
 			pid = fork();
 			if (pid < 0) {
-				/* Error creating child srun process */
-				debug("******** MNP fork failed for pack desc[%d].pack_job_env[%d]", i, j);
+				error("JPCK: error forking child srun: %m");
 				exit(0);
 			} else if (pid == 0) {
-				/* Child srun process */
-				debug("******** MNP child srun (PID %d) running, srun_step_idx=%d", getpid(), srun_step_idx);
-				debug("******** MNP %d: launching step for pack desc[%d].pack_job_env[%d]", getpid(), i, j);
-				/* MNP start experimental code to pipe stdin */
-//				dup2(stdinpipe[0], STDIN_FILENO);
-//				close(stdinpipe[0]);
-				/* MNP end experimental code to pipe stdin */
-				if (!launch_g_step_launch(job, &cio_fds, &global_rc, &step_callbacks)) {
-					debug("******** MNP %d: waiting for step launch, global_rc=%d", getpid(), global_rc);
-					if (launch_g_step_wait(job, got_alloc) == -1) {
-						debug("******** MNP child srun PID %d: error from launch_g_step_wait", getpid());
+				/* Child srun */
+				if (!launch_g_step_launch(job, &cio_fds,
+						&global_rc, &step_callbacks)) {
+					if (launch_g_step_wait(job, got_alloc)
+							== -1) {
 						exit(0);
 					}
 				}
+				_free_srun_pipes();
 				fini_srun(job, got_alloc, &global_rc, 0);
-				debug("******** MNP pid=%d, child has finished fini_srun, global_rc=%d", getpid(),global_rc);
 				exit(0);
-//			return (int)global_rc;
 			} else {
+				/* Parent srun */
 				forkpids[pid_idx] = pid;
 				pid_idx++;
 				srun_step_idx++;
-				debug("******** MNP in parent srun, adding child pid=%d to forkpids[%d]", pid, i);
 			}
 		}
 	}
-	debug("******** MNP parent srun has forked all child sruns");
+	_free_srun_pipes();
 	/* Wait for all child sruns to exit */
-	/* MNP start experimental code to pipe stdin */
-//	dup2(stdinpipe[1],STDOUT_FILENO);
-//	close(stdinpipe[1]);
-//	printf("This is the parent");
-	/* MNP end experimental code to pipe stdin */
-	for (i = 0; i < total_steps; i++) {
+	for (i = 0; i < srun_num_steps; i++) {
 		int status;
 		while (waitpid(forkpids[i], &status, 0) == -1);
 		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-			debug("******** MNP pid=%d, child srun pid=%d has failed, WEXITSTATUS(status)=%d", getpid(),forkpids[i], WEXITSTATUS(status));
-			debug("******** MNP pid=%d, child srun pid=%d has failed, WIFEXITED(status)=%d", getpid(),forkpids[i], WIFEXITED(status));
+			error("JPCK: step#%d srun pid=%d bad exit status: %d",
+			      i, forkpids[i], status);
 			exit(1);
 		}
 	}
-	debug("******** MNP all child sruns have exited successfully");
 	return (int)global_rc;
 }

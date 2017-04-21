@@ -38,6 +38,11 @@ optimize the display.  This can also be set with the environment variable
 SQUEUE_ARRAY_UNIQUE.
 
 .TP
+\fB\-d\fR, \fB\-\-dependency\fR
+Specifies job dependencies. For a Job-Pack it shows the relationship between
+the pack leader job and pack member jobs.
+
+.TP
 \fB\-h\fR, \fB\-\-noheader\fR
 Do not print a header on the output.
 
@@ -1338,6 +1343,17 @@ Print information only about job step 65552.1:
   STEPID     NAME PARTITION    USER    TIME  NODELIST
 .br
  65552.1    test2     debug   alice   12:49  dev[1-4]
+.ec
+
+.eo
+Print information about Job-Pack dependencies:
+.br
+# squeue --dependency
+.br
+  JOBID DEPENDENCY PARTITION      NAME     USER ST     TIME   NODES
+  11390 packleader     debug      bash    slurm  R     3:17       3
+         \__ 11388     debug      bash    slurm  R     3:17       1
+         \__ 11389     debug      bash    slurm  R     3:17       2
 .ec
 
 .SH "COPYING"

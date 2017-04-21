@@ -118,7 +118,6 @@ static void _set_pending_job_id(uint32_t job_id)
 	pending_job_id = job_id;
 	if (packjob) {
 		desc[group_index].pack_job_env[job_index].job_id = job_id;
-//info("_set_pending_job_id desc[%u].pack_job_env[%u].job_id is %u", group_index, job_index, desc[group_index].pack_job_env[job_index].job_id);	/* wjb */
 		xstrfmtcat(pack_job_id,":%u", job_id);
 	}
 }
@@ -168,7 +167,6 @@ static void _signal_while_allocating(int signo)
 /* This typically signifies the job was cancelled by scancel */
 static void _job_complete_handler(srun_job_complete_msg_t *msg)
 {
-	//debug("******** MNP pid=%d: entering _job_complete_handler", getpid());
 	if (pending_job_id && (pending_job_id != msg->job_id)) {
 		if (packjob || packleader) {
 			if (msg->step_id == NO_VAL)
@@ -189,7 +187,6 @@ static void _job_complete_handler(srun_job_complete_msg_t *msg)
 		info("Force Terminated job %u", msg->job_id);
 	else
 		info("Force Terminated job %u.%u", msg->job_id, msg->step_id);
-	//debug("******** MNP pid=%d: exiting _job_complete_handler", getpid());
 }
 
 /*
@@ -668,7 +665,7 @@ allocate_nodes_jobpack(bool handle_signals)
 		resp = existing_allocation();
 
 		if (!resp) {
-			fatal("JPCK: ***wjb*** failed pack member allocation. "
+			fatal("JPCK: failed pack member allocation. "
 			      "desc_index=%d desc[0]_job=%d opt_job=%d",
 			      desc_index, desc[0].pack_job_env[0].job_id,
 			      opt.jobid);
@@ -762,9 +759,7 @@ ignore_signal(int signo)
 int
 cleanup_allocation(void)
 {
-	//debug("******** MNP pid=%d: entering cleanunp_allocation", getpid());
 	slurm_allocation_msg_thr_destroy(msg_thr);
-	//debug("******** MNP pid=%d: exiting cleanunp_allocation", getpid());
 	return SLURM_SUCCESS;
 }
 
@@ -921,7 +916,7 @@ job_desc_msg_create_from_opts (void)
 	}
 	j->user_id        = opt.uid;
 	j->dependency     = opt.dependency;
-	if (opt.nice)
+	if (opt.nice != NO_VAL)
 		j->nice   = NICE_OFFSET + opt.nice;
 	if (opt.priority)
 		j->priority = opt.priority;
@@ -1102,7 +1097,6 @@ job_desc_msg_destroy(job_desc_msg_t *j)
 extern int
 create_job_step(srun_job_t *job, bool use_all_cpus)
 {
-//	debug("******** MNP entering create_job_step"); // MNP debug
 	return launch_g_create_job_step(job, use_all_cpus,
 					_signal_while_allocating,
 					&destroy_job);

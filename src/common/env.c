@@ -60,6 +60,7 @@
 #include "src/common/macros.h"
 #include "src/common/proc_args.h"
 #include "src/common/read_config.h"
+#include "src/common/slurm_mpi.h"
 #include "src/common/slurm_protocol_api.h"
 #include "src/common/slurm_step_layout.h"
 #include "src/common/slurmdb_defs.h"
@@ -779,13 +780,6 @@ int setup_env(env_t *env, bool preserve_env)
 		rc = SLURM_FAILURE;
 	}
 
-	if (env->comm_port
-	    && setenvf (&env->env, "SLURM_SRUN_COMM_PORT", "%u",
-			env->comm_port)) {
-		error ("Can't set SLURM_SRUN_COMM_PORT env variable");
-		rc = SLURM_FAILURE;
-	}
-
 	if (env->cli) {
 
 		slurm_print_slurm_addr (env->cli, addrbuf, INET_ADDRSTRLEN);
@@ -1403,6 +1397,8 @@ env_array_for_step(char ***dest,
 	uint32_t node_cnt = step->step_layout->node_cnt;
 	uint32_t cluster_flags = slurmdb_setup_cluster_flags();
 	int jobpack_flag = 0;
+	uint16_t pmi1_port;
+	int i,j;
 
 	tpn = _uint16_array_to_str(step->step_layout->node_cnt,
 				   step->step_layout->tasks);
@@ -1475,9 +1471,31 @@ env_array_for_step(char ***dest,
 		env_array_overwrite_fmt(dest, "SLURM_TASKS_PER_NODE", "%s",
 					tpn);
 	}
-	env_array_overwrite_fmt(dest, "SLURM_SRUN_COMM_PORT",
-				"%hu", launcher_port);
 
+	if (!srun_mpi_combine) {
+		env_array_overwrite_fmt(dest, "SLURM_SRUN_COMM_PORT",
+					"%hu", launcher_port);
+	} else {
+		/* For multi-step MPI srun with mpi-combine=yes, use step#0
+		 * as common PMI server */
+		if (srun_step_idx == 0) {
+			pmi1_port = launcher_port;
+			for (i=1; i < srun_num_steps; i++) {
+				j=i*2;
+				close(pmi1port_pipe[j+0]);
+				write(pmi1port_pipe[j+1], &pmi1_port,
+				      sizeof(pmi1_port));
+				close(pmi1port_pipe[j+1]);
+			}
+		} else {
+			j=srun_step_idx*2;
+			close(pmi1port_pipe[j+1]);
+			read(pmi1port_pipe[j+0], &pmi1_port, sizeof(pmi1_port));
+			close(pmi1port_pipe[j+0]);
+		}
+		env_array_overwrite_fmt(dest, "SLURM_SRUN_COMM_PORT",
+					"%hu", pmi1_port);
+	}
 	xfree(tpn);
 }
 

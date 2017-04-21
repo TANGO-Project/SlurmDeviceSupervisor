@@ -524,14 +524,6 @@ extern void init_srun_jobpack(int ac, char **av,
 	}
 	xsignal_block(pty_sigarray);
 
-/*
-	int index1;
-	info(" init_srun ac contains %u", ac);
-	for (index1 = 0; index1 < ac; index1++) {
-		info ("av[%u] is %s", index1, av[index1]);
-	}
-*/
-
 	/* set default options, process commandline arguments, and
 	 * verify some basic values
 	 */
@@ -599,7 +591,7 @@ extern void create_srun_job(srun_job_t **p_job, bool *got_alloc,
 			error("Job creation failure.");
 			exit(error_exit);
 		}
-		opt.mpi_jobid = opt.jobid;	// MNP PMI - legacy compatibility with MPI changes for Job Packs
+		opt.mpi_jobid = opt.jobid;
 		if (create_job_step(job, false) < 0) {
 			exit(error_exit);
 		}
@@ -661,7 +653,7 @@ extern void create_srun_job(srun_job_t **p_job, bool *got_alloc,
 			error("--begin is ignored because nodes"
 			      " are already allocated.");
 		}
-		opt.mpi_jobid = opt.jobid;	// MNP PMI - legacy compatibility with MPI changes for Job Packs
+		opt.mpi_jobid = opt.jobid;
 		if (!job || create_job_step(job, false) < 0)
 			exit(error_exit);
 	} else {
@@ -717,7 +709,7 @@ extern void create_srun_job(srun_job_t **p_job, bool *got_alloc,
 		if (_become_user () < 0)
 			info("Warning: Unable to assume uid=%u", opt.uid);
 
-		opt.mpi_jobid = opt.jobid;	// MNP PMI - legacy compatibility with MPI changes for Job Packs
+		opt.mpi_jobid = opt.jobid;
 		if (!job || create_job_step(job, true) < 0) {
 			slurm_complete_job(resp->job_id, 1);
 			exit(error_exit);
@@ -773,7 +765,7 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 			error("Job creation failure.");
 			exit(error_exit);
 		}
-		opt.mpi_jobid = opt.jobid;	// MNP PMI - legacy compatibility with MPI changes for Job Packs
+		opt.mpi_jobid = opt.jobid;
 		if (create_job_step(job, false) < 0) {
 			exit(error_exit);
 		}
@@ -825,6 +817,8 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 		if (_validate_relative(resp))
 			exit(error_exit);
 		job = job_step_create_allocation(resp);
+		if (!job)
+			exit(error_exit);
 		job->pack_member = true;
 		_copy_srun_job_struct(desc[group_index].pack_job_env[
 				      job_index].job, job);
@@ -833,11 +827,6 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 			error("--begin is ignored because nodes"
 			      " are already allocated.");
 		}
-/*
-		if (!job || create_job_step(job, false) < 0)
-			exit(error_exit);
-			}
-*/
 		if (!slurm_started) {
 			/*
 			* Spawn process to insure clean-up of
@@ -852,7 +841,7 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 	} else {
 		/* Combined job allocation and job step launch */
 		if (desc[group_index].groupjob == true)
-			fatal("–pack-group used for a job that is not a "
+			fatal("pack-group option used for a job that is not a "
 			      "job_pack");
 		if ((tmp = getenv ("SLURM_NUMPACK"))) {
 			numpack = atoi(tmp);
@@ -902,6 +891,8 @@ extern void create_srun_jobpack(srun_job_t **p_job, bool *got_alloc,
 			}
 			/* save job for pack-member */
 			job = job_create_allocation(resp);
+			if (!job)
+				exit(error_exit);
 			job->pack_member = true;
 			_copy_srun_job_struct(desc[desc_index].pack_job_env[
 					      0].job, job);
@@ -980,11 +971,6 @@ extern void pre_launch_srun_job(srun_job_t *job, bool slurm_started,
 extern void pre_launch_srun_job_pack(srun_job_t *job, bool slurm_started,
 		bool handle_signals)
 {
-	/* MNP TODO: Need to modify the following code to do pre_launch_srun_job
-	 * activities for all jobs in the pack. This includes
-	 * running all the prolog scripts and waiting for
-	 * them all to complete.
-	 */
 	pthread_attr_t thread_attr;
 
 	if (handle_signals && !signal_thread) {
@@ -1001,7 +987,7 @@ extern void pre_launch_srun_job_pack(srun_job_t *job, bool slurm_started,
 	if (slurm_started)
 		return;
 
-	_run_srun_prolog_jobpack(); // MNP new function to support prolog for multi-step srun
+	_run_srun_prolog_jobpack();
 	if (_call_spank_local_user (job) < 0) {
 		error("Failure in local plugin stack");
 		slurm_step_launch_abort(job->step_ctx);
@@ -1012,33 +998,22 @@ extern void pre_launch_srun_job_pack(srun_job_t *job, bool slurm_started,
 extern void fini_srun(srun_job_t *job, bool got_alloc, uint32_t *global_rc,
 		      bool slurm_started)
 {
-	//debug("******** MNP pid=%d: entering fini_srun", getpid());
 	/* If running from poe, most of this already happened in srun. */
-	if (slurm_started) {
-		//debug("******** MNP pid=%d: in fini_srun 1", getpid());
+	if (slurm_started)
 		goto cleanup;
-	}
 	if (got_alloc) {
-		//debug("******** MNP pid=%d: in fini_srun 2", getpid());
 		cleanup_allocation();
 
 		/* Tell slurmctld that we were cancelled */
 		if (job->state >= SRUN_JOB_CANCELLED)
-		{
-			//debug("******** MNP pid=%d: in fini_srun 3", getpid());
 			slurm_complete_job(job->jobid, NO_VAL);
-		}
 		else
-		{
-			//debug("******** MNP pid=%d: in fini_srun 4", getpid());
 			slurm_complete_job(job->jobid, *global_rc);
-		}
 	}
 	_shepherd_notify(shepherd_fd);
 
 cleanup:
 	if (signal_thread) {
-		//debug("******** MNP pid=%d: in fini_srun 5", getpid());
 		srun_shutdown = true;
 		pthread_kill(signal_thread, SIGINT);
 		pthread_join(signal_thread,  NULL);
@@ -1056,7 +1031,6 @@ cleanup:
 
 	mpir_cleanup();
 	log_fini();
-	//debug("******** MNP pid=%d: exiting fini_srun", getpid());
 }
 
 void
@@ -1457,8 +1431,8 @@ static void _run_srun_prolog_jobpack (void)
 		for (j=0; j < job_index; j++) {
 			opt_ptr = _get_opt(i,j);
 			job = _get_srun_job(i,j);
-			if (opt_ptr->prolog && strcasecmp(opt_ptr->prolog, "none") != 0) {
-				debug("******** MNP pid=%d: in _run_srun_prolog_jobpack, running prolog for i=%d, j=%d", getpid(),i,j);
+			if (opt_ptr->prolog && strcasecmp(opt_ptr->prolog,
+			    "none") != 0) {
 				rc = _run_srun_script(job, opt_ptr->prolog);
 				debug("srun prolog rc = %d", rc);
 			}
@@ -1703,7 +1677,6 @@ static int _set_umask_env(void)
 static void _shepherd_notify(int shepherd_fd)
 {
 	int rc;
-	//debug("******** MNP pid=%d, entering _shepard_notify, shepard_fd=%d", getpid(), shepard_fd);
 
 	while (1) {
 		rc = write(shepherd_fd, "", 1);

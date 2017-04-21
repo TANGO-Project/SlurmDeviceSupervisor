@@ -2509,6 +2509,7 @@ static void _add_jobpack_envs(char **member_env, int numpack, uint32_t ntasks,
 		xfree(tmp);
 	}
 	if (job_ptr == job_ptr_ldr)
+<<<<<<< HEAD
 		tmp = xstrdup("SLURM_NODELIST_PACK_GROUP_0");
 	else
 		tmp = xstrdup_printf("SLURM_NODELIST_PACK_GROUP_%d",
@@ -2528,6 +2529,7 @@ static void _add_jobpack_envs(char **member_env, int numpack, uint32_t ntasks,
 				     "%s", job_ptr->nodes);
 		job_ptr->pelog_env_size++;
 	}
+		strcpy(tmp, "SLURM_NODELIST_PACK_GROUP_0");
 
 	xfree(tmp);
 

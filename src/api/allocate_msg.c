@@ -79,7 +79,6 @@ static void *_msg_thr_internal(void *arg)
 {
 	int signals[] = {SIGHUP, SIGINT, SIGQUIT, SIGPIPE, SIGTERM,
 			 SIGUSR1, SIGUSR2, 0};
-	//debug("******** MNP %d: entering allocate_msg.c:_msg_thr_internal", getpid());
 	debug("Entering _msg_thr_internal");
 	xsignal_block(signals);
 	slurm_mutex_lock(&msg_thr_start_lock);
@@ -87,7 +86,6 @@ static void *_msg_thr_internal(void *arg)
 	slurm_mutex_unlock(&msg_thr_start_lock);
 	eio_handle_mainloop((eio_handle_t *)arg);
 	debug("Leaving _msg_thr_internal");
-	//debug("******** MNP %d: exiting allocate_msg.c:_msg_thr_internal", getpid());
 
 	return NULL;
 }
@@ -165,7 +163,6 @@ extern allocation_msg_thread_t *slurm_allocation_msg_thr_create(
 extern void slurm_allocation_msg_thr_destroy(
 	allocation_msg_thread_t *arg)
 {
-	//debug("******** MNP %d: entering slurm_allocation_msg_thr_destroy", getpid());
 	struct allocation_msg_thread *msg_thr =
 		(struct allocation_msg_thread *)arg;
 	if (msg_thr == NULL)
@@ -176,7 +173,6 @@ extern void slurm_allocation_msg_thr_destroy(
 	pthread_join(msg_thr->id, NULL);
 	eio_handle_destroy(msg_thr->handle);
 	xfree(msg_thr);
-	//debug("******** MNP %d: exiting slurm_allocation_msg_thr_destroy", getpid());
 }
 
 static void _handle_node_fail(struct allocation_msg_thread *msg_thr,
@@ -228,15 +224,15 @@ static void _handle_ping(struct allocation_msg_thread *msg_thr,
 static void _handle_job_complete(struct allocation_msg_thread *msg_thr,
 				 slurm_msg_t *msg)
 {
-	//debug("******** MNP %d: entering _handle_job_complete", getpid());
+	//debug("******** JPCK MNP %d: entering _handle_job_complete", getpid());
 	srun_job_complete_msg_t *comp = (srun_job_complete_msg_t *)msg->data;
-	//debug("******** MNP %d: in _handle_job_complete, jobid=%d", getpid(), comp->job_id);
+	//debug("******** JPCK MNP %d: in _handle_job_complete, jobid=%d", getpid(), comp->job_id);
 	debug3("job complete message received");
 
 	if (msg_thr->callback.job_complete != NULL)
 		(msg_thr->callback.job_complete)(comp);
 
-	//debug("******** MNP %d: exiting _handle_job_complete", getpid());
+	//debug("******** JPCK MNP %d: exiting _handle_job_complete", getpid());
 }
 
 static void _handle_suspend(struct allocation_msg_thread *msg_thr,

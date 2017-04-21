@@ -48,19 +48,22 @@
 typedef struct slurm_mpi_context *slurm_mpi_context_t;
 typedef void mpi_plugin_client_state_t;
 
-/* Pipes used to pass MPI-related data between forked
- * sruns for aggregation
- */
-extern int *vector_pipe;	// MNP PMI
-extern int *nnodes_pipe;	// MNP PMI
-extern int *pmiport_pipe;	// MNP PMI
+/* Pipes for MPI-related data for multi-step sruns */
+extern int *vector_pipe_out;
+extern int *vector_pipe_in;
+extern int *nnodes_pipe;
+extern int *pmi2port_pipe;
+extern int *pmi1port_pipe;
 
-extern int srun_num_steps;	// MNP PMI
-extern int srun_step_idx;	// MNP PMI
+/* srun globals */
+extern int srun_num_steps;	/* number of steps in this srun command */
+extern int srun_step_idx;	/* step index of this step */
+extern uint32_t packstepid[];	/* unique id for all steps in this srun */
+extern bool srun_mpi_combine;	/* --mpi-combine option */
 
 typedef struct {
 	uint32_t jobid;
-	uint32_t orig_jobid; // MNP PMI
+	uint32_t orig_jobid;
 	uint32_t stepid;
 	slurm_step_layout_t *step_layout;
 } mpi_plugin_client_info_t;

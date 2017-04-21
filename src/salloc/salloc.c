@@ -7,6 +7,9 @@
  *  Produced at Lawrence Livermore National Laboratory (cf, DISCLAIMER).
  *  Written by Christopher J. Morrone <morrone2@llnl.gov>
  *  CODE-OCEC-09-009. All rights reserved.
+ *  Portions copyright (C) 2015 Atos Inc.
+ *  Written by Bill Brophy <bill.brophy@atos.net>.
+ *  All rights reserved.
  *
  *  This file is part of SLURM, a resource management program.
  *  For details, see <https://slurm.schedmd.com/>.
@@ -173,13 +176,6 @@ int _count_jobs(int ac, char **av)
 static void _build_env_structs(int ac, char **av)
 {
 	int i;
-/*
-	int index;
-	info("in _build_env_structs ac contains %u", ac);
-	for (index = 0; index < ac; index++) {
-		info ("av[%u] is %s\n", index, av[index]);
-	}
-*/
 
 	pack_job_env = xmalloc(sizeof(pack_job_env_t) * pack_desc_count);
 	for (i = 0; i < pack_desc_count; i++) {
@@ -214,13 +210,6 @@ static void _identify_job_descriptions(int ac, char **av)
 	bool _pack_l;
 	uint16_t dependency_position = 0;
 
-/*
-	int index3;
-	info("in _identify_job_descriptions ac contains %u\n", ac);
-	for (index3 = 0; index3 < ac; index3++) {
-		info("av[%u] is %s\n", index3, av[index3]);
-	}
-*/
 	newcmd = xmalloc(sizeof(char *) * (ac + 1));
 	while (current < ac){
 		newcmd[0] = xstrdup(av[0]);
@@ -290,13 +279,6 @@ static void _identify_job_descriptions(int ac, char **av)
 		}
 
 		pack_job_env[job_index].ac = j;
-
-/*
-	int index1;
-	for (index1=0; index1 < j; index1++)
-		info("pack_job_env[%u].av[%u] = %s\n", job_index, index1,
-		     pack_job_env[job_index].av[index1]);
-*/
 		job_index++;
 	}
 	for (i = 0; i < (ac + 1); i++) {
@@ -315,20 +297,20 @@ existing_allocation(void)
 	if (opt.jobid != NO_VAL)
 		old_job_id = (uint32_t)opt.jobid;
 	else
-                return NULL;
+		return NULL;
 
-        if (slurm_allocation_lookup_lite(old_job_id, &resp) < 0) {
-                if (errno == ESLURM_ALREADY_DONE)
-                        error ("SLURM job %u has expired.", old_job_id);
-                else
-                        error ("Unable to confirm allocation for job %u: %m",
+	if (slurm_allocation_lookup_lite(old_job_id, &resp) < 0) {
+		if (errno == ESLURM_ALREADY_DONE)
+			error ("SLURM job %u has expired.", old_job_id);
+		else
+			error ("Unable to confirm allocation for job %u: %m",
 			       old_job_id);
-                info ("Check SLURM_JOB_ID environment variable "
-                      "for expired or invalid job.");
-                exit(error_exit);
-        }
+		info ("Check SLURM_JOB_ID environment variable "
+			  "for expired or invalid job.");
+		exit(error_exit);
+	}
 
-        return resp;
+	return resp;
 }
 
 static void _reset_input_mode (void)
@@ -658,12 +640,12 @@ int main(int argc, char **argv)
 		}
 	}
 
-        env_array_set_environment(env, -1);
+	env_array_set_environment(env, -1);
 	env_array_free(env);
 
 	xstrfmtcat(listjobids, "%d", alloc->job_id);
 	setenv("SLURM_LISTJOBIDS", listjobids, 1);
-        xfree(listjobids);
+	xfree(listjobids);
 	setenv("SLURM_NUMPACK", "1", 1);
 
 	slurm_mutex_lock(&allocation_state_lock);
@@ -811,6 +793,7 @@ int main_jobpack(int argc, char *argv[])
 	List rports = list_create(NULL);
 	ListIterator it;
 	char *val, *key1, *key2, *delim, *tmp;
+	int leader_is_ready = 0;
 
 	slurm_conf_init(NULL);
 	log_init(xbasename(argv[0]), logopt, 0, NULL);
@@ -844,9 +827,10 @@ int main_jobpack(int argc, char *argv[])
 
 		if (initialize_and_process_args(pack_job_env[group_number].ac,
 					pack_job_env[group_number].av) < 0) {
-		        error("salloc parameter parsing");
+			error("salloc parameter parsing");
 			exit(error_exit);
 		}
+
 		/* reinit log with new verbosity (if changed by command line) */
 		if (opt.verbose || opt.quiet) {
 		        logopt.stderr_level += opt.verbose;
@@ -856,7 +840,7 @@ int main_jobpack(int argc, char *argv[])
 		}
 
 		if (spank_init_post_opt() < 0) {
-		        error("Plugin stack post-option processing failed");
+			error("Plugin stack post-option processing failed");
 			exit(error_exit);
 		}
 
@@ -864,14 +848,14 @@ int main_jobpack(int argc, char *argv[])
 		_set_submit_dir_env();
 
 		if (opt.cwd && chdir(opt.cwd)) {
-		        error("chdir(%s): %m", opt.cwd);
+			error("chdir(%s): %m", opt.cwd);
 			exit(error_exit);
 		}
 
 		if (opt.get_user_env_time >= 0) {
-		        char *user = uid_to_string(opt.uid);
+			char *user = uid_to_string(opt.uid);
 			if (strcmp(user, "nobody") == 0) {
-			        error("Invalid user id %u: %m",
+				error("Invalid user id %u: %m",
 				      (uint32_t)opt.uid);
 				exit(error_exit);
 			}
@@ -880,7 +864,7 @@ int main_jobpack(int argc, char *argv[])
 					     opt.get_user_env_mode);
 			xfree(user);
 			if (env == NULL)
-			        exit(error_exit);    /* error already logged */
+				exit(error_exit);    /* error already logged */
 			_set_rlimits(env);
 			_copy_env(pack_job_env[group_number].env, env);
 		}
@@ -930,8 +914,8 @@ int main_jobpack(int argc, char *argv[])
 #else
 	        } else if ((!opt.no_shell) &&
 			   (getpgrp() == tcgetpgrp(STDIN_FILENO))) {
-	                is_interactive = true;
-	        }
+			is_interactive = true;
+		}
 #endif
 	        /*
 		 * Reset saved tty attributes at exit, in case a child
@@ -945,7 +929,7 @@ int main_jobpack(int argc, char *argv[])
 		 */
 		slurm_init_job_desc_msg(&desc);
 		if (_fill_job_desc_from_opts(&desc) == -1) {
-		        exit(error_exit);
+			exit(error_exit);
 		}
 		desc.group_number = group_number;
 		desc.numpack = pack_desc_count;
@@ -977,19 +961,19 @@ int main_jobpack(int argc, char *argv[])
 		before = time(NULL);
 		retries = 0;
 		if (packjob == true) {
-		        while ((alloc = slurm_allocate_pack_resources(&desc,
+			while ((alloc = slurm_allocate_pack_resources(&desc,
 			      opt.immediate, _pending_callback)) == NULL) {
 			  if (((errno != ESLURM_ERROR_ON_DESC_TO_RECORD_COPY) &&
 			       (errno != EAGAIN)) || (retries >= MAX_RETRIES))
-			          break;
+				break;
 			  if (retries == 0)
-			          error("%s", msg);
+				error("%s", msg);
 			  else
-			          debug("%s", msg);
+				debug("%s", msg);
 			  sleep (++retries);
 			}
 			if (!alloc)
-			        fatal("JPCK: failed to allocate pack member");
+				fatal("JPCK: failed to allocate pack member");
 		} else if (packleader == true) {
 			while ((alloc = slurm_allocate_resources_blocking(&desc,
 				opt.immediate, _pending_callback)) == NULL) {
@@ -1005,8 +989,12 @@ int main_jobpack(int argc, char *argv[])
 				sleep (++retries);
 			}
 			if (!alloc)
-			        fatal("JPCK: failed to allocate packleader");
+				fatal("JPCK: failed to allocate packleader");
 			pack_job_env[group_number].job_id = alloc->job_id;
+			debug2("JPCK: Dependency for packleader %u is "
+			       "%s", pack_job_env[group_number].job_id,
+			       pack_job_env[group_number].av[
+			       packl_dependency_position]);
 		}
 		_copy_opt_struct(pack_job_env[group_number].opt, &opt);
 		_copy_job_desc_msg(pack_job_env[group_number].desc, &desc);
@@ -1052,7 +1040,9 @@ int main_jobpack(int argc, char *argv[])
 			goto relinquish;
 		}
 #else
-		if (!_wait_nodes_ready(alloc)  && (packleader == true)) {
+		if (packleader)
+			leader_is_ready = _wait_nodes_ready(alloc);
+		if (!leader_is_ready) {
 			if (!allocation_interrupted)
 				error("Something is wrong with the "
 				      "boot of the nodes.");
@@ -1081,12 +1071,15 @@ int main_jobpack(int argc, char *argv[])
 		_copy_opt_struct(&opt, pack_job_env[group_number].opt);
 		_copy_job_desc_msg(&desc, pack_job_env[group_number].desc);
 		if (pack_job_env[group_number].env[0] != NULL) {
-		        _copy_env(env, pack_job_env[group_number].env);
+			_copy_env(env, pack_job_env[group_number].env);
 		} else {
 		        env = NULL;
 		}
 		opt.jobid = pack_job_env[group_number].job_id;
 		alloc = existing_allocation();
+		if (leader_is_ready)
+			info("Nodes %s are ready for job %d",
+			     alloc->node_list, alloc->job_id);
 
 		if (alloc->env_size) {
 		        tmp = xmalloc(40);
@@ -1094,7 +1087,7 @@ int main_jobpack(int argc, char *argv[])
 				group_number);
 			val = getenvp(alloc->environment, tmp);
 			if (val) {
-			        char *tmp2 = xmalloc(strlen(val) + 6);
+				char *tmp2 = xmalloc(strlen(val) + 6);
 				sprintf(tmp2, "%d=%s", group_number,
 					val);
 				list_append(rports, tmp2);
@@ -1111,7 +1104,7 @@ int main_jobpack(int argc, char *argv[])
 		 * Run the user's command.
 		 */
 		if (env_array_for_job(&env, alloc, &desc) != SLURM_SUCCESS)
-		        goto relinquish;
+			goto relinquish;
 
 		/* Add default task count for srun, if not already set */
 		if (opt.ntasks_set) {
@@ -1127,26 +1120,26 @@ int main_jobpack(int argc, char *argv[])
 				       opt.cpus_per_task);
 		}
 		if (opt.overcommit) {
-		        env_array_append_fmt(&env, "SLURM_OVERCOMMIT", "%d",
+			env_array_append_fmt(&env, "SLURM_OVERCOMMIT", "%d",
 					     opt.overcommit);
 		}
 		if (opt.acctg_freq) {
-		        env_array_append_fmt(&env, "SLURM_ACCTG_FREQ", "%s",
+			env_array_append_fmt(&env, "SLURM_ACCTG_FREQ", "%s",
 					     opt.acctg_freq);
 		}
 		if (opt.network)
-		        env_array_append_fmt(&env, "SLURM_NETWORK", "%s",
+			env_array_append_fmt(&env, "SLURM_NETWORK", "%s",
 					     opt.network);
 		cluster_name = slurm_get_cluster_name();
 		if (cluster_name) {
-		        env_array_append_fmt(&env, "SLURM_CLUSTER_NAME", "%s",
+			env_array_append_fmt(&env, "SLURM_CLUSTER_NAME", "%s",
 					     cluster_name);
 			xfree(cluster_name);
 		}
 
 		xstrfmtcat(aggr_jobidptr, "%d", alloc->job_id);
 		if (group_number < (pack_desc_count - 1))
-		        xstrcat(aggr_jobidptr, ",");
+			xstrcat(aggr_jobidptr, ",");
 
 		xstrcat(aggregate_hosts, alloc->node_list);
 		xstrcat(aggregate_hosts, ",");
@@ -1155,57 +1148,57 @@ int main_jobpack(int argc, char *argv[])
 		env_array_free(env);
 	}
 
-        /* Set new ENVs for jobpack */
+	/* Set new ENVs for jobpack */
 
-        hostlist = hostlist_create(aggregate_hosts);
-        hostlist_sort(hostlist);
+	hostlist = hostlist_create(aggregate_hosts);
+	hostlist_sort(hostlist);
 
-        /* Set SLURM_LISTJOBIDS env */
+	/* Set SLURM_LISTJOBIDS env */
 	setenv("SLURM_LISTJOBIDS", aggr_jobidptr, 1);
-        if(aggr_jobidptr != NULL) xfree(aggr_jobidptr);
+	if(aggr_jobidptr != NULL) xfree(aggr_jobidptr);
 
-        /* Set SLURM_NUMPACK env */
-        numpacklen = snprintf(NULL, 0, "%d", pack_desc_count);
-        aggr_jobidptr = xmalloc(numpacklen + 1);
-        sprintf(aggr_jobidptr, "%d", pack_desc_count);
-        setenv("SLURM_NUMPACK", aggr_jobidptr, 1);
-        xfree(aggr_jobidptr);
+	/* Set SLURM_NUMPACK env */
+	numpacklen = snprintf(NULL, 0, "%d", pack_desc_count);
+	aggr_jobidptr = xmalloc(numpacklen + 1);
+	sprintf(aggr_jobidptr, "%d", pack_desc_count);
+	setenv("SLURM_NUMPACK", aggr_jobidptr, 1);
+	xfree(aggr_jobidptr);
 
-        /* Set SLURM_NODELIST env */
+	/* Set SLURM_NODELIST env */
 	hostlist_uniq(hostlist);
-        hostlist_num = hostlist_count(hostlist);
-        aggr_nodelistptr = hostlist_ranged_string_xmalloc(hostlist);
-        setenv("SLURM_NODELIST", aggr_nodelistptr, 1);
-        xfree(aggr_nodelistptr);
-        xfree(aggregate_hosts);
+	hostlist_num = hostlist_count(hostlist);
+	aggr_nodelistptr = hostlist_ranged_string_xmalloc(hostlist);
+	setenv("SLURM_NODELIST", aggr_nodelistptr, 1);
+	xfree(aggr_nodelistptr);
+	xfree(aggregate_hosts);
 
-        /* Set SLURM_NNODES env */
-        numpacklen = snprintf(NULL, 0, "%d", hostlist_num);
-        aggr_nodelistptr = xmalloc(numpacklen + 1);
-        sprintf(aggr_nodelistptr, "%d", hostlist_num);
-        setenv("SLURM_NNODES", aggr_nodelistptr, 1);
-        xfree(aggr_nodelistptr);
+	/* Set SLURM_NNODES env */
+	numpacklen = snprintf(NULL, 0, "%d", hostlist_num);
+	aggr_nodelistptr = xmalloc(numpacklen + 1);
+	sprintf(aggr_nodelistptr, "%d", hostlist_num);
+	setenv("SLURM_NNODES", aggr_nodelistptr, 1);
+	xfree(aggr_nodelistptr);
 
-        /* Set SLURM_NTASKS env */
-        numpacklen = snprintf(NULL, 0, "%d", pack_tot_ntasks);
-        aggr_nodelistptr = xmalloc(numpacklen + 1);
-        sprintf(aggr_nodelistptr, "%d", pack_tot_ntasks);
-        setenv("SLURM_NTASKS", aggr_nodelistptr, 1);
-        xfree(aggr_nodelistptr);
+	/* Set SLURM_NTASKS env */
+	numpacklen = snprintf(NULL, 0, "%d", pack_tot_ntasks);
+	aggr_nodelistptr = xmalloc(numpacklen + 1);
+	sprintf(aggr_nodelistptr, "%d", pack_tot_ntasks);
+	setenv("SLURM_NTASKS", aggr_nodelistptr, 1);
+	xfree(aggr_nodelistptr);
 
-        /* Set SLURM_PACK_GROUP env */
-        aggr_nodelistptr = xmalloc(24);
-        sprintf(aggr_nodelistptr, "[0-%d]", pack_desc_count-1);
-        setenv("SLURM_PACK_GROUP", aggr_nodelistptr, 1);
-        xfree(aggr_nodelistptr);
-        hostlist_destroy(hostlist);
+	/* Set SLURM_PACK_GROUP env */
+	aggr_nodelistptr = xmalloc(24);
+	sprintf(aggr_nodelistptr, "[0-%d]", pack_desc_count-1);
+	setenv("SLURM_PACK_GROUP", aggr_nodelistptr, 1);
+	xfree(aggr_nodelistptr);
+	hostlist_destroy(hostlist);
 
-        it = list_iterator_create(rports);
-        while ((val = list_next(it))) {
-	        key1 = xstrdup(val);
+	it = list_iterator_create(rports);
+	while ((val = list_next(it))) {
+		key1 = xstrdup(val);
 		delim = strchr(key1, '=');
 		if (delim) {
-		        delim[0] = '\0';
+			delim[0] = '\0';
 			key2 = xstrdup(delim+1);
 			tmp = xmalloc(100);
 			sprintf (tmp, "SLURM_RESV_PORTS_PACK_GROUP_%d",
@@ -1216,10 +1209,10 @@ int main_jobpack(int argc, char *argv[])
 		}
 		xfree(key1);
 	}
-        list_iterator_destroy(it);
+	list_iterator_destroy(it);
 	FREE_NULL_LIST(rports);
 
-        /* End new ENVs for jobpack */
+	/* End new ENVs for jobpack */
 
 	pthread_mutex_lock(&allocation_state_lock);
 	if (allocation_state == REVOKED) {
@@ -1273,10 +1266,12 @@ int main_jobpack(int argc, char *argv[])
 		/* NOTE: Do not process signals in separate pthread.
 		 * The signal will cause waitpid() to exit immediately. */
 		xsignal(SIGHUP,  _exit_on_signal);
-		/* Use WUNTRACED to treat stopped children like terminated ones */
+		/* Use WUNTRACED to treat stopped children like terminated
+		 * ones */
 		do {
 			rc_pid = waitpid(command_pid, &status, WUNTRACED);
-		} while (WIFSTOPPED(status) || ((rc_pid == -1) && (!exit_flag)));
+		} while (WIFSTOPPED(status) || ((rc_pid == -1) &&
+			 (!exit_flag)));
 		if ((rc_pid == -1) && (errno != EINTR))
 			error("waitpid for %s failed: %m", command_argv[0]);
 	}
@@ -1298,8 +1293,8 @@ relinquish:
 			info("Relinquishing job allocation %u", alloc->job_id);
 			if ((slurm_complete_job(alloc->job_id, status) != 0) &&
 			    (slurm_get_errno() != ESLURM_ALREADY_DONE))
-				error("Unable to clean up job allocation %u: %m",
-				      alloc->job_id);
+				error("Unable to clean up job allocation %u: "
+				      "%m", alloc->job_id);
 		}
 		pthread_mutex_lock(&allocation_state_lock);
 		allocation_state = REVOKED;
@@ -1961,9 +1956,11 @@ static int _wait_nodes_ready(resource_allocation_response_msg_t *alloc)
 	if (is_ready) {
 		resource_allocation_response_msg_t *resp;
 		char *tmp_str;
-		if (i > 0)
-     			info("Nodes %s are ready for job", alloc->node_list);
-		if (alloc->alias_list && !xstrcmp(alloc->alias_list, "TBD") &&
+		/* For jobpack this info will be displayed later */
+		if (!packjob && !packleader && i > 0)
+			info("Nodes %s are ready for job", alloc->node_list);
+		if (alloc->alias_list && !strcmp(alloc->alias_list, "TBD") &&
+
 		    (slurm_allocation_lookup_lite(pending_job_id, &resp)
 		     == SLURM_SUCCESS)) {
 			tmp_str = alloc->alias_list;

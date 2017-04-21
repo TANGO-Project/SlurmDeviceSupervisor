@@ -642,7 +642,6 @@ _task_write(eio_obj_t *obj, List objs)
 	void *buf;
 	int n;
 
-	debug("******** MNP, pid=%d, in slurmstepd/io.c:_task_write", getpid());
 	debug4("Entering _task_write");
 	xassert(in->magic == TASK_IN_MAGIC);
 
@@ -712,9 +711,7 @@ _create_task_out_eio(int fd, uint16_t type,
 	out->magic = TASK_OUT_MAGIC;
 #endif
 	out->type = type;
-//	out->gtaskid = task->gtid; // MNP PMI old code
-	out->gtaskid = task->utaskid; // MNP PMI new code
-	debug("******** MNP, pid=%d, in slurmstepd/io.c:_create_task_out_eio, out->gtaskid=task->utaskid=%d", getpid(), out->gtaskid);
+	out->gtaskid = task->utaskid;
 	out->ltaskid = task->id;
 	out->job = job;
 	out->buf = cbuf_create(MAX_MSG_LEN, MAX_MSG_LEN*4);
@@ -722,7 +719,6 @@ _create_task_out_eio(int fd, uint16_t type,
 	out->eof_msg_sent = false;
 	if (cbuf_opt_set(out->buf, CBUF_OPT_OVERWRITE, CBUF_NO_DROP) == -1)
 		error("setting cbuf options");
-	debug("******** MNP, pid=%d, in slurmstepd/io.c:_create_task_out_eio, calling eio_obj_create to create task obj", getpid());
 	eio = eio_obj_create(fd, &task_read_ops, (void *)out);
 
 	return eio;
@@ -931,7 +927,6 @@ _init_task_stdio_fds(stepd_step_task_info_t *task, stepd_step_rec_t *job)
 {
 	int file_flags = io_get_file_flags(job);
 
-	debug("******** MNP, pid=%d, in slurmstepd/io.c: entering _init_task_stdio_fds", getpid());
 	/*
 	 *  Initialize stdin
 	 */
@@ -987,7 +982,6 @@ _init_task_stdio_fds(stepd_step_task_info_t *task, stepd_step_rec_t *job)
 #else
 	if (task->ifname != NULL) {
 #endif
-	debug("******** MNP, pid=%d, in slurmstepd/io.c: in _init_task_stdio_fds 1", getpid());
 
 		int count = 0;
 		/* open file on task's stdin */
@@ -1004,7 +998,6 @@ _init_task_stdio_fds(stepd_step_task_info_t *task, stepd_step_rec_t *job)
 		task->to_stdin = -1;  /* not used */
 	} else {
 		/* create pipe and eio object */
-		debug("******** MNP, pid=%d, in slurmstepd/io.c: in _init_task_stdio_fds 2", getpid());
 
 		int pin[2];
 
@@ -1053,7 +1046,6 @@ _init_task_stdio_fds(stepd_step_task_info_t *task, stepd_step_rec_t *job)
 	     xstrcmp(task->ofname, "/dev/null") == 0)) {
 #endif
 		int count = 0;
-		debug("******** MNP, pid=%d, in slurmstepd/io.c: in _init_task_stdio_fds 4", getpid());
 		/* open file on task's stdout */
 		debug5("  stdout file name = %s", task->ofname);
 		do {
@@ -1086,7 +1078,6 @@ _init_task_stdio_fds(stepd_step_task_info_t *task, stepd_step_rec_t *job)
 				error("%s 0 setresuid() %m", __func__);
 #endif
 		} else {
-			debug("******** MNP, pid=%d, in slurmstepd/io.c: in _init_task_stdio_fds 5", getpid());
 			debug5("  stdout uses an eio object");
 			if (pipe(pout) < 0) {
 				error("stdout pipe: %m");
@@ -1105,7 +1096,6 @@ _init_task_stdio_fds(stepd_step_task_info_t *task, stepd_step_rec_t *job)
 		task->from_stdout = pout[0];
 		fd_set_close_on_exec(task->from_stdout);
 		fd_set_nonblocking(task->from_stdout);
-		debug("******** MNP, pid=%d, in slurmstepd/io.c: in _init_task_stdio_fds 6", getpid());
 		task->out = _create_task_out_eio(task->from_stdout,
 						 SLURM_IO_STDOUT, job, task);
 		list_append(job->stdout_eio_objs, (void *)task->out);
@@ -1171,14 +1161,12 @@ _init_task_stdio_fds(stepd_step_task_info_t *task, stepd_step_rec_t *job)
 		task->from_stderr = perr[0];
 		fd_set_close_on_exec(task->from_stderr);
 		fd_set_nonblocking(task->from_stderr);
-		debug("******** MNP, pid=%d, in slurmstepd/io.c: in _init_task_stdio_fds 7", getpid());
 
 		task->err = _create_task_out_eio(task->from_stderr,
 						 SLURM_IO_STDERR, job, task);
 		list_append(job->stderr_eio_objs, (void *)task->err);
 		eio_new_initial_obj(job->eio, (void *)task->err);
 	}
-	debug("******** MNP, pid=%d, in slurmstepd/io.c: exiting _init_task_stdio_fds", getpid());
 	return SLURM_SUCCESS;
 }
 
@@ -1187,7 +1175,6 @@ io_init_tasks_stdio(stepd_step_rec_t *job)
 {
 	int i, rc = SLURM_SUCCESS, tmprc;
 
-	debug("******** MNP, pid=%d, in slurmstepd/io.c: exiting _init_task_stdio_fds", getpid());
 	for (i = 0; i < job->node_tasks; i++) {
 		tmprc = _init_task_stdio_fds(job->task[i], job);
 		if (tmprc != SLURM_SUCCESS)

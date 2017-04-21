@@ -106,7 +106,7 @@ int job_format_add_function(List list, int width, bool right_justify,
 #define job_format_add_prefix(list,wid,right,prefix) \
 	job_format_add_function(list,0,0,prefix,_print_job_prefix)
 #define job_format_add_reason(list,wid,right,prefix) \
-        job_format_add_function(list,wid,right,prefix,_print_job_reason)
+	job_format_add_function(list,wid,right,prefix,_print_job_reason)
 #define job_format_add_reason_list(list,wid,right,prefix) \
 	job_format_add_function(list,wid,right,prefix,_print_job_reason_list)
 #define job_format_add_name(list,wid,right,suffix) \
@@ -120,11 +120,11 @@ int job_format_add_function(List list, int width, bool right_justify,
 #define job_format_add_user_id(list,wid,right,suffix) \
 	job_format_add_function(list,wid,right,suffix,_print_job_user_id)
 #define job_format_add_gres(list,wid,right,suffix) \
-        job_format_add_function(list,wid,right,suffix,_print_job_gres)
+	job_format_add_function(list,wid,right,suffix,_print_job_gres)
 #define job_format_add_group_name(list,wid,right,suffix) \
-        job_format_add_function(list,wid,right,suffix,_print_job_group_name)
+	job_format_add_function(list,wid,right,suffix,_print_job_group_name)
 #define job_format_add_group_id(list,wid,right,suffix) \
-        job_format_add_function(list,wid,right,suffix,_print_job_group_id)
+	job_format_add_function(list,wid,right,suffix,_print_job_group_id)
 #define job_format_add_job_state(list,wid,right,suffix) \
 	job_format_add_function(list,wid,right,suffix,_print_job_job_state)
 #define job_format_add_job_state_compact(list,wid,right,suffix) \

@@ -9604,6 +9604,8 @@ _unpack_launch_tasks_request_msg(launch_tasks_request_msg_t **
 				goto unpack_error;
 		}
 		safe_unpack16(&msg->num_resp_port, buffer);
+		safe_unpack32(&msg->packstepid[0], buffer);
+		safe_unpack32(&msg->packstepid[1], buffer);
 		if (msg->num_resp_port > 0) {
 			msg->resp_port = xmalloc(sizeof(uint16_t) *
 						 msg->num_resp_port);

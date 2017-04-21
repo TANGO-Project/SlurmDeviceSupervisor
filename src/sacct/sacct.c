@@ -98,9 +98,9 @@ print_field_t fields[] = {
 	{8,  "NNodes", print_fields_str, PRINT_NNODES},
 	{15, "NodeList", print_fields_str, PRINT_NODELIST},
 	{8,  "NTasks", print_fields_uint, PRINT_NTASKS},
-	{12, "Packid", print_fields_uint, PRINT_PACKID},			/* wjb */
-	{12, "Packjobid", print_fields_uint, PRINT_PACKJOBID},			/* wjb */
-	{12, "Packstepid", print_fields_uint, PRINT_PACKSTEPID},		/* wjb */
+	{12, "Packid", print_fields_uint, PRINT_PACKID},
+	{12, "Packjobid", print_fields_uint, PRINT_PACKJOBID},
+	{12, "Packstepid", print_fields_uint, PRINT_PACKSTEPID},
 	{10, "Priority", print_fields_uint, PRINT_PRIO},
 	{10, "Partition", print_fields_str, PRINT_PARTITION},
 	{10, "QOS", print_fields_str, PRINT_QOS},

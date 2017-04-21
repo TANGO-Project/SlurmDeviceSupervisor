@@ -297,12 +297,12 @@ _print_job_steps( bool clear_old )
 
 	if (!params.format && !params.format_long) {
 		if (params.dependency) {
-		        params.format = "%.15i %.10E %.8j %.9P %.8u %.9M %N";
+			params.format = "%.15i %.10E %.8j %.9P %.8u %.9M %N";
 			/* dependency sort */
 			params.sort = xstrdup("k");
 		}
 		else
-		        params.format = "%.15i %.8j %.9P %.8u %.9M %N";
+			params.format = "%.15i %.8j %.9P %.8u %.9M %N";
 	}
 
 	if (!params.format_list) {

@@ -63,7 +63,7 @@ extern pid_t getsid(pid_t pid);		/* missing from <unistd.h> */
 #include "src/common/parse_time.h"
 #include "src/common/slurm_auth.h"
 #include "src/common/slurm_protocol_defs.h"
-#include "src/srun/libsrun/opt.h" // MNP PMI
+#include "src/srun/libsrun/opt.h"
 
 #define BUFFER_SIZE 1024
 #define MAX_ALLOC_WAIT 60	/* seconds */
@@ -526,7 +526,6 @@ slurm_job_step_create (job_step_create_request_msg_t *req,
 {
 	slurm_msg_t req_msg, resp_msg;
 
-//	debug("******** MNP entering slurm_job_step_create"); // MNP debug
 	slurm_msg_t_init(&req_msg);
 	slurm_msg_t_init(&resp_msg);
 	req_msg.msg_type = REQUEST_JOB_STEP_CREATE;
@@ -549,7 +548,6 @@ slurm_job_step_create (job_step_create_request_msg_t *req,
 		break;
 	}
 
-//	debug("******** MNP exiting slurm_job_step_create"); // MNP debug
 	return SLURM_PROTOCOL_SUCCESS ;
 }
 
@@ -905,7 +903,6 @@ _handle_msg(slurm_msg_t *msg, resource_allocation_response_msg_t **resp)
 			rc = 1;
 			break;
 		case SRUN_JOB_COMPLETE:
-			// debug("******** MNP %d: allocate.c:_handle_msg, received SRUN_JOB_COMPLETE", getpid());
 			info("Job has been cancelled");
 			break;
 		default:

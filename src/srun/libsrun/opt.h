@@ -231,7 +231,7 @@ typedef struct srun_options {
 	char **spank_job_env;	/* SPANK controlled environment for job
 				 * Prolog and Epilog		*/
 	int spank_job_env_size;	/* size of spank_job_env	*/
-        char **pelog_env; 	/* other prolog/epilog environment envs */
+	char **pelog_env; 	/* other prolog/epilog environment envs */
 	int pelog_env_size;    	/* size of pelog_env */
 	int req_switch;		/* Minimum number of switches	*/
 	int wait4switch;	/* Maximum time to wait for minimum switches */
@@ -253,16 +253,18 @@ typedef struct srun_options {
 	uint32_t ngrpidx;     	/* Number of pack group indexes */
 	uint32_t *groupidx;	/* Indexes of pack groups running these tasks */
 	int shepard_fd;
-	uint32_t mpi_jobid;	/* MPI jobid (same for all steps) */ // MNP PMI
-	int mpi_ntasks;		/* number of MPI tasks for all steps combined */ // MNP PMI
-	int mpi_nnodes;		/* number of MPI nodes for all steps combined */ // MNP PMI
-	int mpi_stepftaskid;	/* first MPI taskid for this step */ // MNP PMI
-
+	uint32_t mpi_jobid;	/* MPI jobid (same for all steps) */
+	int mpi_ntasks;		/* number of MPI tasks for all steps combined */
+	int mpi_nnodes;		/* number of MPI nodes for all steps combined */
+	int mpi_stepfnodeid;	/* first MPI nodeid for this step */
+	int mpi_stepftaskid;	/* first MPI taskid for this step */
+	uint32_t packstepid[2]; /* jobid of srun first step of the jobpack
+				 * & stepid of jobpack member */
 } opt_t;
 
 extern opt_t opt;
-extern int mpi_curtaskid; // MNP PMI
-extern int mpi_curnodecnt; // MNP PMI
+extern int mpi_curtaskid;
+extern int mpi_curnodecnt;
 
 typedef struct {
 	bool packleader;
@@ -321,7 +323,8 @@ extern resource_allocation_response_msg_t *global_resp;
  * 4. perform some verification that options are reasonable
  */
 int initialize_and_process_args(int argc, char *argv[]);
-int initialize_and_process_args_jobpack(int argc, char *argv[], uint32_t group_number);
+int initialize_and_process_args_jobpack(int argc, char *argv[],
+					uint32_t group_number);
 
 /* external functions available for SPANK plugins to modify the environment
  * exported to the SLURM Prolog and Epilog programs */

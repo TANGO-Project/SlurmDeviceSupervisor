@@ -106,8 +106,6 @@ _handle_kvs_fence(int fd, Buf buf)
 	char *from_node = NULL;
 	int rc = SLURM_SUCCESS;
 
-	debug("******** MNP pid=%d tid=%d entering _handle_kvs_fence, kvs_seq=%d", getpid(), (int)pthread_self(), kvs_seq);
-	debug("******** MNP pid=%d tid=%d received TREE_CMD_KVS_FENCE", getpid(), (int)pthread_self());
 	safe_unpack32(&from_nodeid, buf);
 	safe_unpackstr_xmalloc(&from_node, &temp32, buf);
 	safe_unpack32(&num_children, buf);
@@ -128,17 +126,14 @@ _handle_kvs_fence(int fd, Buf buf)
 		goto out;
 	}
 	tree_info.children_kvs_seq[from_nodeid] = seq;
-	debug("******** MNP pid=%d tid=%d in _handle_kvs_fence 1, children_to_wait=%d tasks_to_wait=%d", getpid(), (int)pthread_self(), children_to_wait, tasks_to_wait);
 
 	if (tasks_to_wait == 0 && children_to_wait == 0) {
 		tasks_to_wait = job_info.ltasks;
 		children_to_wait = tree_info.num_children;
 	}
-	debug("******** MNP pid=%d tid=%d in _handle_kvs_fence 2, children_to_wait=%d tasks_to_wait=%d", getpid(), (int)pthread_self(), children_to_wait, tasks_to_wait);
 	children_to_wait -= num_children;
-	debug("******** MNP pid=%d tid=%d in _handle_kvs_fence 3, children_to_wait=%d tasks_to_wait=%d", getpid(), (int)pthread_self(), children_to_wait, tasks_to_wait);
+
 	temp_kvs_merge(buf);
-	debug("******** MNP pid=%d tid=%d in _handle_kvs_fence 4, children_to_wait=%d tasks_to_wait=%d", getpid(), (int)pthread_self(), children_to_wait, tasks_to_wait);
 
 	if (children_to_wait == 0 && tasks_to_wait == 0) {
 		rc = temp_kvs_send();
@@ -166,7 +161,6 @@ _handle_kvs_fence(int fd, Buf buf)
 	       "children_to_wait=%d", tasks_to_wait, children_to_wait);
 out:
 	xfree(from_node);
-	debug("******** MNP pid=%d tid=%d exiting _handle_kvs_fence, kvs_seq=%d", getpid(), (int)pthread_self(), kvs_seq);
 	return rc;
 
 unpack_error:
@@ -183,11 +177,8 @@ _handle_kvs_fence_resp(int fd, Buf buf)
 	uint32_t temp32, seq;
 
 	debug3("mpi/pmi2: in _handle_kvs_fence_resp");
-	debug("******** MNP pid=%d tid=%d entering _handle_kvs_fence_resp, kvs_seq=%d", getpid(), (int)pthread_self(), kvs_seq);
-	debug("******** MNP pid=%d tid=%d received TREE_CMD_KVS_FENCE_RESP", getpid(), (int)pthread_self());
-	safe_unpack32(&seq, buf);
-	debug("******** MNP pid=%d tid=%d in _handle_kvs_fence_resp, unpacked seq=%d", getpid(), (int)pthread_self(), seq);
 
+	safe_unpack32(&seq, buf);
 	if( seq == kvs_seq - 2) {
 		debug("mpi/pmi2: duplicate KVS_FENCE_RESP "
 		      "seq %d kvs_seq %d from srun ignored", seq, kvs_seq);
@@ -223,8 +214,6 @@ resp:
 	if (rc != SLURM_SUCCESS) {
 		slurm_kill_job_step(job_info.jobid, job_info.stepid, SIGKILL);
 	}
-	debug("******** MNP pid=%d tid=%d exiting _handle_kvs_fence_resp", getpid(), (int)pthread_self());
-
 	return rc;
 
 unpack_error:

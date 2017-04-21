@@ -431,25 +431,25 @@ static int _sort_job_by_dependency_jobpack(void *void1, void *void2)
 	_get_job_info_from_void(&job1, &job2, void1, void2);
 
 	if (job1->dependency == NULL || job2->dependency == NULL)
-	        return 0;
+		return 0;
 
 	packldr[0] = '\0';
 	if (!strncmp(job1->dependency,
-		     "packleader:", 11)) // jobpack leader
-	        sprintf(packldr, "%u", job1->job_id);
+			"packleader:", 11)) // jobpack leader
+		sprintf(packldr, "%u", job1->job_id);
 	else if (!strncmp(job1->dependency,
-		     "pack packleader=", 16)) // jobpack member
-	        packmbr_ldr = &job1->dependency[16];
+			"pack packleader=", 16)) // jobpack member
+		packmbr_ldr = &job1->dependency[16];
 
 	if (!strncmp(job2->dependency,
-		     "packleader:", 11)) // jobpack leader
-	        sprintf(packldr, "%u", job2->job_id);
+			"packleader:", 11)) // jobpack leader
+		sprintf(packldr, "%u", job2->job_id);
 	else if (!strncmp(job2->dependency,
-			  "pack packleader=", 16)) // jobpack member
-	        packmbr_ldr = &job2->dependency[16];
+			"pack packleader=", 16)) // jobpack member
+		packmbr_ldr = &job2->dependency[16];
 
-        if (strlen(packldr) == 0 || strlen(packmbr_ldr) == 0)
-	        return 0;
+	if (strlen(packldr) == 0 || strlen(packmbr_ldr) == 0)
+		return 0;
 
 	diff = (strcmp(packldr, packmbr_ldr) == 0);
 
@@ -463,7 +463,7 @@ static int _sort_step_by_dependency_jobpack(void *void1, void *void2)
 	job_step_info_t *step2;
 	char packldr[12];
 	char *packmbr_ldr = "";
-        job_info_msg_t * job_info_ptr1, * job_info_ptr2;
+	job_info_msg_t * job_info_ptr1, * job_info_ptr2;
 	job_info_t * job_ptr1, * job_ptr2;
 	int error_code, i1, i2;
 
@@ -471,39 +471,39 @@ static int _sort_step_by_dependency_jobpack(void *void1, void *void2)
 
 	error_code = slurm_load_job(&job_info_ptr1, step1->job_id, 0);
 	if (error_code)
-	        return 0;
+		return 0;
 	error_code = slurm_load_job(&job_info_ptr2, step2->job_id, 0);
 	if (error_code)
-	        return 0;
+		return 0;
 
 	job_ptr1 = job_info_ptr1->job_array;
 	job_ptr2 = job_info_ptr2->job_array;
 	for (i1=0; i1<job_info_ptr1->record_count; i1++)
-	        if (job_ptr1[i1].job_id == step1->job_id) break;
+		if (job_ptr1[i1].job_id == step1->job_id) break;
 	for (i2=0; i2<job_info_ptr2->record_count; i2++)
-	        if (job_ptr2[i2].job_id == step2->job_id) break;
+		if (job_ptr2[i2].job_id == step2->job_id) break;
 
 	if (job_ptr1[i1].dependency == NULL ||
 	    job_ptr2[i2].dependency == NULL)
-	        return 0;
+		return 0;
 
 	packldr[0] = '\0';
 	if (!strncmp(job_ptr1[i1].dependency,
-		     "packleader:", 11)) // jobpack leader
-	        sprintf(packldr, "%u", job_ptr1[i1].job_id);
+			"packleader:", 11)) // jobpack leader
+		sprintf(packldr, "%u", job_ptr1[i1].job_id);
 	else if (!strncmp(job_ptr1[i1].dependency,
-		     "pack packleader=", 16)) // jobpack member
-	        packmbr_ldr = &job_ptr1[i1].dependency[16];
+			"pack packleader=", 16)) // jobpack member
+		packmbr_ldr = &job_ptr1[i1].dependency[16];
 
 	if (!strncmp(job_ptr2[i2].dependency,
-		     "packleader:", 11)) // jobpack leader
-	        sprintf(packldr, "%u", job_ptr2[i2].job_id);
+			"packleader:", 11)) // jobpack leader
+		sprintf(packldr, "%u", job_ptr2[i2].job_id);
 	else if (!strncmp(job_ptr2[i2].dependency,
-			  "pack packleader=", 16)) // jobpack member
-	        packmbr_ldr = &job_ptr2[i2].dependency[16];
+			"pack packleader=", 16)) // jobpack member
+		packmbr_ldr = &job_ptr2[i2].dependency[16];
 
-        if (strlen(packldr) == 0 || strlen(packmbr_ldr) == 0)
-	        return 0;
+	if (strlen(packldr) == 0 || strlen(packmbr_ldr) == 0)
+		return 0;
 
 	diff = (strcmp(packldr, packmbr_ldr) == 0);
 

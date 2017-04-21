@@ -57,7 +57,7 @@
 
 typedef struct pmi2_job_info {
 	uint32_t jobid;  /* Current SLURM job id                      */
-	uint32_t orig_jobid; /* Original SLURM job id                 */ // MNP PMI
+	uint32_t orig_jobid; /* Original SLURM job id                 */
 	uint32_t stepid; /* Current step id (or NO_VAL)               */
 	uint32_t nnodes; /* number of nodes in current job step       */
 	uint32_t nodeid; /* relative position of this node in job     */
