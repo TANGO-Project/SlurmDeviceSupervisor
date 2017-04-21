@@ -8784,6 +8784,9 @@ _unpack_job_desc_msg(job_desc_msg_t ** job_desc_buffer_ptr, Buf buffer,
 		safe_unpackstr_array(&job_desc_ptr->spank_job_env,
 				     &job_desc_ptr->spank_job_env_size,
 				     buffer);
+		safe_unpackstr_array(&job_desc_ptr->pelog_env,
+				     &job_desc_ptr->pelog_env_size,
+				     buffer);
 		safe_unpackstr_xmalloc(&job_desc_ptr->script,
 				       &uint32_tmp, buffer);
 		safe_unpackstr_array(&job_desc_ptr->argv,
@@ -10164,6 +10167,9 @@ _unpack_prolog_launch_msg(
 
 		safe_unpackstr_array(&launch_msg_ptr->spank_job_env,
 				     &launch_msg_ptr->spank_job_env_size,
+				     buffer);
+		safe_unpackstr_array(&launch_msg_ptr->pelog_env,
+				     &launch_msg_ptr->pelog_env_size,
 				     buffer);
 		if (!(launch_msg_ptr->cred = slurm_cred_unpack(buffer,
 							protocol_version)))

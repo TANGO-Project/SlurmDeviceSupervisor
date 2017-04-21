@@ -620,6 +620,8 @@ extern int launch_p_step_launch(
 	launch_params.preserve_env      = opt.preserve_env;
 	launch_params.spank_job_env     = opt.spank_job_env;
 	launch_params.spank_job_env_size = opt.spank_job_env_size;
+	launch_params.pelog_env         = opt.pelog_env;
+	launch_params.pelog_env_size    = opt.pelog_env_size;
 	launch_params.user_managed_io   = opt.user_managed_io;
 	launch_params.ntasks_per_board  = job->ntasks_per_board;
 	launch_params.ntasks_per_core   = job->ntasks_per_core;

@@ -1228,6 +1228,8 @@ static int _dump_job_state(void *x, void *arg)
 				SLURM_PROTOCOL_VERSION);
 	packstr_array(dump_job_ptr->spank_job_env,
 		      dump_job_ptr->spank_job_env_size, buffer);
+	packstr_array(dump_job_ptr->pelog_env,
+		      dump_job_ptr->pelog_env_size, buffer);
 
 	(void) gres_plugin_job_state_pack(dump_job_ptr->gres_list, buffer,
 					  dump_job_ptr->job_id, true,
@@ -1271,6 +1273,7 @@ static int _load_job_state(Buf buffer, uint16_t protocol_version)
 	uint32_t pack_leader;
 	uint32_t next_step_id, total_cpus, total_nodes = 0, cpu_cnt;
 	uint32_t resv_id, spank_job_env_size = 0, qos_id, derived_ec = 0;
+	uint32_t pelog_env_size = 0;
 	uint32_t array_job_id = 0, req_switch = 0, wait4switch = 0;
 	uint32_t profile = ACCT_GATHER_PROFILE_NOT_SET;
 	uint32_t job_state, local_job_id = 0, delay_boot = 0;
@@ -1300,6 +1303,7 @@ static int _load_job_state(Buf buffer, uint16_t protocol_version)
 	char *clusters = NULL;
 	uint32_t task_id_size = NO_VAL;
 	char **spank_job_env = (char **) NULL;
+	char **pelog_env = (char **) NULL;
 	List gres_list = NULL, part_ptr_list = NULL;
 	struct job_record *job_ptr = NULL;
 	struct part_record *part_ptr;
@@ -1682,6 +1686,8 @@ static int _load_job_state(Buf buffer, uint16_t protocol_version)
 
 		safe_unpackstr_array(&spank_job_env, &spank_job_env_size,
 				     buffer);
+		safe_unpackstr_array(&pelog_env, &pelog_env_size,
+				     buffer);
 
 		if (gres_plugin_job_state_unpack(&gres_list, buffer, job_id,
 						 protocol_version) !=
@@ -1713,6 +1719,202 @@ static int _load_job_state(Buf buffer, uint16_t protocol_version)
 		}
 		safe_unpack32(&job_ptr->bit_flags, buffer);
 		job_ptr->bit_flags &= ~BACKFILL_TEST;
+		safe_unpackstr_xmalloc(&tres_alloc_str,
+				       &name_len, buffer);
+		safe_unpackstr_xmalloc(&tres_fmt_alloc_str,
+				       &name_len, buffer);
+		safe_unpackstr_xmalloc(&tres_req_str, &name_len, buffer);
+		safe_unpackstr_xmalloc(&tres_fmt_req_str, &name_len, buffer);
+<<<<<<< HEAD
+=======
+	} else if (protocol_version >= SLURM_MIN_PROTOCOL_VERSION) {
+		safe_unpack32(&array_job_id, buffer);
+		safe_unpack32(&array_task_id, buffer);
+
+		/* Job Array record */
+		safe_unpack32(&task_id_size, buffer);
+		if (task_id_size != NO_VAL) {
+			if (task_id_size) {
+				safe_unpackstr_xmalloc(&task_id_str, &name_len,
+						       buffer);
+			}
+			safe_unpack32(&array_flags,    buffer);
+			safe_unpack32(&max_run_tasks,  buffer);
+			safe_unpack32(&tot_run_tasks,  buffer);
+			safe_unpack32(&min_exit_code,  buffer);
+			safe_unpack32(&max_exit_code,  buffer);
+			safe_unpack32(&tot_comp_tasks, buffer);
+		}
+
+		safe_unpack32(&assoc_id, buffer);
+		safe_unpack32(&job_id, buffer);
+
+		/* validity test as possible */
+		if (job_id == 0) {
+			verbose("Invalid job_id %u", job_id);
+			goto unpack_error;
+		}
+
+		job_ptr = find_job_record(job_id);
+		if (job_ptr == NULL) {
+			job_ptr = _create_job_record(&error_code, 1);
+			if (error_code) {
+				error("Create job entry failed for job_id %u",
+				      job_id);
+				goto unpack_error;
+			}
+			job_ptr->job_id = job_id;
+			job_ptr->array_job_id = array_job_id;
+			job_ptr->array_task_id = array_task_id;
+		}
+
+		safe_unpack32(&user_id, buffer);
+		safe_unpack32(&group_id, buffer);
+		safe_unpack32(&time_limit, buffer);
+		safe_unpack32(&time_min, buffer);
+		safe_unpack32(&priority, buffer);
+		safe_unpack32(&alloc_sid, buffer);
+		safe_unpack32(&total_cpus, buffer);
+		safe_unpack32(&total_nodes, buffer);
+		safe_unpack32(&cpu_cnt, buffer);
+		safe_unpack32(&exit_code, buffer);
+		safe_unpack32(&derived_ec, buffer);
+		safe_unpack32(&uint32_tmp, buffer);
+		if (uint32_tmp == NO_VAL)
+			db_index = NO_VAL64;
+		else
+			db_index = uint32_tmp;
+		safe_unpack32(&resv_id, buffer);
+		safe_unpack32(&next_step_id, buffer);
+		safe_unpack32(&qos_id, buffer);
+		safe_unpack32(&req_switch, buffer);
+		safe_unpack32(&wait4switch, buffer);
+		safe_unpack32(&profile, buffer);
+
+		safe_unpack_time(&preempt_time, buffer);
+		safe_unpack_time(&start_time, buffer);
+		safe_unpack_time(&end_time, buffer);
+		end_time_exp = end_time;
+		safe_unpack_time(&suspend_time, buffer);
+		safe_unpack_time(&pre_sus_time, buffer);
+		safe_unpack_time(&resize_time, buffer);
+		safe_unpack_time(&tot_sus_time, buffer);
+
+		safe_unpack16(&direct_set_prio, buffer);
+		safe_unpack32(&job_state, buffer);
+		safe_unpack16(&kill_on_node_fail, buffer);
+		safe_unpack16(&batch_flag, buffer);
+		safe_unpack16(&mail_type, buffer);
+		safe_unpack16(&state_reason, buffer);
+		safe_unpack8 (&reboot, buffer);
+		safe_unpack16(&restart_cnt, buffer);
+		safe_unpack16(&wait_all_nodes, buffer);
+		safe_unpack16(&warn_flags, buffer);
+		safe_unpack16(&warn_signal, buffer);
+		safe_unpack16(&warn_time, buffer);
+
+		_unpack_acct_policy_limit_members(&limit_set, buffer,
+						  protocol_version);
+
+		safe_unpackstr_xmalloc(&state_desc, &name_len, buffer);
+		safe_unpackstr_xmalloc(&resp_host, &name_len, buffer);
+
+		safe_unpack16(&alloc_resp_port, buffer);
+		safe_unpack16(&other_port, buffer);
+		safe_unpack8(&power_flags, buffer);
+		safe_unpack8(&uint8_tmp, buffer);
+		safe_unpack16(&start_protocol_ver, buffer);
+		safe_unpackdouble(&billable_tres, buffer);
+
+		if (job_state & JOB_COMPLETING) {
+			safe_unpackstr_xmalloc(&nodes_completing,
+					       &name_len, buffer);
+		}
+		safe_unpackstr_xmalloc(&nodes, &name_len, buffer);
+		safe_unpackstr_xmalloc(&partition, &name_len, buffer);
+		if (partition == NULL) {
+			error("No partition for job %u", job_id);
+			goto unpack_error;
+		}
+		part_ptr = find_part_record (partition);
+		if (part_ptr == NULL) {
+			char *err_part = NULL;
+			part_ptr_list = get_part_list(partition, &err_part);
+			if (part_ptr_list) {
+				part_ptr = list_peek(part_ptr_list);
+			} else {
+				verbose("Invalid partition (%s) for job_id %u",
+					err_part, job_id);
+				xfree(err_part);
+				/* not fatal error, partition could have been
+				 * removed, reset_job_bitmaps() will clean-up
+				 * this job */
+			}
+		}
+
+		safe_unpackstr_xmalloc(&name, &name_len, buffer);
+		safe_unpackstr_xmalloc(&wckey, &name_len, buffer);
+		safe_unpackstr_xmalloc(&alloc_node, &name_len, buffer);
+		safe_unpackstr_xmalloc(&account, &name_len, buffer);
+		safe_unpackstr_xmalloc(&comment, &name_len, buffer);
+		safe_unpackstr_xmalloc(&gres, &name_len, buffer);
+		safe_unpackstr_xmalloc(&gres_alloc, &name_len, buffer);
+		safe_unpackstr_xmalloc(&gres_req, &name_len, buffer);
+		safe_unpackstr_xmalloc(&gres_used, &name_len, buffer);
+		safe_unpackstr_xmalloc(&network, &name_len, buffer);
+		safe_unpackstr_xmalloc(&licenses, &name_len, buffer);
+		safe_unpackstr_xmalloc(&mail_user, &name_len, buffer);
+		safe_unpackstr_xmalloc(&resv_name, &name_len, buffer);
+		safe_unpackstr_xmalloc(&batch_host, &name_len, buffer);
+		safe_unpackstr_xmalloc(&burst_buffer, &name_len, buffer);
+
+		if (select_g_select_jobinfo_unpack(&select_jobinfo, buffer,
+						   protocol_version))
+			goto unpack_error;
+		if (unpack_job_resources(&job_resources, buffer,
+					 protocol_version))
+			goto unpack_error;
+
+		safe_unpack16(&ckpt_interval, buffer);
+		if (checkpoint_alloc_jobinfo(&check_job) ||
+		    checkpoint_unpack_jobinfo(check_job, buffer,
+					      protocol_version))
+			goto unpack_error;
+
+		safe_unpackstr_array(&spank_job_env, &spank_job_env_size,
+				     buffer);
+		safe_unpackstr_array(&pelog_env, &pelog_env_size,
+				     buffer);
+
+		if (gres_plugin_job_state_unpack(&gres_list, buffer, job_id,
+						 protocol_version) !=
+		    SLURM_SUCCESS)
+			goto unpack_error;
+		gres_plugin_job_state_log(gres_list, job_id);
+
+		safe_unpack16(&details, buffer);
+		if ((details == DETAILS_FLAG) &&
+		    (_load_job_details(job_ptr, buffer, protocol_version))) {
+			job_ptr->job_state = JOB_FAILED;
+			job_ptr->exit_code = 1;
+			job_ptr->state_reason = FAIL_SYSTEM;
+			xfree(job_ptr->state_desc);
+			job_ptr->end_time = now;
+			goto unpack_error;
+		}
+		safe_unpack16(&step_flag, buffer);
+
+		while (step_flag == STEP_FLAG) {
+			/* No need to put these into accounting if they
+			 * haven't been since all information will be
+			 * put in when the job is finished.
+			 */
+			if ((error_code = load_step_state(job_ptr, buffer,
+							  protocol_version)))
+				goto unpack_error;
+			safe_unpack16(&step_flag, buffer);
+		}
+		safe_unpack32(&job_ptr->bit_flags, buffer);
 		safe_unpackstr_xmalloc(&tres_alloc_str,
 				       &name_len, buffer);
 		safe_unpackstr_xmalloc(&tres_fmt_alloc_str,
@@ -1871,6 +2073,8 @@ static int _load_job_state(Buf buffer, uint16_t protocol_version)
 	job_ptr->job_resrcs   = job_resources;
 	job_ptr->spank_job_env = spank_job_env;
 	job_ptr->spank_job_env_size = spank_job_env_size;
+	job_ptr->pelog_env    = pelog_env;
+	job_ptr->pelog_env_size = pelog_env_size;
 	job_ptr->ckpt_interval = ckpt_interval;
 	job_ptr->check_job    = check_job;
 	job_ptr->start_time   = start_time;
@@ -2069,6 +2273,9 @@ unpack_error:
 	for (i=0; i<spank_job_env_size; i++)
 		xfree(spank_job_env[i]);
 	xfree(spank_job_env);
+	for (i=0; i<pelog_env_size; i++)
+		xfree(pelog_env[i]);
+	xfree(pelog_env);
 	xfree(state_desc);
 	xfree(task_id_str);
 	xfree(tres_alloc_str);
@@ -3443,6 +3650,19 @@ void dump_job_desc(job_desc_msg_t * job_specs)
 		       job_specs->spank_job_env[1],
 		       job_specs->spank_job_env[2]);
 
+	if (job_specs->pelog_env_size == 1)
+		debug3("   pelog_env=\"%s\"",
+		       job_specs->pelog_env[0]);
+	else if (job_specs->pelog_env_size == 2)
+		debug3("   pelog_env=%s,%s",
+		       job_specs->pelog_env[0],
+		       job_specs->pelog_env[1]);
+	else if (job_specs->pelog_env_size > 2)
+		debug3("   pelog_env=%s,%s,%s,...",
+		       job_specs->pelog_env[0],
+		       job_specs->pelog_env[1],
+		       job_specs->pelog_env[2]);
+
 	debug3("   stdin=%s stdout=%s stderr=%s",
 	       job_specs->std_in, job_specs->std_out, job_specs->std_err);
 
@@ -3709,6 +3929,15 @@ extern struct job_record *job_array_split(struct job_record *job_ptr)
 		for (i = 0; i < job_ptr->spank_job_env_size; i++) {
 			job_ptr_pend->spank_job_env[i] =
 				xstrdup(job_ptr->spank_job_env[i]);
+		}
+	}
+	if (job_ptr->pelog_env_size) {
+		job_ptr_pend->pelog_env =
+			xmalloc(sizeof(char *) *
+			(job_ptr->pelog_env_size + 1));
+		for (i = 0; i < job_ptr->pelog_env_size; i++) {
+			job_ptr_pend->pelog_env[i] =
+				xstrdup(job_ptr->pelog_env[i]);
 		}
 	}
 	job_ptr_pend->state_desc = xstrdup(job_ptr->state_desc);
@@ -7307,6 +7536,7 @@ _copy_job_desc_to_job_record(job_desc_msg_t * job_desc,
 	job_ptr->warn_signal = job_desc->warn_signal;
 	job_ptr->warn_time   = job_desc->warn_time;
 	job_ptr->group_number = job_desc->group_number;
+	job_ptr->numpack = job_desc->numpack;
 
 	detail_ptr = job_ptr->details;
 	detail_ptr->argc = job_desc->argc;
@@ -7409,8 +7639,10 @@ _copy_job_desc_to_job_record(job_desc_msg_t * job_desc,
 		detail_ptr->std_out = xstrdup(job_desc->std_out);
 	if (job_desc->work_dir)
 		detail_ptr->work_dir = xstrdup(job_desc->work_dir);
+
 	if (job_desc->begin_time > time(NULL))
 		detail_ptr->begin_time = job_desc->begin_time;
+
 	job_ptr->select_jobinfo =
 		select_g_select_jobinfo_copy(job_desc->select_jobinfo);
 	select_g_select_jobinfo_set(job_ptr->select_jobinfo,
@@ -8334,6 +8566,7 @@ static void _list_delete_job(void *job_entry)
 	struct job_record *job_ptr = (struct job_record *) job_entry;
 	struct job_record **job_pptr, *tmp_ptr;
 	int job_array_size, i;
+	char **ptr;
 
 	xassert(job_entry);
 	xassert (job_ptr->magic == JOB_MAGIC);
@@ -8432,6 +8665,10 @@ static void _list_delete_job(void *job_entry)
 	for (i = 0; i < job_ptr->spank_job_env_size; i++)
 		xfree(job_ptr->spank_job_env[i]);
 	xfree(job_ptr->spank_job_env);
+	if (job_ptr->pelog_env_size) {
+		for (ptr = job_ptr->pelog_env; *ptr != NULL; ptr++)
+			xfree(*ptr);
+	}
 	xfree(job_ptr->state_desc);
 	xfree(job_ptr->tres_alloc_cnt);
 	xfree(job_ptr->tres_alloc_str);
@@ -12260,6 +12497,9 @@ static void _send_job_kill(struct job_record *job_ptr)
 	kill_job->spank_job_env = xduparray(job_ptr->spank_job_env_size,
 					    job_ptr->spank_job_env);
 	kill_job->spank_job_env_size = job_ptr->spank_job_env_size;
+	kill_job->pelog_env = xduparray(job_ptr->pelog_env_size,
+					    job_ptr->pelog_env);
+	kill_job->pelog_env_size = job_ptr->pelog_env_size;
 
 #ifdef HAVE_FRONT_END
 	if (job_ptr->batch_host &&
@@ -12674,6 +12914,9 @@ abort_job_on_node(uint32_t job_id, struct job_record *job_ptr, char *node_name)
 		kill_req->spank_job_env = xduparray(job_ptr->spank_job_env_size,
 						    job_ptr->spank_job_env);
 		kill_req->spank_job_env_size = job_ptr->spank_job_env_size;
+		kill_req->pelog_env = xduparray(job_ptr->pelog_env_size,
+						    job_ptr->pelog_env);
+		kill_req->pelog_env_size = job_ptr->pelog_env_size;
 	} else {
 		/* kill_req->start_time = 0;  Default value */
 	}
@@ -12727,6 +12970,9 @@ kill_job_on_node(uint32_t job_id, struct job_record *job_ptr,
 	kill_req->spank_job_env = xduparray(job_ptr->spank_job_env_size,
 					    job_ptr->spank_job_env);
 	kill_req->spank_job_env_size = job_ptr->spank_job_env_size;
+	kill_req->pelog_env = xduparray(job_ptr->pelog_env_size,
+					    job_ptr->pelog_env);
+	kill_req->pelog_env_size = job_ptr->pelog_env_size;
 
 	agent_info = xmalloc(sizeof(agent_arg_t));
 	agent_info->node_count	= 1;
@@ -15403,6 +15649,11 @@ extern job_desc_msg_t *copy_job_record_to_job_desc(struct job_record *job_ptr)
 					       job_desc->spank_job_env_size);
 	for (i = 0; i < job_desc->spank_job_env_size; i ++)
 		job_desc->spank_job_env[i]= xstrdup(job_ptr->spank_job_env[i]);
+	job_desc->pelog_env_size = job_ptr->pelog_env_size;
+	job_desc->pelog_env      = xmalloc(sizeof(char *) *
+					       job_desc->pelog_env_size);
+	for (i = 0; i < job_desc->pelog_env_size; i ++)
+		job_desc->pelog_env[i]= xstrdup(job_ptr->pelog_env[i]);
 	job_desc->std_err           = xstrdup(details->std_err);
 	job_desc->std_in            = xstrdup(details->std_in);
 	job_desc->std_out           = xstrdup(details->std_out);

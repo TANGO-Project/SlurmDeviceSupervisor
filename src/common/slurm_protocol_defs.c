@@ -960,7 +960,6 @@ extern void slurm_free_job_info_members(job_info_t * job)
 		xfree(job->std_err);
 		xfree(job->std_in);
 		xfree(job->std_out);
-		xfree(job->pack_group);
 		xfree(job->tres_alloc_str);
 		xfree(job->tres_req_str);
 		xfree(job->wckey);

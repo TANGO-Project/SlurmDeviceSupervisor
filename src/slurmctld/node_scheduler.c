@@ -154,6 +154,7 @@ static int _will_jpck_ldr_run(struct job_record *job_ptr, bool orphan,
 				uint32_t max_nodes, uint32_t req_nodes,
 				List preemptee_candidates,
 				bitstr_t *exc_core_bitmap);
+static void _addto_jobpack_pelog_env(struct job_record **job_pptr);
 
 /*
  * _get_ntasks_per_core - Retrieve the value of ntasks_per_core from
@@ -533,6 +534,11 @@ extern void deallocate_nodes(struct job_record *job_ptr, bool timeout,
 	kill_job->spank_job_env = xduparray(job_ptr->spank_job_env_size,
 					    job_ptr->spank_job_env);
 	kill_job->spank_job_env_size = job_ptr->spank_job_env_size;
+	/* Add epilog env vars to epilog env */
+	_addto_jobpack_pelog_env(&job_ptr);
+	kill_job->pelog_env = xduparray(job_ptr->pelog_env_size,
+					    job_ptr->pelog_env);
+	kill_job->pelog_env_size = job_ptr->pelog_env_size;
 
 #ifdef HAVE_FRONT_END
 	if (job_ptr->batch_host &&
@@ -2872,6 +2878,9 @@ static void _launch_prolog(struct job_record *job_ptr)
 	prolog_msg_ptr->spank_job_env_size = job_ptr->spank_job_env_size;
 	prolog_msg_ptr->spank_job_env = xduparray(job_ptr->spank_job_env_size,
 						  job_ptr->spank_job_env);
+	prolog_msg_ptr->pelog_env_size = job_ptr->pelog_env_size;
+	prolog_msg_ptr->pelog_env = xduparray(job_ptr->pelog_env_size,
+						  job_ptr->pelog_env);
 
 	xassert(job_ptr->job_resrcs);
 	job_resrcs_ptr = job_ptr->job_resrcs;
@@ -3908,6 +3917,9 @@ extern void re_kill_job(struct job_record *job_ptr)
 	kill_job->spank_job_env = xduparray(job_ptr->spank_job_env_size,
 					    job_ptr->spank_job_env);
 	kill_job->spank_job_env_size = job_ptr->spank_job_env_size;
+	kill_job->pelog_env = xduparray(job_ptr->pelog_env_size,
+					    job_ptr->pelog_env);
+	kill_job->pelog_env_size = job_ptr->pelog_env_size;
 
 	/* On a Cray system this will start the NHC early so it is
 	 * able to gather any information it can from the apparent
@@ -4325,4 +4337,96 @@ static int _allocate_packmbrs(struct job_record *job_ptr,
 cleanup:
 	list_iterator_destroy(depend_iter);
 	return rc;
+}
+
+/*
+  Build list of certain jobpack related env vars for the pack job
+  epilog environment. This procedure will only be called once - by
+  the first job in the jobpack that is deallocated. All pelog_env
+  vars will be saved for the entire jobpack during this one time
+  call.  It cannot be called again for the other pack jobs because
+  by then the previously processed pack job will be deallocated and
+  its resources gone.
+ */
+static void _addto_jobpack_pelog_env(struct job_record **job_pptr)
+{
+	ListIterator depend_iter;
+	struct depend_spec *dep_ptr;
+	struct job_record *dep_job_ptr;
+	struct job_record *job_ptr, *jptr;
+	char **env = NULL;
+	int numpack;
+	char *tmp;
+
+	job_ptr = *job_pptr;
+
+	if (job_ptr->pack_leader == 0) return;
+
+	if (job_ptr->pack_leader == job_ptr->job_id) return;
+
+	/* If we already processed the entire jobpack then return */
+	if (job_ptr->pelog_env_size) return;
+
+	jptr = find_job_record(job_ptr->pack_leader);
+
+	if (jptr && jptr->details == NULL)
+		return;
+	if (jptr && jptr->details->depend_list == NULL)
+	        return;
+
+	numpack = jptr->numpack;
+	env_array_append_fmt(&env, "SLURM_NUMPACK", "%d", numpack);
+
+	env_array_append_fmt(&env, "SLURM_NODELIST_PACK_GROUP_0",
+			     "%s", jptr->nodes);
+
+	if (jptr->resv_ports)
+	        env_array_append_fmt(&env, "SLURM_RESV_PORTS_PACK_GROUP_0",
+			     "%s", jptr->resv_ports);
+
+	tmp = xmalloc(40);
+	depend_iter =
+	        list_iterator_create(jptr->details->depend_list);
+	while ((dep_ptr = (struct depend_spec *)
+		list_next(depend_iter))) {
+	        if (dep_ptr->depend_type != SLURM_DEPEND_PACKLEADER)
+		        continue;
+		dep_job_ptr = dep_ptr->job_ptr;
+		sprintf(tmp, "SLURM_NODELIST_PACK_GROUP_%d",
+			dep_job_ptr->group_number);
+		env_array_append_fmt(&env, tmp, "%s", dep_job_ptr->nodes);
+		if (dep_job_ptr->resv_ports) {
+			sprintf(tmp, "SLURM_RESV_PORTS_PACK_GROUP_%d",
+				dep_job_ptr->group_number);
+			env_array_append_fmt(&env, tmp, "%s",
+					     dep_job_ptr->resv_ports);
+		}
+	}
+
+	/* add to pelog_env list for each pack job */
+	int envcnt = envcount(env);
+	if (envcnt) {
+		env_array_merge(&jptr->pelog_env,
+				(const char **) env);
+		jptr->pelog_env_size = envcnt;
+	}
+	list_iterator_reset(depend_iter);
+	while ((dep_ptr = (struct depend_spec *)
+		list_next(depend_iter))) {
+	        if (dep_ptr->depend_type != SLURM_DEPEND_PACKLEADER)
+		        continue;
+		dep_job_ptr = dep_ptr->job_ptr;
+		if (envcnt) {
+			env_array_merge(&dep_job_ptr->pelog_env,
+					(const char **) env);
+			dep_job_ptr->pelog_env_size = envcnt;
+		}
+	}
+
+	list_iterator_destroy(depend_iter);
+	xfree(tmp);
+
+	*job_pptr = job_ptr;
+
+	return;
 }

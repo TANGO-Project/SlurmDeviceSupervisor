@@ -2983,7 +2983,8 @@ static void _slurm_rpc_job_alloc_info_lite(slurm_msg_t * msg)
 					xstrdup(job_ptr->details->env_sup[i]);
 			}
 		}
-		if (job_ptr->batch_flag == 0 && job_ptr->resv_port_flag) {
+		if (job_ptr->batch_flag == 0 && job_ptr->resv_port_flag &&
+		    job_ptr->resv_ports == NULL) {
 			char *ports = _resv_ports_jobpack(job_ptr);
 			char *tmp = xmalloc(100);
 			sprintf (tmp, "SLURM_RESV_PORTS_PACK_GROUP_%d=%s",
@@ -2991,7 +2992,7 @@ static void _slurm_rpc_job_alloc_info_lite(slurm_msg_t * msg)
 			job_info_resp_msg.environment =
 			        xrealloc(job_info_resp_msg.environment,
 					 sizeof(char *) *
-					 job_info_resp_msg.env_size);
+					 job_info_resp_msg.env_size + 1);
 			job_info_resp_msg.environment[
 					 job_info_resp_msg.env_size] =
 			        xstrdup(tmp);

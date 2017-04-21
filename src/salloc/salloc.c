@@ -948,6 +948,7 @@ int main_jobpack(int argc, char *argv[])
 		        exit(error_exit);
 		}
 		desc.group_number = group_number;
+		desc.numpack = pack_desc_count;
 
 		if (opt.gid != (gid_t) -1) {
 			if (setgid(opt.gid) < 0) {

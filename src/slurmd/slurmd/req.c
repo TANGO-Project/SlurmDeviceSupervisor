@@ -149,6 +149,8 @@ typedef struct {
 	char *resv_id;
 	char **spank_job_env;
 	uint32_t spank_job_env_size;
+	char **pelog_env;
+	uint32_t pelog_env_size;
 	uid_t uid;
 	char *user_name;
 	char **supp_job_env;
@@ -1472,6 +1474,8 @@ _rpc_launch_tasks(slurm_msg_t *msg)
 		job_env.partition = req->partition;
 		job_env.spank_job_env = req->spank_job_env;
 		job_env.spank_job_env_size = req->spank_job_env_size;
+		job_env.pelog_env = req->pelog_env;
+		job_env.pelog_env_size = req->pelog_env_size;
 		job_env.uid = req->uid;
 		job_env.user_name = req->user_name;
 
@@ -2065,6 +2069,8 @@ static void _spawn_prolog_stepd(slurm_msg_t *msg)
 	launch_req->partition		= req->partition;
 	launch_req->spank_job_env_size	= req->spank_job_env_size;
 	launch_req->spank_job_env	= req->spank_job_env;
+	launch_req->pelog_env_size	= req->pelog_env_size;
+	launch_req->pelog_env   	= req->pelog_env;
 	launch_req->step_mem_lim	= req->job_mem_limit;
 	launch_req->tasks_to_launch	= xmalloc(sizeof(uint16_t)
 						  * req->nnodes);
@@ -5204,6 +5210,8 @@ _rpc_abort_job(slurm_msg_t *msg)
 	job_env.node_list = req->nodes;
 	job_env.spank_job_env = req->spank_job_env;
 	job_env.spank_job_env_size = req->spank_job_env_size;
+	job_env.pelog_env = req->pelog_env;
+	job_env.pelog_env_size = req->pelog_env_size;
 	job_env.uid = req->job_uid;
 
 #if defined(HAVE_BG)
@@ -5627,6 +5635,8 @@ _rpc_terminate_job(slurm_msg_t *msg)
 	job_env.node_list = req->nodes;
 	job_env.spank_job_env = req->spank_job_env;
 	job_env.spank_job_env_size = req->spank_job_env_size;
+	job_env.pelog_env = req->pelog_env;
+	job_env.pelog_env_size = req->pelog_env_size;
 	job_env.uid = req->job_uid;
 
 #if defined(HAVE_BG)
@@ -5876,6 +5886,11 @@ _build_env(job_env_t *job_env)
 	if (job_env->spank_job_env_size) {
 		env_array_merge_spank(&env,
 				      (const char **) job_env->spank_job_env);
+	}
+
+	if (job_env->pelog_env_size) {
+		env_array_merge(&env,
+				      (const char **) job_env->pelog_env);
 	}
 
 	if (job_env->supp_job_env_size) {

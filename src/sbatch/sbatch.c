@@ -996,6 +996,8 @@ static int _fill_job_desc_from_opts(job_desc_msg_t *desc)
 	if (opt.resv_port)
 	        desc->resv_port = 1;
 
+	desc->group_number = group_number;
+
 	return 0;
 }
 

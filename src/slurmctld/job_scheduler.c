@@ -2528,6 +2528,7 @@ static void _add_jobpack_envs(char **member_env, int numpack, uint32_t ntasks,
 				     "%s", job_ptr->nodes);
 		job_ptr->pelog_env_size++;
 	}
+
 	xfree(tmp);
 
 	/* add SLURM_LISTJOBIDS to member_env */
@@ -2552,7 +2553,9 @@ static void _add_jobpack_envs(char **member_env, int numpack, uint32_t ntasks,
 				"%d", nnodes_pack);
 	ntasks += launch_msg_ptr->ntasks;
 	if (ntasks)
+
 		env_array_overwrite_fmt(&member_env, "SLURM_NTASKS",
+
 					"%d", ntasks);
 	xfree(nodelist_pack);
 
@@ -3058,7 +3061,6 @@ extern void print_job_dependency(struct job_record *job_ptr)
 			dep_str = "expand";
 		else
 			dep_str = "unknown";
-
 		if (dep_ptr->array_task_id == INFINITE)
 			info("  %s:%u_* %s",
 			     dep_str, dep_ptr->job_id, dep_flags);
@@ -3077,8 +3079,8 @@ static void _depend_list2str(struct job_record *job_ptr, bool set_or_flag)
 {
 	ListIterator depend_iter;
 	struct depend_spec *dep_ptr;
-	char *dep_str, *sep = "";
 	bool leader1 = false;
+	char *dep_str, *sep = "";
 
 	if (job_ptr->details == NULL)
 		return;
@@ -4233,6 +4235,11 @@ static char **_build_env(struct job_record *job_ptr, bool is_epilog)
 	if (job_ptr->spank_job_env_size) {
 		env_array_merge(&my_env,
 				(const char **) job_ptr->spank_job_env);
+	}
+	/* Set other prolog/epilog env vars */
+	if (job_ptr->pelog_env_size) {
+		env_array_merge(&my_env,
+				(const char **) job_ptr->pelog_env);
 	}
 
 #ifdef HAVE_BG
