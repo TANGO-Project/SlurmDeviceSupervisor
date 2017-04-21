@@ -95,11 +95,11 @@ int _count_jobs(int ac, char **av)
 	int index;
 
 	for (index = 0; index < ac; index++) {
-		if (!xstrcmp(av[index], ":")) {
+		if ((strcmp(av[index], ":") == 0)) {
 			pack_desc_count ++;
 			if (index+1 == ac)
-				fatal( "Missing pack job specification "
-					"following pack job delimiter" );
+			        fatal( "Missing pack job specification "
+				       "following pack job delimiter" );
 		}
 	}
 if(pack_desc_count) pack_desc_count++;
@@ -117,6 +117,7 @@ static void _build_env_structs(int ac, char **av)
 		pack_job_env[i].job_id = 0;
 		pack_job_env[i].av = (char **) NULL;
 		pack_job_env[i].ac = 0;
+
 	}
 	return;
 }
@@ -138,24 +139,27 @@ static void _identify_job_descriptions(int ac, char **av)
 	newcmd = xmalloc(sizeof(char *) * (ac + 1));
 	while (current < ac){
 		newcmd[0] = xstrdup(av[0]);
-		for (i = 1; i < (ac + 1); i++)
+		for (i = 1; i < (ac + 1); i++) {
 			newcmd[i] = NULL;
+		}
 		i = 1;
 		j = 1;
 		_pack_l = false;
 		dependency_position = 0;
 		for (index = current; index < ac; index++) {
 			command = xstrdup(av[index]);
-			if (xstrcmp(command, ":")) {
+			if ((strcmp(command, ":") != 0)) {
 				newcmd[i] = command;
-				if (!xstrncmp(command, "-d", 2) ||
-				    !xstrncmp(command, "--d", 3))
+				if ((strncmp(command, "-d", 2) == 0) ||
+				    (strncmp(command, "--d", 3) == 0)) {
 					dependency_position = i;
+				}
 				i++;
 				j++;
 			} else {
-				if (job_index == 0)
+				if (job_index == 0) {
 					_pack_l = true;
+				}
 				break;
 			}
 		}
@@ -164,7 +168,7 @@ static void _identify_job_descriptions(int ac, char **av)
 			if (job_index >= 1)
 				pack_job_env[job_index].pack_job = true;
 		} else {
-			pack_job_env[job_index].packleader = true;
+				pack_job_env[job_index].packleader = true;
 		}
 		current = index + 1;
 
@@ -216,7 +220,7 @@ int main(int argc, char **argv)
 	job_desc_msg_t desc;
 	submit_response_msg_t *resp;
 	char *script_name;
-	void *script_body;
+	char *script_body;
 	int script_size = 0;
 	int rc = 0, retries = 0;
 
@@ -345,7 +349,7 @@ int main(int argc, char **argv)
 		else
 			error("%s", msg);
 		sleep (++retries);
-	}
+        }
 
 	if (!opt.parsable){
 		printf("Submitted batch job %u", resp->job_id);

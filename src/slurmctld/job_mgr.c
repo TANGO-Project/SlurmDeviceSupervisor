@@ -7087,7 +7087,7 @@ char **get_job_env(struct job_record *job_ptr, uint32_t * env_size)
 	char *file_name = NULL, **environment = NULL;
 	int cc, fd = -1, hash;
 
-	/* Standard file location for job arrays */
+	/* Standard file location for job arrays, version 16.05+ */
 	if (job_ptr->array_task_id != NO_VAL) {
 		hash = job_ptr->array_job_id % 10;
 		file_name = xstrdup_printf("%s/hash.%d/job.%u/environment",
@@ -7102,14 +7102,6 @@ char **get_job_env(struct job_record *job_ptr, uint32_t * env_size)
 		file_name = xstrdup_printf("%s/hash.%d/job.%u/environment",
 					   slurmctld_conf.state_save_location,
 					   hash, job_ptr->job_id);
-		fd = open(file_name, 0);
-	} else {
-		hash = job_ptr->job_id % 10;
-		sprintf(job_dir, "/hash.%d/job.%u/environment",
-			hash, job_ptr->job_id);
-		xfree(file_name);
-		file_name = slurm_get_state_save_location();
-		xstrcat(file_name, job_dir);
 		fd = open(file_name, 0);
 	}
 
@@ -7141,7 +7133,7 @@ char *get_job_script(struct job_record *job_ptr)
 	if (!job_ptr->batch_flag)
 		return NULL;
 
-	/* Standard file location for job arrays */
+	/* Standard file location for job arrays, version 16.05+ */
 	if (job_ptr->array_task_id != NO_VAL) {
 		hash = job_ptr->array_job_id % 10;
 		file_name = xstrdup_printf("%s/hash.%d/job.%u/script",
@@ -7157,14 +7149,6 @@ char *get_job_script(struct job_record *job_ptr)
 		file_name = xstrdup_printf("%s/hash.%d/job.%u/script",
 					   slurmctld_conf.state_save_location,
 					   hash, job_ptr->job_id);
-		fd = open(file_name, 0);
-	} else {
-		hash = job_ptr->job_id % 10;
-		sprintf(job_dir, "/hash.%d/job.%u/script",
-			hash, job_ptr->job_id);
-		xfree(file_name);
-		file_name = slurm_get_state_save_location();
-		xstrcat(file_name, job_dir);
 		fd = open(file_name, 0);
 	}
 
@@ -13951,15 +13935,8 @@ extern void job_completion_logger(struct job_record *job_ptr, bool requeue)
 		 * since it will throw off displays of the job. */
 		job_ptr->job_state &= ~JOB_CONFIGURING;
 
-		/* make sure all parts of the job are notified
-		 * Fed Jobs: only signal the srun from where the was running or
-		 * from the origin if the job wasn't running. */
-		if (!job_ptr->fed_details ||
-		    (fed_mgr_cluster_rec && (job_ptr->fed_details->cluster_lock
-					     == fed_mgr_cluster_rec->fed.id)) ||
-		    (fed_mgr_is_origin_job(job_ptr) &&
-		     !job_ptr->fed_details->cluster_lock))
-			srun_job_complete(job_ptr);
+		/* make sure all parts of the job are notified */
+		srun_job_complete(job_ptr);
 
 		/* mail out notifications of completion */
 		base_state = job_ptr->job_state & JOB_STATE_BASE;
