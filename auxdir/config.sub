@@ -33,7 +33,7 @@ timestamp='2016-11-04'
 # Otherwise, we print the canonical config type on stdout and succeed.
 
 # You can get the latest version of this script from:
-# http://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.sub
+# http://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.sub;hb=HEAD
 
 # This file is supposed to be the same for all GNU packages
 # and recognize all the CPU types, system types and aliases
@@ -53,7 +53,8 @@ timestamp='2016-11-04'
 me=`echo "$0" | sed -e 's,.*/,,'`
 
 usage="\
-Usage: $0 [OPTION] CPU-MFR-OPSYS or ALIAS
+Usage: $0 [OPTION] CPU-MFR-OPSYS
+       $0 [OPTION] ALIAS
 
 Canonicalize a configuration name.
 
@@ -1370,7 +1371,7 @@ case $os in
 	      | -nindy* | -vxsim* | -vxworks* | -ebmon* | -hms* | -mvs* \
 	      | -clix* | -riscos* | -uniplus* | -iris* | -rtu* | -xenix* \
 	      | -hiux* | -386bsd* | -knetbsd* | -mirbsd* | -netbsd* \
-	      | -bitrig* | -openbsd* | -solidbsd* | -libertybsd* \
+	      | -bitrig* | -openbsd* | -solidbsd* \
 	      | -ekkobsd* | -kfreebsd* | -freebsd* | -riscix* | -lynxos* \
 	      | -bosx* | -nextstep* | -cxux* | -aout* | -elf* | -oabi* \
 	      | -ptx* | -coff* | -ecoff* | -winnt* | -domain* | -vsta* \
@@ -1518,8 +1519,6 @@ case $os in
 		os=-dicos
 		;;
 	-nacl*)
-		;;
-	-ios)
 		;;
 	-none)
 		;;

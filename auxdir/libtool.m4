@@ -717,14 +717,10 @@ _LT_CONFIG_SAVE_COMMANDS([
 
     cat <<_LT_EOF >> "$cfgfile"
 #! $SHELL
-<<<<<<< HEAD
-# Generated automatically by $as_me ($PACKAGE) $VERSION
-=======
 
 # `$ECHO "$ofile" | sed 's%^.*/%%'` - Provide generalized library-building support services.
 # Generated automatically by $as_me ($PACKAGE$TIMESTAMP) $VERSION
 # Libtool was configured on host `(hostname || uname -n) 2>/dev/null | sed 1q`:
->>>>>>> cca921f...  update for Makefiles and latest rebase
 # NOTE: Changes made to this file will be lost: look at ltmain.sh.
 #
 _LT_COPYING
