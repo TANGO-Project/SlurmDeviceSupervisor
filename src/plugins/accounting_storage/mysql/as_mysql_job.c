@@ -1115,7 +1115,7 @@ extern int as_mysql_step_start(mysql_conn_t *mysql_conn,
 	if (packjobid)
 		xstrcat(query, ", packjobid, packstepid");
 	xstrfmtcat(query,
-		   ") values (%d, %d, %d, '%s', %d, '%s', %d, %d, "
+		   ") values (%"PRIu64", %d, %d, '%s', %d, '%s', %d, %d, "
 		   "'%s', '%s', %d, %u, %u, %u",
 		   step_ptr->job_ptr->db_index,
 		   step_ptr->step_id,

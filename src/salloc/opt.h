@@ -174,9 +174,8 @@ typedef struct salloc_options {
 	time_t deadline;	/* --deadline                   */
 	uint32_t job_flags;	/* --kill_invalid_dep, --gres-flags */
 	uint32_t delay_boot;	/* --delay-boot			*/
-    int group_number;       /* pack group number */
-    int group_number;       /* pack group number */
-    bool resv_port_flag;    /* --resv-port option */
+	int group_number;       /* pack group number */
+	bool resv_port_flag;    /* --resv-port option */
 } opt_t;
 
 extern opt_t opt;
