@@ -23,133 +23,10 @@
 # General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-
-PROGRAM=libtool
-PACKAGE=libtool
-VERSION="2.4.6 Debian-2.4.6-2"
-package_revision=2.4.6
-
-
-## ------ ##
-## Usage. ##
-## ------ ##
-
-# Run './libtool --help' for help with using this script from the
-# command line.
-
-
-## ------------------------------- ##
-## User overridable command paths. ##
-## ------------------------------- ##
-
-# After configure completes, it has a better idea of some of the
-# shell tools we need than the defaults used by the functions shared
-# with bootstrap, so set those here where they can still be over-
-# ridden by the user, but otherwise take precedence.
-
-: ${AUTOCONF="autoconf"}
-: ${AUTOMAKE="automake"}
-
-
-## -------------------------- ##
-## Source external libraries. ##
-## -------------------------- ##
-
-# Much of our low-level functionality needs to be sourced from external
-# libraries, which are installed to $pkgauxdir.
-
-# Set a version string for this script.
-scriptversion=2015-01-20.17; # UTC
-
-# General shell script boiler plate, and helper functions.
-# Written by Gary V. Vaughan, 2004
-
-# Copyright (C) 2004-2015 Free Software Foundation, Inc.
-# This is free software; see the source for copying conditions.  There is NO
-# warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 3 of the License, or
-# (at your option) any later version.
-
-# As a special exception to the GNU General Public License, if you distribute
-# this file as part of a program or library that is built using GNU Libtool,
-# you may include this file under the same distribution terms that you use
-# for the rest of that program.
-
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNES FOR A PARTICULAR PURPOSE. See the GNU
-# General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
-
-
-PROGRAM=libtool
-PACKAGE=libtool
-VERSION="2.4.6 Debian-2.4.6-1"
-package_revision=2.4.6
-
-
-## ------ ##
-## Usage. ##
-## ------ ##
-
-# Run './libtool --help' for help with using this script from the
-# command line.
-
-
-## ------------------------------- ##
-## User overridable command paths. ##
-## ------------------------------- ##
-
-# After configure completes, it has a better idea of some of the
-# shell tools we need than the defaults used by the functions shared
-# with bootstrap, so set those here where they can still be over-
-# ridden by the user, but otherwise take precedence.
-
-: ${AUTOCONF="autoconf"}
-: ${AUTOMAKE="automake"}
-
-
-## -------------------------- ##
-## Source external libraries. ##
-## -------------------------- ##
-
-# Much of our low-level functionality needs to be sourced from external
-# libraries, which are installed to $pkgauxdir.
-
-# Set a version string for this script.
-scriptversion=2015-01-20.17; # UTC
-
-# General shell script boiler plate, and helper functions.
-# Written by Gary V. Vaughan, 2004
-
-# Copyright (C) 2004-2015 Free Software Foundation, Inc.
-# This is free software; see the source for copying conditions.  There is NO
-# warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 3 of the License, or
-# (at your option) any later version.
-
-# As a special exception to the GNU General Public License, if you distribute
-# this file as part of a program or library that is built using GNU Libtool,
-# you may include this file under the same distribution terms that you use
-# for the rest of that program.
-
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNES FOR A PARTICULAR PURPOSE. See the GNU
-# General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with GNU Libtool; see the file COPYING.  If not, a copy
+# can be downloaded from http://www.gnu.org/licenses/gpl.html,
+# or obtained by writing to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 # Usage: $progname [OPTION]... [MODE-ARG]...
 #
@@ -950,8 +827,13 @@ exit_cmd=:
 magic="%%%MAGIC variable%%%"
 magic_exe="%%%MAGIC EXE variable%%%"
 
-# Set a version string.
-scriptversion='(GNU libtool) 2.4.6'
+# Global variables.
+nonopt=
+preserve_args=
+lo2o="s/\\.lo\$/.${objext}/"
+o2lo="s/\\.${objext}\$/.lo/"
+extracted_archives=
+extracted_serial=0
 
 # If this variable is set in any of the actions, the command in it
 # will be execed at the end.  This prevents here-documents from being
@@ -974,66 +856,6 @@ func_append_quoted ()
     eval "${1}=\$${1}\\ \$func_quote_for_eval_result"
 } # func_append_quoted may be replaced by extended shell implementation
 
-    func_usage_message
-    $ECHO "$long_help_message
-
-MODE must be one of the following:
-
-       clean           remove files from the build directory
-       compile         compile a source file into a libtool object
-       execute         automatically set library path, then run a program
-       finish          complete the installation of libtool libraries
-       install         install libraries or executables
-       link            create a library or an executable
-       uninstall       remove libraries from an installed directory
-
-MODE-ARGS vary depending on the MODE.  When passed as first option,
-'--mode=MODE' may be abbreviated as 'MODE' or a unique abbreviation of that.
-Try '$progname --help --mode=MODE' for a more detailed description of MODE.
-
-When reporting a bug, please describe a test case to reproduce it and
-include the following information:
-
-       host-triplet:   $host
-       shell:          $SHELL
-       compiler:       $LTCC
-       compiler flags: $LTCFLAGS
-       linker:         $LD (gnu? $with_gnu_ld)
-       version:        $progname $scriptversion Debian-2.4.6-2
-       automake:       `($AUTOMAKE --version) 2>/dev/null |$SED 1q`
-       autoconf:       `($AUTOCONF --version) 2>/dev/null |$SED 1q`
-
-Report bugs to <bug-libtool@gnu.org>.
-GNU libtool home page: <http://www.gnu.org/s/libtool/>.
-General help using GNU software: <http://www.gnu.org/gethelp/>."
-    exit 0
-}
-
-## ---------------- ##
-## Options parsing. ##
-## ---------------- ##
-
-# Hook in the functions to make sure our own options are parsed during
-# the option parsing loop.
-
-usage='$progpath [OPTION]... [MODE-ARG]...'
-
-# Short help message in response to '-h'.
-usage_message="Options:
-       --config             show all configuration variables
-       --debug              enable verbose shell tracing
-   -n, --dry-run            display commands without modifying any files
-       --features           display basic configuration information and exit
-       --mode=MODE          use operation mode MODE
-       --no-warnings        equivalent to '-Wnone'
-       --preserve-dup-deps  don't remove duplicate dependency libraries
-       --quiet, --silent    don't print informational messages
-       --tag=TAG            use configuration variables from tag TAG
-   -v, --verbose            print more informational messages than default
-       --version            print version information
-   -W, --warnings=CATEGORY  report the warnings falling in CATEGORY [all]
-   -h, --help, --help-all   print short, long, or detailed help message
-"
 
 # func_arith arithmetic-term...
 func_arith ()
