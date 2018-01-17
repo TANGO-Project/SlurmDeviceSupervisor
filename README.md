@@ -86,6 +86,21 @@ NOTE: You will need to install this configuration file on all nodes of the clust
 * Compute Nodes: systemctl enable slurmd
 10. Start the slurmctld and slurmd daemons.
 
+USING SLURM WITH THE JOBPACK FEATURE
+------------------------------------
+
+The Jobpack feature aims to allocate the job on different set of resources available through Slurm.
+No specific configuration is needed.
+To run a job on heterogeneous resources, you must first know how to run a simple job. See man pages of srun, salloc and sbatch.
+Then, you can run your job by asking several allocations split by ':'.
+* example: $ salloc -p ctlnodes –N1 : -p computenodes –N10 : -p ionodes –N4
+Inside your allocation, each set of resources is visible as pack on wich you can run any application.
+* srun --pack-group=0 ./controller : --pack-group=1 –n 20 ./worker : --pack-group=2 –n 6 ./storer
+Slurm with Jobpack support a tigh integration of srun with MPI MPMD
+* single MPI_COMM_WORLD communicator with a single set of MPI ranks on the whole allocation
+* support of PMI-1 and PMI-2
+* new srun option --mpi-combine=no to run each step as a a separate MPI allocation
+
 LEGAL
 -----
 
