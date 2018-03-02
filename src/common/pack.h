@@ -47,6 +47,7 @@
 #include <string.h>
 
 #include "src/common/bitstring.h"
+#include "src/slurmdbd/read_config.h"
 
 #define BUF_MAGIC 0x42554545
 #define BUF_SIZE (16 * 1024)
